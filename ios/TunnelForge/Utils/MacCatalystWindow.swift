@@ -1,7 +1,5 @@
-import SwiftUI
+@preconcurrency import SwiftUI
 #if targetEnvironment(macCatalyst)
-    // TODO: Add Dynamic library to project for Mac Catalyst window customization
-    // import Dynamic
     import UIKit
 
     // MARK: - Window Style
@@ -20,11 +18,8 @@ import SwiftUI
     extension UIWindow {
         /// Access the underlying NSWindow in Mac Catalyst
         var nsWindow: NSObject? {
-            // TODO: Re-enable when Dynamic library is added
-            // var nsWindow = Dynamic.NSApplication.sharedApplication.delegate.hostWindowForUIWindow(self)
-            // nsWindow = nsWindow.attachedWindow
-            // return nsWindow.asObject
-            return nil
+            // Dynamic framework not available, return nil for now
+            nil
         }
     }
 
@@ -33,10 +28,11 @@ import SwiftUI
     /// Manages Mac Catalyst window customizations.
     /// Handles window style changes and traffic light button repositioning.
     @MainActor
-    class MacCatalystWindowManager: ObservableObject {
+    @Observable
+    class MacCatalystWindowManager {
         static let shared = MacCatalystWindowManager()
 
-        @Published var windowStyle: MacWindowStyle = .standard
+        var windowStyle: MacWindowStyle = .standard
 
         private var window: UIWindow?
         private var windowResizeObserver: NSObjectProtocol?
@@ -70,217 +66,27 @@ import SwiftUI
         }
 
         private func applyWindowStyle(_ style: MacWindowStyle) {
-            // TODO: Re-enable when Dynamic library is added
-            logger.warning("Mac Catalyst window styling disabled - Dynamic library not available")
-            return
-            
-            // guard let window,
-            //       let nsWindow = window.nsWindow
-            // else {
-            //     logger.warning("Unable to access NSWindow")
-            //     return
-            // }
-            //
-            // let dynamic = Dynamic(nsWindow)
-            //
-            // switch style {
-            // case .standard:
-            //     applyStandardStyle(dynamic)
-            // case .inline:
-            //     applyInlineStyle(dynamic, window: window)
-            // }
-        }
-
-        /*
-        private func applyStandardStyle(_ nsWindow: Dynamic) {
-            logger.info("Applying standard window style")
-
-            // Show title bar
-            nsWindow.titlebarAppearsTransparent = false
-            nsWindow.titleVisibility = Dynamic.NSWindowTitleVisibility.visible
-            guard let currentMask = nsWindow.styleMask.asObject as? UInt,
-                  let titledMask = Dynamic.NSWindowStyleMask.titled.asObject as? UInt
+            guard let window,
+                  let _ = window.nsWindow
             else {
-                logger.error("Failed to get window style masks")
+                logger.warning("Unable to access NSWindow - Dynamic framework not available")
                 return
             }
-            nsWindow.styleMask = currentMask | titledMask
 
-            // Reset traffic light positions
-            resetTrafficLightPositions(nsWindow)
-
-            // Show all buttons
-            for i in 0...2 {
-                let button = nsWindow.standardWindowButton(i)
-                button.isHidden = false
-            }
+            // Dynamic functionality disabled for now
+            logger.info("Mac Catalyst window styling disabled - Dynamic framework not available")
         }
-        */
 
-        /*
-        private func applyInlineStyle(_ nsWindow: Dynamic, window: UIWindow) {
-            logger.info("Applying inline window style")
-
-            // Make title bar transparent and hide title
-            nsWindow.titlebarAppearsTransparent = true
-            nsWindow.titleVisibility = Dynamic.NSWindowTitleVisibility.hidden
-            nsWindow.backgroundColor = Dynamic.NSColor.clearColor
-
-            // Keep the titled style mask to preserve traffic lights
-            guard let currentMask = nsWindow.styleMask.asObject as? UInt,
-                  let titledMask = Dynamic.NSWindowStyleMask.titled.asObject as? UInt
-            else {
-                logger.error("Failed to get window style masks")
-                return
-            }
-            nsWindow.styleMask = currentMask | titledMask
-
-            // Reposition traffic lights
-            repositionTrafficLights(nsWindow, window: window)
-        }
-        */
-
-        /*
-        private func repositionTrafficLights(_ nsWindow: Dynamic, window: UIWindow) {
-            // Access the buttons (0=close, 1=minimize, 2=zoom)
-            let closeButton = nsWindow.standardWindowButton(0)
-            let minButton = nsWindow.standardWindowButton(1)
-            let zoomButton = nsWindow.standardWindowButton(2)
-
-            // Get button size
-            let buttonFrame = closeButton.frame
-            let buttonSize = (buttonFrame.size.width.asDouble ?? 14.0) as CGFloat
-
-            // Calculate positions
-            let yPosition = window.frame.height - trafficLightInset.y - buttonSize
-
-            // Set new positions
-            closeButton.setFrameOrigin(Dynamic.NSMakePoint(trafficLightInset.x, yPosition))
-            minButton.setFrameOrigin(Dynamic.NSMakePoint(trafficLightInset.x + trafficLightSpacing, yPosition))
-            zoomButton.setFrameOrigin(Dynamic.NSMakePoint(trafficLightInset.x + (trafficLightSpacing * 2), yPosition))
-
-            // Make sure buttons are visible
-            closeButton.isHidden = false
-            minButton.isHidden = false
-            zoomButton.isHidden = false
-
-            // Update tracking areas for hover effects
-            updateTrafficLightTrackingAreas(nsWindow)
-
-            logger.debug("Repositioned traffic lights to inline positions")
-        }
-        */
-
-        /*
-        private func resetTrafficLightPositions(_ nsWindow: Dynamic) {
-            // Get the superview of the traffic lights
-            let closeButton = nsWindow.standardWindowButton(0)
-            if let superview = closeButton.superview {
-                // Force layout update to reset positions
-                superview.setNeedsLayout?.asObject = true
-                superview.layoutIfNeeded()
-            }
-        }
-        */
-
-        /*
-        private func updateTrafficLightTrackingAreas(_ nsWindow: Dynamic) {
-            // Update tracking areas for each button to ensure hover effects work
-            for i in 0...2 {
-                let button = nsWindow.standardWindowButton(i)
-
-                // Remove old tracking areas
-                if let trackingAreas = button.trackingAreas {
-                    for area in trackingAreas.asArray ?? [] {
-                        button.removeTrackingArea(area)
-                    }
-                }
-
-                // Add new tracking area at the button's current position
-                let trackingRect = button.bounds
-                guard let mouseEnteredAndExited = Dynamic.NSTrackingAreaOptions.mouseEnteredAndExited.asObject as? UInt,
-                      let activeAlways = Dynamic.NSTrackingAreaOptions.activeAlways.asObject as? UInt
-                else {
-                    logger.error("Failed to get tracking area options")
-                    return
-                }
-                let options = mouseEnteredAndExited | activeAlways
-
-                let trackingArea = Dynamic.NSTrackingArea.alloc()
-                    .initWithRect(trackingRect, options: options, owner: button, userInfo: nil)
-
-                button.addTrackingArea(trackingArea)
-            }
-        }
-        */
+        // Dynamic framework methods removed - not available without proper package integration
 
         private func setupWindowObservers() {
-            // Clean up existing observers
-            if let observer = windowResizeObserver {
-                NotificationCenter.default.removeObserver(observer)
-            }
-            if let observer = windowDidBecomeKeyObserver {
-                NotificationCenter.default.removeObserver(observer)
-            }
-
-            // Observe window resize events
-            windowResizeObserver = NotificationCenter.default.addObserver(
-                forName: NSNotification.Name("NSWindowDidResizeNotification"),
-                object: nil,
-                queue: .main
-            ) { [weak self] notification in
-                guard let self else { return }
-                Task { @MainActor in
-                    guard self.windowStyle == .inline,
-                          let window = self.window,
-                          let notificationWindow = notification.object as? NSObject,
-                          let currentNSWindow = window.nsWindow,
-                          notificationWindow == currentNSWindow else { return }
-
-                    // Reapply inline style on resize
-                    self.applyWindowStyle(.inline)
-                }
-            }
-
-            // Observe window becoming key
-            windowDidBecomeKeyObserver = NotificationCenter.default.addObserver(
-                forName: UIWindow.didBecomeKeyNotification,
-                object: window,
-                queue: .main
-            ) { [weak self] _ in
-                guard let self else { return }
-                Task { @MainActor in
-                    guard self.windowStyle == .inline else { return }
-
-                    // Reapply inline style when window becomes key
-                    try? await Task.sleep(nanoseconds: 100_000_000) // 0.1 seconds
-                    self.applyWindowStyle(.inline)
-                }
-            }
-
-            // Also observe the NS notification for tracking area updates
-            NotificationCenter.default.addObserver(
-                forName: NSNotification.Name("NSViewDidUpdateTrackingAreasNotification"),
-                object: nil,
-                queue: .main
-            ) { [weak self] _ in
-                guard let self else { return }
-                Task { @MainActor in
-                    guard self.windowStyle == .inline else { return }
-
-                    // Reposition if needed
-                    // TODO: Re-enable when Dynamic library is added
-                    // if let window = self.window,
-                    //    let nsWindow = window.nsWindow
-                    // {
-                    //     self.repositionTrafficLights(Dynamic(nsWindow), window: window)
-                    // }
-                }
-            }
+            // Window observation disabled - Dynamic framework not available
+            logger.info("Window observation disabled - Dynamic framework not available")
         }
 
-        // Note: Observers are cleaned up in setupWindowObservers when called again
-        // or automatically on deallocation
+        deinit {
+            // No observers to clean up since Dynamic framework is not available
+        }
     }
 
     // MARK: - View Modifier
@@ -289,7 +95,7 @@ import SwiftUI
     /// Configures window appearance when the view appears.
     struct MacCatalystWindowStyle: ViewModifier {
         let style: MacWindowStyle
-        @StateObject private var windowManager = MacCatalystWindowManager.shared
+        @State private var windowManager = MacCatalystWindowManager.shared
 
         func body(content: Content) -> some View {
             content

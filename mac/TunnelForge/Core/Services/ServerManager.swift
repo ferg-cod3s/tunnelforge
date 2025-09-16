@@ -969,7 +969,7 @@ final class ServerManager {
             logger.warning("Process was deallocated during termination monitoring")
             return
         }
-        
+
         let exitCode = process.terminationStatus
 
         // Check current state
