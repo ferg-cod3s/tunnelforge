@@ -4,21 +4,19 @@ import Observation
 import os.log
 @preconcurrency import UserNotifications
 
-/// Manages native macOS notifications for TunnelForge events.
+/// Manages native macOS notifications for VibeTunnel events.
 ///
-/// Connects to the TunnelForge server to receive real-time events like session starts,
+/// Connects to the VibeTunnel server to receive real-time events like session starts,
 /// command completions, and errors, then displays them as native macOS notifications.
 @MainActor
 @Observable
 final class NotificationService: NSObject, @preconcurrency UNUserNotificationCenterDelegate {
     @MainActor
-    static let shared: NotificationService = {
-        // Defer initialization to avoid circular dependency
+    static let shared = // Defer initialization to avoid circular dependency
         // This ensures ServerManager and ConfigManager are ready
-        return NotificationService()
-    }()
+        NotificationService()
 
-    private let logger = Logger(subsystem: BundleIdentifiers.loggerSubsystem, category: "NotificationService")
+    private let logger = Logger(subsystem: "sh.vibetunnel.vibetunnel", category: "NotificationService")
     private var eventSource: EventSource?
     private var isConnected = false
     private var recentlyNotifiedSessions = Set<String>()
@@ -38,7 +36,7 @@ final class NotificationService: NSObject, @preconcurrency UNUserNotificationCen
         var soundEnabled: Bool
         var vibrationEnabled: Bool
 
-        // Memberwise initializer
+        /// Memberwise initializer
         init(
             sessionStart: Bool,
             sessionExit: Bool,
@@ -78,7 +76,7 @@ final class NotificationService: NSObject, @preconcurrency UNUserNotificationCen
     // Dependencies (will be set after init to avoid circular dependency)
     private weak var serverProvider: ServerManager?
     private weak var configProvider: ConfigManager?
-    
+
     @MainActor
     override private init() {
         // Initialize with default preferences first
@@ -88,13 +86,13 @@ final class NotificationService: NSObject, @preconcurrency UNUserNotificationCen
             commandCompletion: true,
             commandError: true,
             bell: true,
-            claudeTurn: true,
+            claudeTurn: false,
             soundEnabled: true,
             vibrationEnabled: true
         )
-        
+
         super.init()
-        
+
         // Defer dependency setup to avoid circular initialization
         Task { @MainActor in
             self.serverProvider = ServerManager.shared
@@ -111,21 +109,21 @@ final class NotificationService: NSObject, @preconcurrency UNUserNotificationCen
     /// Start monitoring server events
     func start() async {
         logger.info("🚀 NotificationService.start() called")
-        
+
         // Set delegate here to ensure it's done at the right time
         UNUserNotificationCenter.current().delegate = self
         logger.info("✅ NotificationService set as UNUserNotificationCenter delegate in start()")
-        
+
         // Debug: Log current delegate to verify it's set
         let currentDelegate = UNUserNotificationCenter.current().delegate
         logger.info("🔍 Current UNUserNotificationCenter delegate: \(String(describing: currentDelegate))")
         // Check if notifications are enabled in config
-        guard let configProvider = configProvider, configProvider.notificationsEnabled else {
+        guard let configProvider, configProvider.notificationsEnabled else {
             logger.info("📴 Notifications are disabled in config, skipping SSE connection")
             return
         }
-        
-        guard let serverProvider = serverProvider, serverProvider.isRunning else {
+
+        guard let serverProvider, serverProvider.isRunning else {
             logger.warning("🔴 Server not running, cannot start notification service")
             return
         }
@@ -178,10 +176,13 @@ final class NotificationService: NSObject, @preconcurrency UNUserNotificationCen
     /// Request notification permissions and show test notification
     func requestPermissionAndShowTestNotification() async -> Bool {
         let center = UNUserNotificationCenter.current()
-        
+
         // Debug: Log current notification settings
         let settings = await center.notificationSettings()
-        logger.info("🔔 Current notification settings - authorizationStatus: \(settings.authorizationStatus.rawValue, privacy: .public), alertSetting: \(settings.alertSetting.rawValue, privacy: .public)")
+        logger
+            .info(
+                "🔔 Current notification settings - authorizationStatus: \(settings.authorizationStatus.rawValue, privacy: .public), alertSetting: \(settings.alertSetting.rawValue, privacy: .public)"
+            )
 
         switch await authorizationStatus() {
         case .notDetermined:
@@ -191,14 +192,17 @@ final class NotificationService: NSObject, @preconcurrency UNUserNotificationCen
 
                 if granted {
                     logger.info("✅ Notification permissions granted")
-                    
+
                     // Debug: Log granted settings
                     let newSettings = await center.notificationSettings()
-                    logger.info("🔔 New settings after grant - alert: \(newSettings.alertSetting.rawValue, privacy: .public), sound: \(newSettings.soundSetting.rawValue, privacy: .public), badge: \(newSettings.badgeSetting.rawValue, privacy: .public)")
+                    logger
+                        .info(
+                            "🔔 New settings after grant - alert: \(newSettings.alertSetting.rawValue, privacy: .public), sound: \(newSettings.soundSetting.rawValue, privacy: .public), badge: \(newSettings.badgeSetting.rawValue, privacy: .public)"
+                        )
 
                     // Show test notification
                     let content = UNMutableNotificationContent()
-                    content.title = "TunnelForge Notifications"
+                    content.title = "VibeTunnel Notifications"
                     content.body = "Notifications are now enabled! You'll receive alerts for terminal events."
                     content.sound = getNotificationSound()
 
@@ -223,7 +227,7 @@ final class NotificationService: NSObject, @preconcurrency UNUserNotificationCen
 
             // Show test notification
             let content = UNMutableNotificationContent()
-            content.title = "TunnelForge Notifications"
+            content.title = "VibeTunnel Notifications"
             content.body = "Notifications are already enabled! You'll receive alerts for terminal events."
             content.sound = getNotificationSound()
 
@@ -417,12 +421,12 @@ final class NotificationService: NSObject, @preconcurrency UNUserNotificationCen
 
         let content = UNMutableNotificationContent()
         content.title = title ?? "Test Notification"
-        content.body = message ?? "This is a test notification from TunnelForge"
+        content.body = message ?? "This is a test notification from VibeTunnel"
         content.sound = getNotificationSound()
         content.categoryIdentifier = "TEST"
         content.interruptionLevel = .passive
-        
-        if let sessionId = sessionId {
+
+        if let sessionId {
             content.subtitle = "Session: \(sessionId)"
             content.userInfo = ["sessionId": sessionId, "type": "test-notification"]
         } else {
@@ -431,7 +435,7 @@ final class NotificationService: NSObject, @preconcurrency UNUserNotificationCen
 
         let identifier = "test-\(sessionId ?? UUID().uuidString)"
         deliverNotification(content, identifier: identifier)
-        
+
         logger.info("🧪 Test notification sent: \(title ?? "Test Notification") - \(message ?? "Test message")")
     }
 
@@ -520,8 +524,8 @@ final class NotificationService: NSObject, @preconcurrency UNUserNotificationCen
             logger.error("Server provider is not available")
             return
         }
-        
-        if serverProvider.authMode != "none", serverProvider.localToken == nil {
+
+        if serverProvider.authMode != "none", serverProvider.localAuthToken == nil {
             logger.error("No auth token available for notification service in auth mode '\(serverProvider.authMode)'")
             return
         }
@@ -542,7 +546,7 @@ final class NotificationService: NSObject, @preconcurrency UNUserNotificationCen
 
         // Add authorization header if auth token is available.
         // When auth mode is "none", there's no token, and that's okay.
-        if let authToken = serverProvider.localToken {
+        if let authToken = serverProvider.localAuthToken {
             headers["Authorization"] = "Bearer \(authToken)"
             // Show token prefix for debugging (first 10 chars only for security)
             let tokenPrefix = String(authToken.prefix(10))
@@ -552,7 +556,7 @@ final class NotificationService: NSObject, @preconcurrency UNUserNotificationCen
         }
 
         // Add custom header to indicate this is the Mac app
-        headers["X-TunnelForge-Client"] = "mac-app"
+        headers["X-VibeTunnel-Client"] = "mac-app"
 
         eventSource = EventSource(url: url, headers: headers)
 
@@ -582,7 +586,10 @@ final class NotificationService: NSObject, @preconcurrency UNUserNotificationCen
         eventSource?.onMessage = { [weak self] event in
             Task { @MainActor in
                 guard let self else { return }
-                self.logger.info("🎯 EventSource onMessage fired! Event type: \(event.event ?? "default", privacy: .public), Has data: \(event.data != nil, privacy: .public)")
+                self.logger
+                    .info(
+                        "🎯 EventSource onMessage fired! Event type: \(event.event ?? "default", privacy: .public), Has data: \(event.data != nil, privacy: .public)"
+                    )
                 await self.handleEvent(event)
             }
         }
@@ -819,7 +826,7 @@ final class NotificationService: NSObject, @preconcurrency UNUserNotificationCen
     private func handleTestNotification(_ json: [String: Any]) {
         // Debug: Show full test notification data
         logger.info("🧪 Handling test notification from server - JSON: \(json, privacy: .public)")
-        let title = json["title"] as? String ?? "TunnelForge Test"
+        let title = json["title"] as? String ?? "VibeTunnel Test"
         let body = json["body"] as? String ?? "Server-side notifications are working correctly!"
         let message = json["message"] as? String
 
@@ -868,7 +875,10 @@ final class NotificationService: NSObject, @preconcurrency UNUserNotificationCen
                 try await UNUserNotificationCenter.current().add(request)
                 self.logger.debug("Notification delivered: \(identifier, privacy: .public)")
             } catch {
-                self.logger.error("Failed to deliver notification: \(error, privacy: .public) for identifier: \(identifier, privacy: .public)")
+                self.logger
+                    .error(
+                        "Failed to deliver notification: \(error, privacy: .public) for identifier: \(identifier, privacy: .public)"
+                    )
             }
         }
     }
@@ -918,13 +928,16 @@ final class NotificationService: NSObject, @preconcurrency UNUserNotificationCen
         }
 
         // Log server info
-        logger.info("Server info - Port: \(self.serverProvider?.port ?? "unknown"), Running: \(self.serverProvider?.isRunning ?? false), SSE Connected: \(self.isConnected)")
-        
+        logger
+            .info(
+                "Server info - Port: \(self.serverProvider?.port ?? "unknown"), Running: \(self.serverProvider?.isRunning ?? false), SSE Connected: \(self.isConnected)"
+            )
+
         guard let url = serverProvider?.buildURL(endpoint: "/api/test-notification") else {
             logger.error("❌ Failed to build test notification URL")
             return
         }
-        
+
         // Show full URL for debugging test notification endpoint
         logger.info("📤 Sending POST request to: \(url, privacy: .public)")
         var request = URLRequest(url: url)
@@ -932,7 +945,7 @@ final class NotificationService: NSObject, @preconcurrency UNUserNotificationCen
         request.setValue("application/json", forHTTPHeaderField: "Content-Type")
 
         // Add auth token if available
-        if let authToken = serverProvider?.localToken {
+        if let authToken = serverProvider?.localAuthToken {
             request.setValue("Bearer \(authToken)", forHTTPHeaderField: "Authorization")
             logger.debug("Added auth token to request")
         }
@@ -968,7 +981,7 @@ final class NotificationService: NSObject, @preconcurrency UNUserNotificationCen
         // The cleanup will happen when the EventSource is deallocated
         // NotificationCenter observers are automatically removed on deinit in modern Swift
     }
-    
+
     // MARK: - UNUserNotificationCenterDelegate
 
     func userNotificationCenter(
@@ -977,7 +990,10 @@ final class NotificationService: NSObject, @preconcurrency UNUserNotificationCen
         withCompletionHandler completionHandler: @escaping (UNNotificationPresentationOptions) -> Void
     ) {
         // Debug: Show full notification details
-        logger.info("🔔 willPresent notification - identifier: \(notification.request.identifier, privacy: .public), title: \(notification.request.content.title, privacy: .public), body: \(notification.request.content.body, privacy: .public)")
+        logger
+            .info(
+                "🔔 willPresent notification - identifier: \(notification.request.identifier, privacy: .public), title: \(notification.request.content.title, privacy: .public), body: \(notification.request.content.body, privacy: .public)"
+            )
         // Show notifications even when app is in foreground
         completionHandler([.banner, .sound, .list])
     }
@@ -988,7 +1004,10 @@ final class NotificationService: NSObject, @preconcurrency UNUserNotificationCen
         withCompletionHandler completionHandler: @escaping () -> Void
     ) {
         // Debug: Show interaction details
-        logger.info("🔔 didReceive response - identifier: \(response.notification.request.identifier, privacy: .public), actionIdentifier: \(response.actionIdentifier, privacy: .public)")
+        logger
+            .info(
+                "🔔 didReceive response - identifier: \(response.notification.request.identifier, privacy: .public), actionIdentifier: \(response.actionIdentifier, privacy: .public)"
+            )
         // Handle notification actions here if needed in the future
         completionHandler()
     }
