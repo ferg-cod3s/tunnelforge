@@ -1499,7 +1499,9 @@ export async function createApp(): Promise<AppInstance> {
           .catch((error) => {
             logger.error(chalk.red('Failed to start Tailscale Serve:'), error.message);
             logger.warn(
-              chalk.yellow('TunnelForge will continue running, but Tailscale Serve is not available')
+              chalk.yellow(
+                'TunnelForge will continue running, but Tailscale Serve is not available'
+              )
             );
             logger.log(chalk.blue('You can manually configure Tailscale Serve with:'));
             logger.log(chalk.gray(`  tailscale serve ${actualPort}`));

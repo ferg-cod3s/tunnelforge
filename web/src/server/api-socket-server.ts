@@ -61,7 +61,8 @@ export class ApiSocketServer {
 
   constructor() {
     // Use control directory from environment or default
-    const controlDir = process.env.TUNNELFORGE_CONTROL_DIR || path.join(os.homedir(), '.tunnelforge');
+    const controlDir =
+      process.env.TUNNELFORGE_CONTROL_DIR || path.join(os.homedir(), '.tunnelforge');
     const socketDir = controlDir;
 
     // Ensure directory exists

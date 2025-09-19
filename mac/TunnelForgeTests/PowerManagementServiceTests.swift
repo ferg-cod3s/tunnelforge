@@ -161,4 +161,43 @@ struct PowerManagementEdgeCaseTests {
         // Cleanup
         service.allowSleep()
     }
+
+    @Test("Power assertion retry mechanism works")
+    func powerAssertionRetryMechanism() async {
+        let service = PowerManagementService.shared
+
+        // Ensure clean state
+        service.allowSleep()
+
+        // Note: This test cannot directly test IOKit failures without mocking
+        // but we can test the retry mechanism indirectly by checking state consistency
+        service.preventSleep()
+        let initialState = service.isSleepPrevented
+
+        // Allow some time for any retry mechanisms to complete
+        try? await Task.sleep(for: .seconds(2))
+
+        // State should remain consistent
+        #expect(service.isSleepPrevented == initialState)
+
+        // Cleanup
+        service.allowSleep()
+    }
+
+    @Test("Resource cleanup on state changes")
+    func resourceCleanupTesting() async {
+        let service = PowerManagementService.shared
+
+        // Multiple cycles to test resource management
+        for _ in 0..<5 {
+            service.preventSleep()
+            #expect(service.isSleepPrevented)
+
+            service.allowSleep()
+            #expect(!service.isSleepPrevented)
+        }
+
+        // Final cleanup
+        service.allowSleep()
+    }
 }

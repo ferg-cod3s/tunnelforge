@@ -269,7 +269,10 @@ describe('SessionCreateForm', () => {
         'tunnelforge_last_working_dir',
         '/projects/app'
       );
-      expect(localStorageMock.setItem).toHaveBeenCalledWith('tunnelforge_last_command', 'npm start');
+      expect(localStorageMock.setItem).toHaveBeenCalledWith(
+        'tunnelforge_last_command',
+        'npm start'
+      );
     });
 
     it('should clear command and name after creation', async () => {

@@ -127,7 +127,7 @@ describe('BufferSubscriptionService', () => {
 
       // Advance timers to trigger connection after delay
       vi.advanceTimersByTime(100);
-      
+
       // Wait for async getWebSocketUrl
       await vi.runAllTimersAsync();
 

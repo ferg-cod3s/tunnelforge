@@ -33,6 +33,8 @@ struct DebugSettingsView: View {
     private var devServerPath = ""
     @Environment(ServerManager.self)
     private var serverManager
+    @Environment(ConfigManager.self)
+    private var configManager
     @State private var showPurgeConfirmation = false
     @State private var devServerValidation: DevServerValidation = .notValidated
     @State private var devServerManager = DevServerManager.shared
@@ -47,6 +49,11 @@ struct DebugSettingsView: View {
                     devServerPath: $devServerPath,
                     devServerValidation: $devServerValidation,
                     validateDevServer: validateDevServer,
+                    serverManager: serverManager
+                )
+
+                GoServerSection(
+                    configManager: configManager,
                     serverManager: serverManager
                 )
 
@@ -327,6 +334,143 @@ private struct DevelopmentServerSection: View {
 
             // Validate immediately after selection
             validateDevServer(devServerPath)
+        }
+    }
+}
+
+// MARK: - Go Server Section
+
+private struct GoServerSection: View {
+    let configManager: ConfigManager
+    let serverManager: ServerManager
+
+    var body: some View {
+        Section {
+            VStack(alignment: .leading, spacing: 12) {
+                // Server Type Picker
+                VStack(alignment: .leading, spacing: 4) {
+                    Picker("Server Type", selection: Binding(
+                        get: { configManager.serverType },
+                        set: { newType in
+                            configManager.updateServerType(newType)
+                            // Restart server if it's running and the setting changed
+                            if serverManager.isRunning {
+                                Task {
+                                    try? await serverManager.restart()
+                                }
+                            }
+                        }
+                    )) {
+                        ForEach(ServerType.allCases, id: \.self) { serverType in
+                            Text(serverType.displayName).tag(serverType)
+                        }
+                    }
+                    .pickerStyle(.segmented)
+
+                    Text("Choose between Node.js server (stable) and Go server (experimental with 10x performance).")
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                }
+
+                // Go Server Configuration (only shown when Go server is selected)
+                if configManager.serverType == .goServer {
+                    VStack(alignment: .leading, spacing: 8) {
+                        // External Server Toggle
+                        VStack(alignment: .leading, spacing: 4) {
+                            Toggle("Use external Go server", isOn: Binding(
+                                get: { configManager.enableGoServer },
+                                set: { enabled in
+                                    configManager.updateGoServerSettings(enabled: enabled)
+                                    // Restart server if it's running
+                                    if serverManager.isRunning {
+                                        Task {
+                                            try? await serverManager.restart()
+                                        }
+                                    }
+                                }
+                            ))
+                            Text("Connect to an external Go server instead of using embedded binary.")
+                                .font(.caption)
+                                .foregroundStyle(.secondary)
+                        }
+
+                        // Port Configuration
+                        HStack {
+                            Text("Port:")
+                                .frame(width: 60, alignment: .leading)
+                            TextField("Port", value: Binding(
+                                get: { configManager.goServerPort },
+                                set: { newPort in
+                                    configManager.updateGoServerSettings(port: newPort)
+                                }
+                            ), format: .number)
+                            .textFieldStyle(.roundedBorder)
+                            .frame(width: 80)
+                        }
+
+                        // External Server Path (only shown when external is enabled)
+                        if configManager.enableGoServer {
+                            VStack(alignment: .leading, spacing: 4) {
+                                HStack {
+                                    Text("Binary Path:")
+                                    Spacer()
+                                }
+                                TextField("Path to Go server binary", text: Binding(
+                                    get: { configManager.goServerPath },
+                                    set: { newPath in
+                                        configManager.updateGoServerSettings(path: newPath)
+                                    }
+                                ))
+                                .textFieldStyle(.roundedBorder)
+                                Text("Path to external tunnelforge-server binary (optional).")
+                                    .font(.caption)
+                                    .foregroundStyle(.secondary)
+                            }
+                        }
+                    }
+                }
+
+                // Current Server Status
+                VStack(alignment: .leading, spacing: 4) {
+                    let serverInfo = serverManager.serverInfo
+                    HStack {
+                        Text("Status:")
+                        Spacer()
+                        Text(serverManager.isRunning ? "Running" : "Stopped")
+                            .foregroundColor(serverManager.isRunning ? .green : .secondary)
+                        Text("•")
+                            .foregroundColor(.secondary)
+                        Text(serverInfo.type.displayName)
+                            .foregroundColor(.primary)
+                        Text("•")
+                            .foregroundColor(.secondary)
+                        Text("Port \(serverInfo.port)")
+                            .foregroundColor(.secondary)
+                    }
+                    .font(.caption)
+
+                    if serverInfo.type == .goServer {
+                        Text(serverInfo.type.performanceProfile)
+                            .font(.caption)
+                            .foregroundColor(.green)
+                    }
+                }
+            }
+        } header: {
+            Text("Server Configuration")
+                .font(.headline)
+        } footer: {
+            if configManager.serverType == .goServer {
+                VStack(alignment: .leading, spacing: 4) {
+                    Text("⚠️ Go server is experimental and requires manual binary installation.")
+                    if !configManager.serverType.isStable {
+                        Text("Some features may not be fully compatible yet.")
+                    }
+                }
+                .font(.caption)
+                .frame(maxWidth: .infinity)
+                .multilineTextAlignment(.center)
+            }
         }
     }
 }

@@ -473,6 +473,9 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             cloudflareService.sendTerminationSignal()
         }
 
+        // Cleanup power management
+        PowerManagementService.shared.allowSleep()
+
         // Stop HTTP server with very short timeout
         if let serverManager = app?.serverManager {
             let semaphore = DispatchSemaphore(value: 0)

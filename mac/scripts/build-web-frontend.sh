@@ -70,7 +70,23 @@ if [ "${CI}" = "true" ] && [ -f "${WEB_DIR}/dist/server/server.js" ]; then
         cp "${WEB_DIR}/bin/vt" "${APP_RESOURCES}/"
         chmod +x "${APP_RESOURCES}/vt"
     fi
-    
+
+    # Copy pre-built Go server binary if available
+    GO_SERVER_DIR="${PROJECT_DIR}/../server"
+    if [ -f "${GO_SERVER_DIR}/tunnelforge-server" ]; then
+        echo "Copying pre-built Go server binary..."
+        cp "${GO_SERVER_DIR}/tunnelforge-server" "${APP_RESOURCES}/"
+        chmod +x "${APP_RESOURCES}/tunnelforge-server"
+        echo "✓ Pre-built Go server binary copied"
+    elif [ -f "${GO_SERVER_DIR}/bin/tunnelforge-server" ]; then
+        echo "Copying pre-built Go server binary from bin/..."
+        cp "${GO_SERVER_DIR}/bin/tunnelforge-server" "${APP_RESOURCES}/"
+        chmod +x "${APP_RESOURCES}/tunnelforge-server"
+        echo "✓ Pre-built Go server binary copied"
+    else
+        echo "ⓘ No pre-built Go server binary found (optional)"
+    fi
+
     echo "✓ Pre-built web artifacts copied successfully"
     exit 0
 fi
@@ -349,7 +365,50 @@ else
     exit 1
 fi
 
-echo "✓ Native executable, modules, and vt script copied successfully"
+# Build and copy Go server binary
+GO_SERVER_DIR="${PROJECT_DIR}/../server"
+if [ -d "$GO_SERVER_DIR" ]; then
+    echo "Building Go server binary..."
+    cd "$GO_SERVER_DIR"
+
+    # Check if Go is available
+    if command -v go &> /dev/null; then
+        # Build the Go server
+        make build-server
+
+        if [ -f "bin/tunnelforge-server" ]; then
+            echo "Copying Go server binary..."
+            SERVER_SIZE=$(ls -lh "bin/tunnelforge-server" | awk '{print $5}')
+            echo "  Go server size: $SERVER_SIZE"
+            cp "bin/tunnelforge-server" "${APP_RESOURCES}/"
+            chmod +x "${APP_RESOURCES}/tunnelforge-server"
+            echo "✓ Go server binary copied successfully"
+        else
+            echo "Warning: Go server binary not found after build"
+        fi
+    else
+        # Check if pre-built Go server exists
+        if [ -f "tunnelforge-server" ]; then
+            echo "Go not available, using pre-built Go server binary..."
+            SERVER_SIZE=$(ls -lh "tunnelforge-server" | awk '{print $5}')
+            echo "  Pre-built Go server size: $SERVER_SIZE"
+            cp "tunnelforge-server" "${APP_RESOURCES}/"
+            chmod +x "${APP_RESOURCES}/tunnelforge-server"
+            echo "✓ Pre-built Go server binary copied successfully"
+        else
+            echo "Warning: Go not available and no pre-built Go server binary found"
+            echo "Go server functionality will not be available"
+        fi
+    fi
+
+    # Return to web directory
+    cd "${WEB_DIR}"
+else
+    echo "Warning: Go server directory not found at ${GO_SERVER_DIR}"
+    echo "Go server functionality will not be available"
+fi
+
+echo "✓ Native executable, modules, Go server, and vt script copied successfully"
 
 # Sanity check: Verify all required binaries are present in the app bundle
 echo "Performing final sanity check..."
@@ -391,6 +450,16 @@ if [ -f "${APP_RESOURCES}/vt" ] && [ ! -x "${APP_RESOURCES}/vt" ]; then
     MISSING_FILES+=("vt script is not executable")
 fi
 
+# Optional: Check for Go server binary (experimental feature)
+if [ -f "${APP_RESOURCES}/tunnelforge-server" ]; then
+    echo "✓ Go server binary present (experimental feature)"
+    if [ ! -x "${APP_RESOURCES}/tunnelforge-server" ]; then
+        MISSING_FILES+=("tunnelforge-server is not executable")
+    fi
+else
+    echo "ⓘ Go server binary not present (optional experimental feature)"
+fi
+
 # If any files are missing, fail the build
 if [ ${#MISSING_FILES[@]} -gt 0 ]; then
     echo "error: Build sanity check failed! Missing required files:"
@@ -418,6 +487,17 @@ else
     echo "Attempting to run with error output:"
     "${APP_RESOURCES}/tunnelforge" version 2>&1 || true
     exit 1
+fi
+
+# Optional: Verify Go server binary works (if present)
+if [ -f "${APP_RESOURCES}/tunnelforge-server" ]; then
+    echo "Verifying Go server binary..."
+    # Go server might not have a version command, so just check if it can start
+    if timeout 2s "${APP_RESOURCES}/tunnelforge-server" --help &>/dev/null; then
+        echo "✓ Go server binary verified (--help command works)"
+    else
+        echo "⚠️ Go server binary present but --help failed (may still work)"
+    fi
 fi
 
 echo "✓ All sanity checks passed"

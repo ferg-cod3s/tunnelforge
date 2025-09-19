@@ -1,90 +1,39 @@
 // TunnelForge Desktop - Cross-Platform Tauri v2 Application
-// 
-// This is the main entry point for the TunnelForge desktop application built with Tauri v2.
-// It manages the Bun-based TunnelForge server and provides a native desktop interface.
+use tauri::tray::{TrayIconBuilder, TrayIconEvent};
+use tauri::menu::{MenuBuilder, MenuItemBuilder, SubmenuBuilder};
+use tauri::image::Image;
+// This manages the Bun-based TunnelForge server and provides a native desktop interface.
 
-#![cfg_attr(not(debug_assertions), windows_subsystem = "windows")]
+#[cfg_attr(not(debug_assertions), windows_subsystem = "windows")]
 
 use std::process::{Child, Command};
 use std::sync::{Arc, Mutex};
 use std::thread;
 use std::time::Duration;
-
-use tauri::{AppHandle, Manager, State, WebviewWindow};
-use tauri::menu::{Menu, MenuItem, Submenu};
-use tauri::tray::{TrayIcon, TrayIconBuilder, TrayIconEvent};
+use std::path::Path;
 use serde::{Deserialize, Serialize};
-use log::{debug, error, info, warn};
-
-// Platform-specific modules
-#[cfg(target_os = "windows")]
-mod windows_platform;
-#[cfg(target_os = "linux")]
-mod linux_platform;
-#[cfg(target_os = "macos")]
-mod macos_platform;
+use tauri::{AppHandle, Manager, State, Emitter};
+use log::{info, error};
+use tauri_plugin_log::{Target, TargetKind};
 
 // Application state
 struct AppState {
     server_process: Arc<Mutex<Option<Child>>>,
     server_port: u16,
-    is_quitting: Arc<Mutex<bool>>,
 }
 
-#[derive(Debug, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
 struct ServerStatus {
     running: bool,
     port: u16,
     pid: Option<u32>,
 }
 
-#[derive(Debug, Serialize, Deserialize)]
-struct AppSettings {
-    auto_start: bool,
-    minimize_to_tray: bool,
-    server_port: u16,
-    enable_logging: bool,
-    start_on_boot: bool,
-    #[cfg(target_os = "windows")]
-    enable_windows_service: bool,
-    #[cfg(target_os = "linux")]
-    enable_systemd_service: bool,
-}
-
-impl Default for AppSettings {
-    fn default() -> Self {
-        Self {
-            auto_start: false,
-            minimize_to_tray: true,
-            server_port: 4021,
-            enable_logging: false,
-            start_on_boot: false,
-            #[cfg(target_os = "windows")]
-            enable_windows_service: false,
-            #[cfg(target_os = "linux")]
-            enable_systemd_service: false,
-        }
-    }
-}
-
-// Cross-platform functionality with platform-specific implementations
-trait PlatformIntegration {
-    fn register_startup_entry(&self, enable: bool) -> Result<(), Box<dyn std::error::Error>>;
-    fn show_notification(&self, title: &str, message: &str);
-    fn setup_platform_specific(&self) -> Result<(), Box<dyn std::error::Error>>;
-    fn get_platform_name(&self) -> &'static str;
-}
-
-// Platform integration factory
-fn create_platform_integration() -> Box<dyn PlatformIntegration> {
-    #[cfg(target_os = "windows")]
-    return Box::new(windows_platform::WindowsPlatform::new());
-    
-    #[cfg(target_os = "linux")]
-    return Box::new(linux_platform::LinuxPlatform::new());
-    
-    #[cfg(target_os = "macos")]
-    return Box::new(macos_platform::MacosPlatform::new());
+#[derive(Debug, Clone, Serialize, Deserialize)]
+struct LogEntry {
+    timestamp: String,
+    level: String,
+    message: String,
 }
 
 // Tauri commands
@@ -92,98 +41,335 @@ fn create_platform_integration() -> Box<dyn PlatformIntegration> {
 async fn get_server_status(state: State<'_, AppState>) -> Result<ServerStatus, String> {
     let server_process = state.server_process.lock().unwrap();
     
-    match &*server_process {
+    let status = match &*server_process {
         Some(child) => {
-            Ok(ServerStatus {
-                running: true,
+            // Check if the process is still alive
+            let running = is_server_running(state.server_port);
+            add_log_entry("debug", &format!("Server process PID {} running: {}", child.id(), running));
+            
+            ServerStatus {
+                running,
                 port: state.server_port,
                 pid: Some(child.id()),
-            })
+            }
         }
-        None => Ok(ServerStatus {
-            running: false,
-            port: state.server_port,
-            pid: None,
-        }),
-    }
+        None => {
+            // Check if server is running externally
+            let running = is_server_running(state.server_port);
+            if running {
+                add_log_entry("info", "Server running externally (not managed by this app)");
+            }
+            
+            ServerStatus {
+                running,
+                port: state.server_port,
+                pid: None,
+            }
+        },
+    };
+    
+    Ok(status)
+}
+
+#[tauri::command]
+async fn start_server(state: State<'_, AppState>, app: AppHandle) -> Result<(), String> {
+    add_log_entry("info", "Starting server...");
+    start_server_internal(&state, &app)
+}
+
+#[tauri::command]
+async fn stop_server(state: State<'_, AppState>) -> Result<(), String> {
+    add_log_entry("info", "Stopping server...");
+    stop_server_internal(&state)
 }
 
 #[tauri::command]
 async fn restart_server(state: State<'_, AppState>, app: AppHandle) -> Result<(), String> {
-    info!("Restarting server...");
+    add_log_entry("info", "Restarting server...");
     
     // Stop current server
-    stop_server_internal(&state)?;
+    if let Err(e) = stop_server_internal(&state) {
+        add_log_entry("error", &format!("Failed to stop server: {}", e));
+        return Err(e);
+    }
     
     // Wait a moment
+    add_log_entry("debug", "Waiting for server to shutdown...");
     thread::sleep(Duration::from_millis(1000));
     
     // Start new server
-    start_server_internal(&state, &app)?;
-    
-    Ok(())
-}
-
-#[tauri::command]
-async fn get_app_settings() -> Result<AppSettings, String> {
-    // TODO: Load from platform-specific config location
-    Ok(AppSettings::default())
-}
-
-#[tauri::command]
-async fn update_app_settings(settings: AppSettings) -> Result<(), String> {
-    info!("Updating app settings: {:?}", settings);
-    
-    let platform = create_platform_integration();
-    
-    // Handle startup entry
-    if let Err(e) = platform.register_startup_entry(settings.start_on_boot) {
-        warn!("Failed to update startup entry: {}", e);
+    if let Err(e) = start_server_internal(&state, &app) {
+        add_log_entry("error", &format!("Failed to start server: {}", e));
+        return Err(e);
     }
     
-    // TODO: Save to config file
+    add_log_entry("info", "Server restarted successfully");
     Ok(())
 }
 
 #[tauri::command]
-async fn create_new_session(app: AppHandle) -> Result<(), String> {
-    info!("Creating new session...");
-    
-    // Show main window and focus it
-    if let Some(window) = app.get_window("main") {
-        window.show().map_err(|e| e.to_string())?;
-        window.set_focus().map_err(|e| e.to_string())?;
-        
-        // Emit event to web interface to create new session
-        window.emit("create-session", {}).map_err(|e| e.to_string())?;
-    }
-    
-    Ok(())
-}
-
-#[tauri::command]
-async fn copy_server_url(state: State<'_, AppState>) -> Result<String, String> {
+async fn get_server_url(state: State<'_, AppState>) -> Result<String, String> {
     let url = format!("http://localhost:{}", state.server_port);
+    add_log_entry("debug", &format!("Returning server URL: {}", url));
     Ok(url)
 }
 
 #[tauri::command]
-async fn show_notification(title: String, message: String) -> Result<(), String> {
-    let platform = create_platform_integration();
-    platform.show_notification(&title, &message);
+async fn show_notification(_title: String, _message: String) -> Result<(), String> {
+    // Use Tauri v2 notification plugin
     Ok(())
 }
 
 #[tauri::command]
-async fn get_platform_info() -> Result<serde_json::Value, String> {
-    let platform = create_platform_integration();
+async fn check_cli_installation() -> Result<bool, String> {
+    // Check if tunnelforge CLI is installed
+    let paths = vec![
+        "/usr/local/bin/tunnelforge",
+        "/opt/homebrew/bin/tunnelforge",
+    ];
     
-    Ok(serde_json::json!({
-        "platform": platform.get_platform_name(),
-        "os": std::env::consts::OS,
-        "arch": std::env::consts::ARCH,
-        "version": env!("CARGO_PKG_VERSION")
-    }))
+    for path in paths {
+        if Path::new(path).exists() {
+            return Ok(true);
+        }
+    }
+    
+    Ok(false)
+}
+
+#[tauri::command]
+async fn install_cli_tool() -> Result<(), String> {
+    info!("Installing CLI tool...");
+    
+    #[cfg(target_os = "macos")]
+    {
+        // For now, we'll create a simple shell script that connects to the local server
+        // In a production app, this would download the actual TunnelForge CLI
+        
+        let install_path = "/usr/local/bin/tunnelforge";
+        
+        // Create a simple CLI script content
+        let cli_script_content = r#"#!/bin/bash
+# TunnelForge CLI (Desktop App Version)
+# This is a simple wrapper that connects to the TunnelForge server
+
+case "$1" in
+    "start")
+        echo "Starting TunnelForge session..."
+        curl -s "http://localhost:4021/api/sessions" | head -5
+        ;;
+    "list")
+        echo "Active TunnelForge sessions:"
+        curl -s "http://localhost:4021/api/sessions" 2>/dev/null || echo "Server not running on localhost:4021"
+        ;;
+    "join")
+        if [ -z "$2" ]; then
+            echo "Usage: tunnelforge join <session-id>"
+            exit 1
+        fi
+        echo "Joining session $2..."
+        open "http://localhost:4021/session/$2"
+        ;;
+    *)
+        echo "TunnelForge CLI (Desktop Version)"
+        echo "Usage:"
+        echo "  tunnelforge start     - Start a new session"
+        echo "  tunnelforge list      - List active sessions"
+        echo "  tunnelforge join <id> - Join a session"
+        ;;
+esac
+"#;
+        
+        // Write the script to a temporary file first
+        let temp_path = "/tmp/tunnelforge_cli_install";
+        std::fs::write(temp_path, cli_script_content)
+            .map_err(|e| format!("Failed to create temporary CLI script: {}", e))?;
+        
+        // Install with administrator privileges
+        let status = Command::new("osascript")
+            .arg("-e")
+            .arg(format!(
+                "do shell script \"cp '{}' '{}' && chmod +x '{}' && rm '{}'\" with administrator privileges",
+                temp_path,
+                install_path,
+                install_path,
+                temp_path
+            ))
+            .status()
+            .map_err(|e| format!("Failed to execute install command: {}", e))?;
+            
+        if status.success() {
+            info!("CLI tool installed successfully to {}", install_path);
+            Ok(())
+        } else {
+            error!("CLI installation failed or was cancelled by user");
+            Err("CLI installation failed or was cancelled by user".to_string())
+        }
+    }
+    
+    #[cfg(target_os = "windows")]
+    {
+        // Windows implementation would go here
+        Err("CLI installation is not yet supported on Windows".to_string())
+    }
+    
+    #[cfg(target_os = "linux")]
+    {
+        // Linux implementation would go here  
+        Err("CLI installation is not yet supported on Linux".to_string())
+    }
+}
+
+#[tauri::command]
+async fn get_app_version() -> Result<String, String> {
+    Ok(env!("CARGO_PKG_VERSION").to_string())
+}
+
+// Global log buffer for storing runtime logs
+static LOG_BUFFER: std::sync::Mutex<Vec<LogEntry>> = std::sync::Mutex::new(Vec::new());
+
+// Add a log entry to the buffer
+fn add_log_entry(level: &str, message: &str) {
+    let entry = LogEntry {
+        timestamp: chrono::Utc::now().format("%H:%M:%S").to_string(),
+        level: level.to_string(),
+        message: message.to_string(),
+    };
+    
+    if let Ok(mut buffer) = LOG_BUFFER.lock() {
+        buffer.push(entry);
+        // Keep only the last 200 entries
+        if buffer.len() > 200 {
+            buffer.remove(0);
+        }
+    }
+}
+
+#[tauri::command]
+async fn get_backend_logs(limit: Option<usize>) -> Result<Vec<LogEntry>, String> {
+    info!("Getting backend logs with limit: {:?}", limit);
+    
+    let mut logs = if let Ok(buffer) = LOG_BUFFER.lock() {
+        buffer.clone()
+    } else {
+        add_log_entry("error", "Failed to access log buffer");
+        vec![LogEntry {
+            timestamp: chrono::Utc::now().format("%H:%M:%S").to_string(),
+            level: "error".to_string(),
+            message: "Failed to access log buffer".to_string(),
+        }]
+    };
+    
+    // Apply limit if specified
+    if let Some(limit) = limit {
+        let start = if logs.len() > limit { logs.len() - limit } else { 0 };
+        logs = logs[start..].to_vec();
+    }
+    
+    info!("Returning {} log entries", logs.len());
+    Ok(logs)
+}
+
+// fn parse_log_line(line: &str) -> Option<LogEntry> {
+//     // Simple parsing for log lines
+//     // Expected format: "2023-12-07T10:30:45.123Z [INFO] message"
+    
+//     if line.is_empty() {
+//         return None;
+//     }
+    
+//     // Find the level in brackets
+//     if let Some(start) = line.find('[') {
+//         if let Some(end) = line.find(']') {
+//             if start < end {
+//                 let timestamp = line[..start].trim().to_string();
+//                 let level = line[start + 1..end].trim().to_lowercase();
+//                 let message = line[end + 1..].trim().to_string();
+                
+//                 return Some(LogEntry {
+//                     timestamp,
+//                     level,
+//                     message,
+//                 });
+//             }
+//         }
+//     }
+    
+//     // Fallback: treat entire line as a message with current timestamp
+//     Some(LogEntry {
+//         timestamp: chrono::Utc::now().format("%H:%M:%S").to_string(),
+//         level: "info".to_string(),
+//         message: line.to_string(),
+//     })
+// }
+
+#[tauri::command]
+async fn open_external_url(url: String) -> Result<(), String> {
+    info!("Attempting to open URL: {}", url);
+    
+    // Try using the tauri_plugin_opener first
+    match tauri_plugin_opener::open_url(&url, None::<&str>) {
+        Ok(_) => {
+            info!("URL opened successfully with tauri_plugin_opener");
+            Ok(())
+        }
+        Err(e) => {
+            error!("tauri_plugin_opener failed: {}", e);
+            
+            // Fallback to system open command
+            #[cfg(target_os = "macos")]
+            {
+                info!("Trying fallback: macOS 'open' command");
+                let status = std::process::Command::new("open")
+                    .arg(&url)
+                    .status()
+                    .map_err(|e| {
+                        error!("Failed to execute 'open' command: {}", e);
+                        format!("Failed to execute 'open' command: {}", e)
+                    })?;
+                    
+                if status.success() {
+                    info!("URL opened successfully with 'open' command");
+                    Ok(())
+                } else {
+                    error!("'open' command failed with exit code: {:?}", status.code());
+                    Err(format!("'open' command failed with exit code: {:?}", status.code()))
+                }
+            }
+            
+            #[cfg(target_os = "windows")]
+            {
+                println!("Trying fallback: Windows 'start' command");
+                let status = std::process::Command::new("cmd")
+                    .args(&["/C", "start", &url])
+                    .status()
+                    .map_err(|e| format!("Failed to execute 'start' command: {}", e))?;
+                    
+                if status.success() {
+                    println!("URL opened successfully with 'start' command");
+                    Ok(())
+                } else {
+                    Err(format!("'start' command failed with exit code: {:?}", status.code()))
+                }
+            }
+            
+            #[cfg(target_os = "linux")]
+            {
+                println!("Trying fallback: Linux 'xdg-open' command");
+                let status = std::process::Command::new("xdg-open")
+                    .arg(&url)
+                    .status()
+                    .map_err(|e| format!("Failed to execute 'xdg-open' command: {}", e))?;
+                    
+                if status.success() {
+                    println!("URL opened successfully with 'xdg-open' command");
+                    Ok(())
+                } else {
+                    Err(format!("'xdg-open' command failed with exit code: {:?}", status.code()))
+                }
+            }
+        }
+    }
 }
 
 // Internal server management
@@ -191,20 +377,57 @@ fn start_server_internal(state: &State<AppState>, app: &AppHandle) -> Result<(),
     let mut server_process = state.server_process.lock().unwrap();
     
     if server_process.is_some() {
+        add_log_entry("warning", "Attempt to start server when already running");
         return Err("Server is already running".to_string());
     }
     
-    // Get the path to the bundled Go server
-    let server_path = get_server_binary_path(app)?;
+    add_log_entry("info", &format!("Checking if server is already running on port {}", state.server_port));
     
-    info!("Starting Go server at: {}", server_path);
+    // First, check if a server is already running on the target port
+    if is_server_running(state.server_port) {
+        let msg = format!("Server is already running on port {}, not starting a new one", state.server_port);
+        info!("{}", msg);
+        add_log_entry("info", &msg);
+        return Ok(());
+    }
     
-    // Set up environment variables
-    let mut cmd = Command::new(&server_path);
-    cmd.env("HOST", "127.0.0.1")
+    // Find the server directory - look for the Go server
+    add_log_entry("debug", "Looking for server directory...");
+    let server_dir = match find_server_directory() {
+        Ok(dir) => {
+            add_log_entry("info", &format!("Found server directory: {:?}", dir));
+            dir
+        }
+        Err(e) => {
+            add_log_entry("error", &format!("Server directory not found: {}", e));
+            return Err(e);
+        }
+    };
+    
+    info!("Starting TunnelForge Go server from directory: {:?}", server_dir);
+    
+    // Check if the server binary exists, if not try to build it
+    let server_binary = server_dir.join("tunnelforge-server");
+    if !server_binary.exists() {
+        add_log_entry("info", "Server binary not found, attempting to build...");
+        info!("Server binary not found, attempting to build...");
+        
+        if let Err(e) = build_go_server(&server_dir) {
+            add_log_entry("error", &format!("Failed to build server: {}", e));
+            return Err(e);
+        }
+        add_log_entry("info", "Server binary built successfully");
+    } else {
+        add_log_entry("debug", "Using existing server binary");
+    }
+    
+    // Set up server command
+    let mut cmd = Command::new("./tunnelforge-server");
+    cmd.current_dir(&server_dir)
        .env("PORT", state.server_port.to_string())
-       .env("ENABLE_RATE_LIMIT", "false")
-       .env("ENABLE_REQUEST_LOG", if cfg!(debug_assertions) { "true" } else { "false" });
+       .env("HOST", "127.0.0.1");
+
+    add_log_entry("debug", &format!("Starting server with PORT={} HOST=127.0.0.1", state.server_port));
 
     // Platform-specific configuration
     #[cfg(target_os = "windows")]
@@ -216,23 +439,42 @@ fn start_server_internal(state: &State<AppState>, app: &AppHandle) -> Result<(),
     // Start the process
     match cmd.spawn() {
         Ok(child) => {
-            info!("Go server started with PID: {}", child.id());
+            let child_id = child.id();
+            let msg = format!("TunnelForge server started with PID: {}", child_id);
+            info!("{}", msg);
+            add_log_entry("info", &msg);
             *server_process = Some(child);
             
+            // Wait a moment for the server to start up
+            add_log_entry("debug", "Waiting for server to initialize...");
+            thread::sleep(Duration::from_millis(3000));
+            
+            // Verify the server actually started
+            if is_server_running(state.server_port) {
+                add_log_entry("info", "Server started successfully and is responding");
+            } else {
+                add_log_entry("warning", "Server process started but not responding on expected port");
+            }
+            
             // Emit status change event
-            if let Some(window) = app.get_window("main") {
+            if let Some(window) = app.get_webview_window("main") {
                 let _ = window.emit("server-status-changed", ServerStatus {
                     running: true,
                     port: state.server_port,
-                    pid: Some(child.id()),
+                    pid: Some(child_id),
                 });
+                
+                // Update tray menu with new status
+                let _ = create_tray_menu(app, true);
             }
             
             Ok(())
         }
         Err(e) => {
-            error!("Failed to start Go server: {}", e);
-            Err(format!("Failed to start server: {}", e))
+            let msg = format!("Failed to start TunnelForge server: {}. Make sure Go is installed and the server can be built.", e);
+            error!("{}", msg);
+            add_log_entry("error", &msg);
+            Err(msg)
         }
     }
 }
@@ -241,18 +483,18 @@ fn stop_server_internal(state: &State<AppState>) -> Result<(), String> {
     let mut server_process = state.server_process.lock().unwrap();
     
     if let Some(mut child) = server_process.take() {
-        info!("Stopping Go server (PID: {})...", child.id());
+        info!("Stopping TunnelForge server (PID: {})...", child.id());
         
         // Try graceful shutdown first
         match child.kill() {
             Ok(_) => {
                 // Wait for process to exit
                 let _ = child.wait();
-                info!("Go server stopped successfully");
+                info!("TunnelForge server stopped successfully");
                 Ok(())
             }
             Err(e) => {
-                error!("Failed to stop Go server: {}", e);
+                error!("Failed to stop TunnelForge server: {}", e);
                 Err(format!("Failed to stop server: {}", e))
             }
         }
@@ -261,247 +503,366 @@ fn stop_server_internal(state: &State<AppState>) -> Result<(), String> {
     }
 }
 
-fn get_server_binary_path(app: &AppHandle) -> Result<String, String> {
-    // In development, use the development server
-    if cfg!(debug_assertions) {
-        // Look for development Go server
-        let dev_paths = [
-            "../development/go-server/tunnelforge-server",
-            "../../development/go-server/tunnelforge-server", 
-            "../../../development/go-server/tunnelforge-server",
-            #[cfg(target_os = "windows")]
-            "../development/go-server/tunnelforge-server.exe",
-            #[cfg(target_os = "windows")]
-            "../../development/go-server/tunnelforge-server.exe",
-            #[cfg(target_os = "windows")]
-            "../../../development/go-server/tunnelforge-server.exe",
-        ];
-        
-        for path in &dev_paths {
-            if std::path::Path::new(path).exists() {
-                return Ok(path.to_string());
-            }
-        }
-        
-        return Err("Development server binary not found. Please build the Go server first.".to_string());
-    }
+// Helper function to check if server is already running
+fn is_server_running(port: u16) -> bool {
+    use std::net::{TcpStream, SocketAddr};
+    use std::time::Duration;
     
-    // In production, use bundled binary
-    let binary_name = if cfg!(target_os = "windows") {
-        "bin/tunnelforge-server.exe"
+    let addr = format!("127.0.0.1:{}", port);
+    if let Ok(socket_addr) = addr.parse::<SocketAddr>() {
+        TcpStream::connect_timeout(&socket_addr, Duration::from_millis(1000)).is_ok()
     } else {
-        "bin/tunnelforge-server"
-    };
-    
-    app.path_resolver()
-        .resolve_resource(binary_name)
-        .ok_or_else(|| "Server binary not found in bundle".to_string())
-        .and_then(|path| {
-            path.to_str()
-                .ok_or_else(|| "Invalid server binary path".to_string())
-                .map(|s| s.to_string())
-        })
+        false
+    }
 }
 
-// System tray setup
-fn create_system_tray() -> SystemTray {
-    let open = CustomMenuItem::new("open".to_string(), "Open TunnelForge");
-    let new_session = CustomMenuItem::new("new_session".to_string(), "New Terminal Session");
-    let separator1 = SystemTrayMenuItem::Separator;
-    let server_status = CustomMenuItem::new("server_status".to_string(), "Server: Checking...")
-        .disabled();
-    let copy_url = CustomMenuItem::new("copy_url".to_string(), "Copy Server URL");
-    let separator2 = SystemTrayMenuItem::Separator;
-    let settings = CustomMenuItem::new("settings".to_string(), "Settings");
-    let about = CustomMenuItem::new("about".to_string(), "About TunnelForge");
-    let separator3 = SystemTrayMenuItem::Separator;
+// Helper function to find the server directory
+fn find_server_directory() -> Result<std::path::PathBuf, String> {
+    let current_dir = std::env::current_dir()
+        .map_err(|e| format!("Failed to get current directory: {}", e))?;
     
-    // Platform-specific quit text
-    let quit_text = if cfg!(target_os = "windows") {
-        "Exit TunnelForge"
+    add_log_entry("debug", &format!("Current directory: {:?}", current_dir));
+    
+    // Get the home directory as a fallback
+    let home_dir = dirs::home_dir().unwrap_or_else(|| std::path::PathBuf::from("/Users/"));
+    
+    // Try different possible locations for the server
+    let possible_paths = vec![
+        // Development paths (when running from project)
+        current_dir.join("../server"),
+        current_dir.join("server"),
+        current_dir.join("../../server"),
+        
+        // Common project locations
+        home_dir.join("Github/tunnelforge/server"),
+        home_dir.join("Projects/tunnelforge/server"),
+        home_dir.join("tunnelforge/server"),
+        
+        // System-wide locations
+        std::path::PathBuf::from("/usr/local/share/tunnelforge/server"),
+        std::path::PathBuf::from("/opt/tunnelforge/server"),
+        
+        // Fallback: assume we can use the web server's built executable
+        home_dir.join("Github/tunnelforge/web/native"),
+    ];
+    
+    for path in &possible_paths {
+        add_log_entry("debug", &format!("Checking server path: {:?}", path));
+        if path.exists() {
+            // Check for Go server
+            if path.join("go.mod").exists() {
+                add_log_entry("info", &format!("Found Go server directory with go.mod at: {:?}", path));
+                return Ok(path.clone());
+            }
+            // Check for pre-built Bun executable
+            else if path.join("tunnelforge").exists() {
+                add_log_entry("info", &format!("Found pre-built server executable at: {:?}", path));
+                return Ok(path.clone());
+            }
+            else {
+                add_log_entry("debug", &format!("Directory exists but no server found: {:?}", path));
+            }
+        } else {
+            add_log_entry("debug", &format!("Directory does not exist: {:?}", path));
+        }
+    }
+    
+    let error_msg = format!(
+        "TunnelForge server directory not found. Searched paths: {}. Make sure the server directory exists with go.mod or a pre-built executable.",
+        possible_paths.iter().map(|p| format!("{:?}", p)).collect::<Vec<_>>().join(", ")
+    );
+    add_log_entry("error", &error_msg);
+    Err(error_msg)
+}
+
+// Helper function to build the Go server
+fn build_go_server(server_dir: &std::path::Path) -> Result<(), String> {
+    let msg = format!("Building Go server in directory: {:?}", server_dir);
+    info!("{}", msg);
+    add_log_entry("info", &msg);
+    
+    // Check if go.mod exists
+    if !server_dir.join("go.mod").exists() {
+        let error = "go.mod not found in server directory";
+        add_log_entry("error", error);
+        return Err(error.to_string());
+    }
+    
+    // Check if cmd/server/main.go exists
+    if !server_dir.join("cmd/server/main.go").exists() {
+        let error = "cmd/server/main.go not found in server directory";
+        add_log_entry("error", error);
+        return Err(error.to_string());
+    }
+    
+    add_log_entry("debug", "Running: go build -o tunnelforge-server cmd/server/main.go");
+    
+    let output = Command::new("go")
+        .args(&["build", "-o", "tunnelforge-server", "cmd/server/main.go"])
+        .current_dir(server_dir)
+        .output()
+        .map_err(|e| {
+            let error = format!("Failed to run go build: {}", e);
+            add_log_entry("error", &error);
+            error
+        })?;
+        
+    if output.status.success() {
+        let msg = "Go server built successfully";
+        info!("{}", msg);
+        add_log_entry("info", msg);
+        Ok(())
     } else {
-        "Quit TunnelForge"
-    };
-    let quit = CustomMenuItem::new("quit".to_string(), quit_text);
-    
-    let tray_menu = SystemTrayMenu::new()
-        .add_item(open)
-        .add_native_item(separator1)
-        .add_item(new_session)
-        .add_native_item(separator2)
-        .add_item(server_status)
-        .add_item(copy_url)
-        .add_native_item(separator2)
-        .add_item(settings)
-        .add_item(about)
-        .add_native_item(separator3)
-        .add_item(quit);
-    
-    SystemTray::new().with_menu(tray_menu)
-}
-
-// System tray event handler
-fn handle_system_tray_event(app: &AppHandle, event: SystemTrayEvent) {
-    match event {
-        SystemTrayEvent::LeftClick { .. } => {
-            // Toggle main window on left click
-            if let Some(window) = app.get_window("main") {
-                if window.is_visible().unwrap_or(false) {
-                    let _ = window.hide();
-                } else {
-                    let _ = window.show();
-                    let _ = window.set_focus();
-                }
-            }
-        }
-        SystemTrayEvent::MenuItemClick { id, .. } => {
-            match id.as_str() {
-                "open" => {
-                    if let Some(window) = app.get_window("main") {
-                        let _ = window.show();
-                        let _ = window.set_focus();
-                    }
-                }
-                "new_session" => {
-                    let app_clone = app.clone();
-                    tauri::async_runtime::spawn(async move {
-                        let _ = create_new_session(app_clone).await;
-                    });
-                }
-                "copy_url" => {
-                    // Copy server URL to clipboard
-                    info!("Copy URL requested");
-                    // TODO: Implement clipboard functionality
-                }
-                "settings" => {
-                    // Open settings (for now, just show main window)
-                    if let Some(window) = app.get_window("main") {
-                        let _ = window.show();
-                        let _ = window.set_focus();
-                    }
-                }
-                "about" => {
-                    // Show about dialog
-                    info!("About dialog requested");
-                    // TODO: Implement about dialog
-                }
-                "quit" => {
-                    app.exit(0);
-                }
-                _ => {}
-            }
-        }
-        _ => {}
+        let stderr = String::from_utf8_lossy(&output.stderr);
+        let error = format!("Go server build failed with exit code: {:?}. Error: {}", output.status.code(), stderr);
+        add_log_entry("error", &error);
+        Err(error)
     }
 }
 
-// Window event handler
-fn handle_window_event(event: tauri::GlobalWindowEvent) {
-    match event.event() {
-        WindowEvent::CloseRequested { api, .. } => {
-            // Prevent window from closing, hide it instead
-            api.prevent_close();
-            let _ = event.window().hide();
-            
-            // Show platform-specific notification about running in background
-            let platform = create_platform_integration();
-            platform.show_notification(
-                "TunnelForge",
-                "TunnelForge is running in the background. Click the tray icon to access it."
-            );
-        }
-        _ => {}
-    }
-}
-
-// Application setup
-fn setup_app(app: &mut tauri::App) -> Result<(), Box<dyn std::error::Error>> {
-    let platform = create_platform_integration();
-    info!("Setting up TunnelForge {} application...", platform.get_platform_name());
-    
-    // Platform-specific setup
-    platform.setup_platform_specific()?;
-    
+#[cfg_attr(mobile, tauri::mobile_entry_point)]
+pub fn run() {
     // Initialize app state
     let state = AppState {
         server_process: Arc::new(Mutex::new(None)),
-        server_port: 4021,
-        is_quitting: Arc::new(Mutex::new(false)),
+        server_port: 4021, // Connect to existing Go server
     };
-    
-    app.manage(state);
-    
-    // Start the Go server
-    let app_handle = app.handle();
-    let app_state = app_handle.state::<AppState>();
-    
-    tauri::async_runtime::spawn(async move {
-        if let Err(e) = start_server_internal(&app_state, &app_handle) {
-            error!("Failed to start server during setup: {}", e);
-        }
-        
-        // Wait a moment for server to start, then show window
-        tokio::time::sleep(Duration::from_millis(2000)).await;
-        
-        if let Some(window) = app_handle.get_window("main") {
-            if let Err(e) = window.show() {
-                error!("Failed to show main window: {}", e);
+
+    tauri::Builder::default()
+        .manage(state)
+        .plugin(tauri_plugin_log::Builder::new()
+            .targets([
+                Target::new(TargetKind::Stdout),
+                Target::new(TargetKind::LogDir { file_name: Some("tunnelforge".to_string()) }),
+                Target::new(TargetKind::Webview),
+            ])
+            .level(log::LevelFilter::Debug)
+            .build())
+        .plugin(tauri_plugin_opener::init())
+        .plugin(tauri_plugin_shell::init())
+        .invoke_handler(tauri::generate_handler![
+            get_server_status,
+            start_server,
+            stop_server,
+            restart_server,
+            get_server_url,
+            show_notification,
+            check_cli_installation,
+            install_cli_tool,
+            get_app_version,
+            get_backend_logs,
+            open_external_url
+        ])
+        .setup(|app| {
+            // Initialize logging
+            add_log_entry("info", "TunnelForge Desktop starting up...");
+            add_log_entry("info", &format!("App version: {}", env!("CARGO_PKG_VERSION")));
+            
+            // Show the window immediately - no need to wait for server
+            if let Some(window) = app.get_webview_window("main") {
+                // Inject a flag to indicate we're in Tauri
+                let _ = window.eval("window.isTauri = true;");
+                
+                if let Err(e) = window.show() {
+                    let msg = format!("Failed to show main window: {}", e);
+                    error!("{}", msg);
+                    add_log_entry("error", &msg);
+                } else {
+                    add_log_entry("info", "Main window shown successfully");
+                }
             }
-        }
-    });
-    
-    Ok(())
+            
+            // Try to start the server if it's not already running
+            add_log_entry("info", "Attempting to start TunnelForge server...");
+            let state = app.state::<AppState>();
+            let app_handle = app.handle().clone();
+            if let Err(e) = start_server_internal(&state, &app_handle) {
+                let msg = format!("Failed to start server during setup: {}", e);
+                error!("{}", msg);
+                add_log_entry("error", &msg);
+                // Don't fail the app startup if server fails to start
+            }
+            
+            add_log_entry("info", "TunnelForge Desktop initialization complete");
+            
+            // Initialize system tray
+            add_log_entry("info", "Initializing system tray...");
+            if let Err(e) = create_tray_menu(app, false) {
+                add_log_entry("error", &format!("Failed to create system tray: {}", e));
+            } else {
+                add_log_entry("info", "System tray initialized successfully");
+            }
+            
+            // Set up periodic status updates for tray
+            let app_handle = app.handle().clone();
+            std::thread::spawn(move || {
+                loop {
+                    std::thread::sleep(Duration::from_secs(30)); // Update every 30 seconds
+                    let app = app_handle.clone();
+                    tauri::async_runtime::spawn(async move {
+                        let state = app.state::<AppState>();
+                        if let Ok(status) = get_server_status(state).await {
+                            // Update tray menu with current status
+                            let _ = create_tray_menu(&app, status.running);
+                        }
+                    });
+                }
+            });
+            
+            add_log_entry("info", "TunnelForge Desktop initialization complete");
+            Ok(())
+        })
+        .run(tauri::generate_context!())
+        .expect("error while running tauri application");
 }
 
-// Application cleanup
-fn cleanup_app(app: &AppHandle) {
-    let platform = create_platform_integration();
-    info!("Cleaning up TunnelForge {} application...", platform.get_platform_name());
+// Create system tray menu
+fn create_tray_menu(app: fn create_tray_menu(app: &AppHandle, server_running: bool)tauri::App, server_running: bool) -> Result<(), Box<dyn std::error::Error>> {
+    let status_text = if server_running { "🟢 Server Running" } else { "🔴 Server Stopped" };
     
-    let state = app.state::<AppState>();
-    *state.is_quitting.lock().unwrap() = true;
+    let menu = MenuBuilder::new(app)
+        .item(&MenuItemBuilder::new(status_text).enabled(false).build(app)?)
+        .separator()
+        .item(&MenuItemBuilder::new("Start Server").id("start_server").build(app)?)
+        .item(&MenuItemBuilder::new("Stop Server").id("stop_server").build(app)?)
+        .item(&MenuItemBuilder::new("Restart Server").id("restart_server").build(app)?)
+        .separator()
+        .item(&MenuItemBuilder::new("Open Dashboard").id("open_dashboard").build(app)?)
+        .item(&MenuItemBuilder::new("Open in Browser").id("open_browser").build(app)?)
+        .separator()
+        .item(&MenuItemBuilder::new("Settings").id("settings").build(app)?)
+        .item(&MenuItemBuilder::new("Check Status").id("check_status").build(app)?)
+        .separator()
+        .item(&MenuItemBuilder::new("Quit").id("quit").build(app)?)
+        .build()?;
     
-    if let Err(e) = stop_server_internal(&state) {
-        error!("Error during server cleanup: {}", e);
+    // Try to create tray icon with different icon paths
+    let icon_result = if Path::new("../assets/tray.png").exists() {
+        TrayIconBuilder::new()
+            .icon(Image::from_path("../assets/tray.png")?)
+            .menu(&menu)
+            .on_menu_event(move |app, event| {
+                handle_tray_menu_event(app, event);
+            })
+            .build(app)
+    } else if Path::new("icons/tray.png").exists() {
+        TrayIconBuilder::new()
+            .icon(Image::from_path("icons/tray.png")?)
+            .menu(&menu)
+            .on_menu_event(move |app, event| {
+                handle_tray_menu_event(app, event);
+            })
+            .build(app)
+    } else {
+        // Fallback without custom icon
+        TrayIconBuilder::new()
+            .menu(&menu)
+            .on_menu_event(move |app, event| {
+                handle_tray_menu_event(app, event);
+            })
+            .build(app)
+    };
+    
+    match icon_result {
+        Ok(_) => {
+            add_log_entry("info", "System tray icon created successfully");
+            Ok(())
+        }
+        Err(e) => {
+            add_log_entry("error", &format!("Failed to create tray icon: {}", e));
+            Err(Box::new(e))
+        }
     }
 }
 
-fn main() {
-    // Initialize logging
-    env_logger::Builder::from_default_env()
-        .filter_level(if cfg!(debug_assertions) {
-            log::LevelFilter::Debug
-        } else {
-            log::LevelFilter::Info
-        })
-        .init();
-    
-    let platform = create_platform_integration();
-    info!("Starting TunnelForge Desktop {} v{}", platform.get_platform_name(), env!("CARGO_PKG_VERSION"));
-    
-    tauri::Builder::default()
-        .setup(setup_app)
-        .system_tray(create_system_tray())
-        .on_system_tray_event(handle_system_tray_event)
-        .on_window_event(handle_window_event)
-        .invoke_handler(tauri::generate_handler![
-            get_server_status,
-            restart_server,
-            get_app_settings,
-            update_app_settings,
-            create_new_session,
-            copy_server_url,
-            show_notification,
-            get_platform_info
-        ])
-        .build(tauri::generate_context!())
-        .expect("error while running tauri application")
-        .run(|app_handle, event| {
-            match event {
-                RunEvent::ExitRequested { .. } => {
-                    cleanup_app(app_handle);
+// Handle tray menu events
+fn handle_tray_menu_event(app: fn handle_tray_menu_event(app: &AppHandle, event: TrayIconEvent)tauri::App, event: tauri::menu::MenuEvent) {
+    match event.id.as_str() {
+        "start_server" => {
+            add_log_entry("info", "Tray: Starting server...");
+            let app_handle = app.clone();
+            tauri::async_runtime::spawn(async move {
+                if let Err(e) = start_server_internal(&app_handle.state::<AppState>(), &app_handle) {
+                    add_log_entry("error", &format!("Tray: Failed to start server: {}", e));
                 }
-                _ => {}
+            });
+        }
+        "stop_server" => {
+            add_log_entry("info", "Tray: Stopping server...");
+            let app_handle = app.clone();
+            tauri::async_runtime::spawn(async move {
+                if let Err(e) = stop_server_internal(&app_handle.state::<AppState>()) {
+                    add_log_entry("error", &format!("Tray: Failed to stop server: {}", e));
+                }
+            });
+        }
+        "restart_server" => {
+            add_log_entry("info", "Tray: Restarting server...");
+            let app_handle = app.clone();
+            tauri::async_runtime::spawn(async move {
+                let state = app_handle.state::<AppState>();
+                if let Err(e) = stop_server_internal(&state) {
+                    add_log_entry("error", &format!("Tray: Failed to stop server: {}", e));
+                    return;
+                }
+                std::thread::sleep(Duration::from_millis(1000));
+                if let Err(e) = start_server_internal(&state, &app_handle) {
+                    add_log_entry("error", &format!("Tray: Failed to start server: {}", e));
+                }
+            });
+        }
+        "open_dashboard" => {
+            add_log_entry("info", "Tray: Opening dashboard...");
+            if let Some(window) = app.get_webview_window("main") {
+                let _ = window.show();
+                let _ = window.set_focus();
             }
-        });
+        }
+        "open_browser" => {
+            add_log_entry("info", "Tray: Opening in browser...");
+            let url = "http://localhost:4021";
+            if let Err(e) = tauri_plugin_opener::open_url(url, None::<&str>) {
+                add_log_entry("error", &format!("Tray: Failed to open browser: {}", e));
+            }
+        }
+        "settings" => {
+            add_log_entry("info", "Tray: Opening settings...");
+            if let Some(window) = app.get_webview_window("main") {
+                let _ = window.show();
+                let _ = window.set_focus();
+                // Could emit an event to switch to settings tab
+                let _ = window.eval("showSection(\"settings\")");
+            }
+        }
+        "check_status" => {
+            add_log_entry("info", "Tray: Checking server status...");
+            let app_handle = app.clone();
+            tauri::async_runtime::spawn(async move {
+                let state = app_handle.state::<AppState>();
+                let status = get_server_status(state).await;
+                match status {
+                    Ok(s) => {
+                        let msg = format!("Server is {} on port {}", 
+                            if s.running { "running" } else { "stopped" }, s.port);
+                        add_log_entry("info", &format!("Tray: {}", msg));
+                        // Update tray menu with new status
+                        let _ = create_tray_menu(&app_handle, s.running);
+                    }
+                    Err(e) => add_log_entry("error", &format!("Tray: Failed to check status: {}", e)),
+                }
+            });
+        }
+        "quit" => {
+            add_log_entry("info", "Tray: Quitting application...");
+            app.exit(0);
+        }
+        _ => {
+            add_log_entry("debug", &format!("Tray: Unknown menu event: {}", event.id())format!("Tray: Unknown menu event: {:?}", event.id));
+        }
+    }
+}
+
+
+fn main() {
+    run();
 }

@@ -153,7 +153,10 @@ find_tunnelforge "$@"
 function checkVibetunnelAndCreateWrapper(): string {
   // First, verify that tunnelforge is actually installed somewhere
   try {
-    const tunnelforgePath = execSync('which tunnelforge', { encoding: 'utf8', stdio: 'pipe' }).trim();
+    const tunnelforgePath = execSync('which tunnelforge', {
+      encoding: 'utf8',
+      stdio: 'pipe',
+    }).trim();
     printInfo(`Found TunnelForge at: ${tunnelforgePath}`);
   } catch (_error) {
     printError('TunnelForge is not installed or not accessible. Please install it first:');

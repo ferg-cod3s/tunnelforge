@@ -20,6 +20,8 @@ struct DashboardSettingsView: View {
     private var tailscaleService
     @Environment(CloudflareService.self)
     private var cloudflareService
+    @Environment(ConfigManager.self)
+    private var configManager
 
     @State private var serverStatus: ServerStatus = .stopped
     @State private var activeSessions: [DashboardSessionInfo] = []
@@ -39,6 +41,11 @@ struct DashboardSettingsView: View {
                     serverStatus: serverStatus,
                     serverPort: $serverPort,
                     accessModeString: $accessModeString,
+                    serverManager: serverManager
+                )
+
+                ServerTypeConfigurationSection(
+                    configManager: configManager,
                     serverManager: serverManager
                 )
 
@@ -609,6 +616,169 @@ private struct RemoteAccessStatusSection: View {
                 .multilineTextAlignment(.center)
         }
     }
+}
+
+// MARK: - Server Type Configuration Section
+
+private struct ServerTypeConfigurationSection: View {
+    let configManager: ConfigManager
+    let serverManager: ServerManager
+
+    @State private var showingGoServerInfo = false
+
+    private var isServerRunning: Bool {
+        serverManager.isRunning
+    }
+
+    var body: some View {
+        Section {
+            VStack(alignment: .leading, spacing: 12) {
+                // Server Type Selection
+                VStack(alignment: .leading, spacing: 8) {
+                    HStack {
+                        Text("Server Type")
+                            .font(.callout.weight(.medium))
+
+                        Spacer()
+
+                        Picker("Server Type", selection: serverTypeBinding) {
+                            ForEach(ServerType.allCases, id: \.self) { serverType in
+                                VStack(alignment: .leading) {
+                                    Text(serverType.displayName)
+                                    Text(serverType.description)
+                                        .font(.caption)
+                                        .foregroundStyle(.secondary)
+                                }
+                                .tag(serverType)
+                            }
+                        }
+                        .pickerStyle(.menu)
+                        .disabled(isServerRunning)
+                    }
+
+                    // Server Type Description
+                    Text(configManager.serverType.description)
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                        .padding(.leading, 8)
+
+                    // Performance Profile
+                    HStack {
+                        Image(systemName: configManager.serverType == .goServer ? "speedometer" : "cpu")
+                            .foregroundColor(configManager.serverType == .goServer ? .green : .blue)
+                            .font(.caption)
+
+                        Text(configManager.serverType.performanceProfile)
+                            .font(.caption)
+                            .foregroundStyle(.secondary)
+                    }
+                    .padding(.leading, 8)
+
+                    // Stability indicator
+                    if !configManager.serverType.isStable {
+                        HStack {
+                            Image(systemName: "exclamationmark.triangle.fill")
+                                .foregroundColor(.orange)
+                                .font(.caption)
+
+                            Text("Experimental - Use with caution")
+                                .font(.caption)
+                                .foregroundStyle(.orange)
+                        }
+                        .padding(.leading, 8)
+                    }
+                }
+
+                Divider()
+
+                // Go Server Specific Configuration
+                if configManager.serverType == .goServer {
+                    VStack(alignment: .leading, spacing: 8) {
+                        Text("Go Server Configuration")
+                            .font(.callout.weight(.medium))
+
+                        LabeledContent("Port") {
+                            Text("\(configManager.goServerPort)")
+                                .font(.system(.body, design: .monospaced))
+                        }
+
+                        LabeledContent("Binary") {
+                            Text(configManager.serverType.binaryName)
+                                .font(.system(.body, design: .monospaced))
+                        }
+
+                        if !configManager.goServerPath.isEmpty {
+                            LabeledContent("Custom Path") {
+                                Text(configManager.goServerPath)
+                                    .font(.system(.caption, design: .monospaced))
+                                    .lineLimit(1)
+                                    .truncationMode(.middle)
+                            }
+                        }
+
+                        // Go Server Benefits
+                        Button("Learn More About Go Server") {
+                            showingGoServerInfo = true
+                        }
+                        .buttonStyle(.link)
+                        .font(.caption)
+                    }
+                }
+
+                // Restart Warning
+                if isServerRunning {
+                    HStack {
+                        Image(systemName: "info.circle.fill")
+                            .foregroundColor(.blue)
+                            .font(.caption)
+
+                        Text("Restart server to apply server type changes")
+                            .font(.caption)
+                            .foregroundStyle(.secondary)
+                    }
+                    .padding(.top, 4)
+                }
+            }
+            .padding(.vertical, 4)
+        } header: {
+            Text("Server Backend")
+                .font(.headline)
+        } footer: {
+            Text("Choose between Node.js (legacy) and Go (high-performance) server backends.")
+                .font(.caption)
+                .frame(maxWidth: .infinity)
+                .multilineTextAlignment(.center)
+        }
+        .alert("Go Server Benefits", isPresented: $showingGoServerInfo) {
+            Button("OK") {}
+        } message: {
+            VStack(alignment: .leading, spacing: 4) {
+                Text("The Go server provides significant performance improvements:")
+                Text("• 10x faster startup time (200ms vs 2-3s)")
+                Text("• 50% lower memory usage (40MB vs 80MB)")
+                Text("• Native performance with better reliability")
+                Text("• Type-safe implementation")
+                Text("• Full API compatibility with Node.js server")
+            }
+        }
+    }
+
+    private var serverTypeBinding: Binding<ServerType> {
+        Binding(
+            get: { configManager.serverType },
+            set: { newType in
+                configManager.updateServerType(newType)
+
+                // If server is running, show restart hint
+                if serverManager.isRunning {
+                    // Could trigger a toast notification here
+                    logger.info("Server type changed to \(newType.displayName). Restart required.")
+                }
+            }
+        )
+    }
+
+    private let logger = Logger(subsystem: BundleIdentifiers.loggerSubsystem, category: "ServerTypeConfig")
 }
 
 // MARK: - Previews

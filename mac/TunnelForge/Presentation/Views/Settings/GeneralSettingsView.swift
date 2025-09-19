@@ -79,6 +79,18 @@ struct GeneralSettingsView: View {
                     // Prevent Sleep
                     VStack(alignment: .leading, spacing: 4) {
                         Toggle("Prevent Sleep When Running", isOn: $preventSleepWhenRunning)
+                            .onChange(of: preventSleepWhenRunning) { _, newValue in
+                                // Sync UserDefaults change to ConfigManager
+                                configManager.preventSleepWhenRunning = newValue
+                                configManager.saveConfiguration()
+
+                                // Trigger immediate power management update
+                                Task { @MainActor in
+                                    await SessionMonitor.shared.refresh()
+                                }
+
+                                logger.info("Updated sleep prevention setting to: \(newValue)")
+                            }
                         Text("Keep your Mac awake while TunnelForge sessions are active.")
                             .font(.caption)
                             .foregroundStyle(.secondary)

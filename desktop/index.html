@@ -444,6 +444,8 @@
     <script>
       // Tauri API access - wrapped for safe initialization
       let invoke = null;
+      // Track shown notifications to prevent duplicates
+      const shownNotifications = new Set();
       
       // Initialize Tauri API when ready
       function initializeTauri() {
@@ -524,7 +526,6 @@
         try {
           const invokeFunc = await ensureInvoke();
           await invokeFunc('start_server');
-          showNotification('Server started successfully');
           checkServerStatus(); // Update status after starting
         } catch (error) {
           showNotification('Failed to start server: ' + error, true);
@@ -535,7 +536,6 @@
         try {
           const invokeFunc = await ensureInvoke();
           await invokeFunc('stop_server');
-          showNotification('Server stopped successfully');
           checkServerStatus(); // Update status after stopping
         } catch (error) {
           showNotification('Failed to stop server: ' + error, true);
@@ -546,7 +546,6 @@
         try {
           const invokeFunc = await ensureInvoke();
           await invokeFunc('restart_server');
-          showNotification('Server restarted successfully');
           checkServerStatus(); // Update status after restarting
         } catch (error) {
           showNotification('Failed to restart server: ' + error, true);
@@ -663,24 +662,31 @@
         }
       }
       
-      function displayLogs() {
-        const debugElement = document.getElementById('debug-logs');
-        if (debugLogs.length === 0) {
-          debugElement.innerHTML = '<span style="color: #666;">No logs available.</span>';
-          return;
-        }
-        
         const logText = debugLogs.map(log => {
+          // Check for notification entries
+          if (log.message && log.message.startsWith("NOTIFICATION:")) {
+            const notificationMatch = log.message.match(/NOTIFICATION:s*([^\-]+)s*-s*(.+)/);
+            if (notificationMatch) {
+              const title = notificationMatch[1].trim();
+              const message = notificationMatch[2].trim();
+              // Show notification if not already shown
+              if (!shownNotifications.has(log.timestamp + log.message)) {
+                showNotification(message, false);
+                shownNotifications.add(log.timestamp + log.message);
+              }
+            }
+          }
+          
           const levelColor = {
-            'error': '#ef4444',
-            'warning': '#ffd700', 
-            'warn': '#ffd700',
-            'info': '#00ff41',
-            'debug': '#6b7280'
-          }[log.level.toLowerCase()] || '#ff6b35';
+            "error": "#ef4444",
+            "warning": "#ffd700", 
+            "warn": "#ffd700",
+            "info": "#00ff41",
+            "debug": "#6b7280"
+          }[log.level.toLowerCase()] || "#ff6b35";
           
           return `<span style="color: ${levelColor}">[${log.timestamp}] [${log.level.toUpperCase()}]</span> ${log.message}`;
-        }).join('\n');
+        }).join("\n");
         
         debugElement.innerHTML = logText;
         debugElement.scrollTop = debugElement.scrollHeight;
@@ -768,6 +774,21 @@
         showNotification('Debug logs cleared');
       }
       
+      // Listen for backend notification events
+      function setupNotificationListener() {
+        if (window.__TAURI__ && window.__TAURI__.event) {
+          window.__TAURI__.event.listen("notification", (event) => {
+            const { title, message } = event.payload;
+            showNotification(message, false); // Backend notifications are usually info, not errors
+            addLocalLog("INFO", `Notification: ${title} - ${message}`);
+          });
+        } else {
+          // Fallback: try again after a delay
+          setTimeout(setupNotificationListener, 1000);
+        }
+      }
+      
+      
       // Initialize app
       async function initApp() {
         try {
@@ -780,6 +801,7 @@
           }
           
           addLocalLog('INFO', 'Initializing TunnelForge Desktop...');
+          setupNotificationListener();
           
           const version = await invoke('get_app_version');
           document.getElementById('about-version').textContent = version;

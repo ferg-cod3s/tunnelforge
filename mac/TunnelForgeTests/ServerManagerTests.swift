@@ -412,4 +412,212 @@ final class ServerManagerTests {
         #expect(!sessionID.uuidString.isEmpty)
         #expect(sessionID == session.id) // Ensures ID is stable across calls
     }
+
+    // MARK: - Go Server Integration Tests
+
+    @Test("Go server configuration validation")
+    func goServerConfiguration() async throws {
+        let configManager = ConfigManager.shared
+
+        // Test default configuration
+        let defaultConfig = configManager.effectiveServerConfiguration
+        #expect(defaultConfig.serverType == .nodeJS || defaultConfig.serverType == .goServer)
+        #expect(defaultConfig.port > 0)
+        #expect(!defaultConfig.binaryName.isEmpty)
+
+        // Test Go server specific configuration
+        configManager.updateServerType(.goServer)
+        let goConfig = configManager.effectiveServerConfiguration
+
+        #expect(goConfig.serverType == .goServer)
+        #expect(goConfig.port == 4_021) // Default Go server port
+        #expect(goConfig.binaryName == "tunnelforge-server")
+        #expect(goConfig.isGoServer)
+        #expect(!goConfig.isNodeJSServer)
+
+        // Test Node.js server configuration for comparison
+        configManager.updateServerType(.nodeJS)
+        let nodeConfig = configManager.effectiveServerConfiguration
+
+        #expect(nodeConfig.serverType == .nodeJS)
+        #expect(nodeConfig.port == 4_020) // Default Node.js port
+        #expect(nodeConfig.binaryName == "vibetunnel")
+        #expect(!nodeConfig.isGoServer)
+        #expect(nodeConfig.isNodeJSServer)
+    }
+
+    @Test("Server type switching behavior")
+    func serverTypeSwitching() async throws {
+        let configManager = ConfigManager.shared
+        let originalType = configManager.serverType
+
+        // Start with Node.js
+        configManager.updateServerType(.nodeJS)
+        #expect(configManager.serverType == .nodeJS)
+        #expect(configManager.enableGoServer == false)
+
+        let nodeConfig = configManager.effectiveServerConfiguration
+        #expect(nodeConfig.isNodeJSServer)
+        #expect(nodeConfig.port == 4_020)
+
+        // Switch to Go server
+        configManager.updateServerType(.goServer)
+        #expect(configManager.serverType == .goServer)
+        #expect(configManager.enableGoServer == true)
+
+        let goConfig = configManager.effectiveServerConfiguration
+        #expect(goConfig.isGoServer)
+        #expect(goConfig.port == 4_021)
+
+        // Restore original configuration
+        configManager.updateServerType(originalType)
+    }
+
+    @Test("Go server settings persistence")
+    func goServerSettingsPersistence() async throws {
+        let configManager = ConfigManager.shared
+
+        // Store original values
+        let originalType = configManager.serverType
+        let originalGoPort = configManager.goServerPort
+        let originalGoPath = configManager.goServerPath
+        let originalEnableGo = configManager.enableGoServer
+
+        // Set test values
+        let testPort = 4_022
+        let testPath = "/custom/path/to/server"
+
+        configManager.updateGoServerSettings(
+            port: testPort,
+            path: testPath,
+            enabled: true
+        )
+
+        // Verify values are set
+        #expect(configManager.goServerPort == testPort)
+        #expect(configManager.goServerPath == testPath)
+        #expect(configManager.enableGoServer == true)
+        #expect(configManager.serverType == .goServer)
+
+        // Save and reload configuration to test persistence
+        configManager.saveConfiguration()
+
+        // Create new instance to test persistence
+        let newConfigManager = ConfigManager()
+
+        // Values should persist
+        #expect(newConfigManager.goServerPort == testPort)
+        #expect(newConfigManager.goServerPath == testPath)
+        #expect(newConfigManager.enableGoServer == true)
+        #expect(newConfigManager.serverType == .goServer)
+
+        // Restore original values
+        configManager.updateGoServerSettings(
+            port: originalGoPort,
+            path: originalGoPath,
+            enabled: originalEnableGo
+        )
+        configManager.updateServerType(originalType)
+        configManager.saveConfiguration()
+    }
+
+    @Test("Server manager Go server detection")
+    func serverManagerGoServerDetection() async throws {
+        let configManager = ConfigManager.shared
+        let originalType = configManager.serverType
+
+        // Test Go server mode detection
+        configManager.updateServerType(.goServer)
+        #expect(manager.isGoServerEnabled == true)
+
+        let serverInfo = manager.serverInfo
+        #expect(serverInfo.type == .goServer)
+        #expect(serverInfo.port == 4_021)
+        #expect(serverInfo.isExternal == true)
+
+        // Test Node.js server mode detection
+        configManager.updateServerType(.nodeJS)
+        #expect(manager.isGoServerEnabled == false)
+
+        let nodeServerInfo = manager.serverInfo
+        #expect(nodeServerInfo.type == .nodeJS)
+        #expect(nodeServerInfo.port == 4_020)
+        #expect(nodeServerInfo.isExternal == false)
+
+        // Restore original configuration
+        configManager.updateServerType(originalType)
+    }
+
+    @Test(
+        "Go server startup validation",
+        .disabled(if: TestConditions.isRunningInCI(), "Requires actual Go server binary and may conflict with running servers")
+    )
+    func goServerStartup() async throws {
+        let configManager = ConfigManager.shared
+        let originalType = configManager.serverType
+
+        // Switch to Go server
+        configManager.updateServerType(.goServer)
+
+        // Ensure clean state
+        await manager.stop()
+
+        // Attach configuration info
+        Attachment.record("""
+        Testing Go server startup
+        Server type: \(configManager.serverType.displayName)
+        Port: \(configManager.goServerPort)
+        Binary: \(configManager.serverType.binaryName)
+        """, named: "Go Server Configuration")
+
+        // Attempt to start Go server
+        await manager.start()
+        try await Task.sleep(for: .milliseconds(1000))
+
+        // The Go server may or may not start depending on binary availability
+        // This test validates the configuration and startup attempt behavior
+        if manager.isRunning {
+            #expect(manager.isGoServerEnabled)
+            Attachment.record("Go server started successfully", named: "Server Status")
+        } else {
+            // If not running, should have appropriate error
+            #expect(manager.lastError != nil)
+            if let error = manager.lastError {
+                Attachment.record("Go server startup failed: \(error.localizedDescription)", named: "Server Error")
+            }
+        }
+
+        // Cleanup
+        await manager.stop()
+        configManager.updateServerType(originalType)
+    }
+
+    @Test("Server configuration backward compatibility")
+    func serverConfigurationBackwardCompatibility() async throws {
+        let configManager = ConfigManager.shared
+
+        // Test that legacy enableGoServer flag still works
+        let originalType = configManager.serverType
+        let originalEnable = configManager.enableGoServer
+
+        // Enable Go server via legacy flag
+        configManager.enableGoServer = true
+        let config1 = configManager.effectiveServerConfiguration
+        #expect(config1.isGoServer)
+
+        // Disable Go server via legacy flag
+        configManager.enableGoServer = false
+        let config2 = configManager.effectiveServerConfiguration
+        #expect(config2.isNodeJSServer)
+
+        // Test that serverType takes precedence
+        configManager.enableGoServer = false
+        configManager.serverType = .goServer
+        let config3 = configManager.effectiveServerConfiguration
+        #expect(config3.isGoServer) // serverType should override enableGoServer
+
+        // Restore original values
+        configManager.serverType = originalType
+        configManager.enableGoServer = originalEnable
+    }
 }

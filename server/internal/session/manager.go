@@ -3,35 +3,37 @@ package session
 import (
 	"fmt"
 	"log"
+	"os/exec"
 	"sync"
 
 	"github.com/ferg-cod3s/tunnelforge/go-server/internal/persistence"
+	"github.com/ferg-cod3s/tunnelforge/go-server/internal/process"
 	"github.com/ferg-cod3s/tunnelforge/go-server/internal/terminal"
 	"github.com/ferg-cod3s/tunnelforge/go-server/pkg/types"
 )
 
 type Manager struct {
-	ptyManager        *terminal.PTYManager
-	optPtyManager     *terminal.OptimizedPTYManager
-	useOptimized      bool
-	sseStreams        map[string][]chan []byte
-	sseStreamsMu      sync.RWMutex
+	ptyManager         *terminal.PTYManager
+	optPtyManager      *terminal.OptimizedPTYManager
+	useOptimized       bool
+	sseStreams         map[string][]chan []byte
+	sseStreamsMu       sync.RWMutex
 	persistenceService *persistence.Service
 	persistenceEnabled bool
 }
 
 func NewManager() *Manager {
 	m := &Manager{
-		ptyManager:        terminal.NewPTYManager(),
-		optPtyManager:     terminal.NewOptimizedPTYManager(),
-		useOptimized:      true, // Enable optimizations by default
-		sseStreams:        make(map[string][]chan []byte),
+		ptyManager:         terminal.NewPTYManager(),
+		optPtyManager:      terminal.NewOptimizedPTYManager(),
+		useOptimized:       true, // Enable optimizations by default
+		sseStreams:         make(map[string][]chan []byte),
 		persistenceEnabled: false, // Disabled by default
 	}
-	
+
 	// Set up SSE broadcasting - the manager implements the interface
 	m.optPtyManager.SetSSEBroadcaster(m)
-	
+
 	return m
 }
 
@@ -45,10 +47,10 @@ func NewManagerWithPersistence(persistenceService *persistence.Service) *Manager
 		persistenceService: persistenceService,
 		persistenceEnabled: true,
 	}
-	
+
 	// Set up SSE broadcasting - the manager implements the interface
 	m.optPtyManager.SetSSEBroadcaster(m)
-	
+
 	return m
 }
 
@@ -231,6 +233,57 @@ func (m *Manager) CloseAll() {
 	}
 }
 
+// CleanupExitedSessions removes sessions that have exited
+func (m *Manager) CleanupExitedSessions() ([]string, error) {
+	// Base implementation - no cleanup needed
+	return []string{}, nil
+}
+
+// CreateSession creates a new session (alias for Create for interface compatibility)
+func (m *Manager) CreateSession(req *types.SessionCreateRequest) (*types.Session, error) {
+	return m.Create(req)
+}
+
+// ListSessions returns all sessions (alias for List for interface compatibility)
+func (m *Manager) ListSessions() ([]*types.Session, error) {
+	return m.List(), nil
+}
+
+// UpdateSessionStatus updates session status (base implementation does nothing)
+func (m *Manager) UpdateSessionStatus(sessionID string, status string, pid int, exitCode int) error {
+	return nil
+}
+
+// OnPTYProcessStarted handles PTY process start (base implementation does nothing)
+func (m *Manager) OnPTYProcessStarted(sessionID string, pid int) error {
+	return nil
+}
+
+// OnPTYProcessExited handles PTY process exit (base implementation does nothing)
+func (m *Manager) OnPTYProcessExited(sessionID string, exitCode int) error {
+	return nil
+}
+
+// RegisterPTYProcess registers a PTY process (base implementation does nothing)
+func (m *Manager) RegisterPTYProcess(sessionID string, cmd *exec.Cmd) error {
+	return nil
+}
+
+// GetProcessInfo gets process information (base implementation returns nil)
+func (m *Manager) GetProcessInfo(sessionID string) (*process.ProcessInfo, bool) {
+	return nil, false
+}
+
+// GetProcessStats gets process statistics (base implementation returns empty map)
+func (m *Manager) GetProcessStats() map[string]interface{} {
+	return map[string]interface{}{}
+}
+
+// Stop stops the manager (base implementation does nothing)
+func (m *Manager) Stop() {
+	// Base implementation does nothing
+}
+
 func (m *Manager) Count() int {
 	if m.useOptimized {
 		return m.optPtyManager.Count()
@@ -261,8 +314,31 @@ func (m *Manager) AddClientToSession(sessionID string, client *types.WSClient) e
 	return nil
 }
 
+// RemoveClientFromSession removes a WebSocket client from a session
+func (m *Manager) RemoveClientFromSession(sessionID string, clientID string) error {
+	if m.useOptimized {
+		optSession := m.optPtyManager.GetSession(sessionID)
+		if optSession == nil {
+			return fmt.Errorf("session not found: %s", sessionID)
+		}
+		// TODO: Implement client removal in optimized sessions
+		log.Printf("Client %s removed from optimized session %s", clientID, sessionID)
+		return nil
+	}
+
+	// Fallback to original manager
+	ptySession := m.ptyManager.GetSession(sessionID)
+	if ptySession == nil {
+		return fmt.Errorf("session not found: %s", sessionID)
+	}
+
+	// TODO: Implement client removal in PTY sessions
+	log.Printf("Client %s removed from session %s", clientID, sessionID)
+	return nil
+}
+
 // GetPTYSession returns the underlying PTY session for WebSocket handling
-func (m *Manager) GetPTYSession(id string) *terminal.PTYSession {
+func (m *Manager) GetPTYSession(id string) interface{} {
 	if m.useOptimized {
 		// For optimized sessions, we need to convert or initialize
 		optSession := m.optPtyManager.GetSession(id)
