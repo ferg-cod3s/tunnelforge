@@ -37,7 +37,7 @@ func (h *Handler) buildUpgrader() websocket.Upgrader {
 }
 
 type Handler struct {
-	sessionManager *session.Manager
+	sessionManager session.ManagerInterface
 	clients        map[string]*Client
 	clientsMu      sync.RWMutex
 	allowedOrigins []string
@@ -57,7 +57,7 @@ type Client struct {
 	LastPing  time.Time
 }
 
-func NewHandler(sessionManager *session.Manager) *Handler {
+func NewHandler(sessionManager session.ManagerInterface) *Handler {
 	return &Handler{
 		sessionManager: sessionManager,
 		clients:        make(map[string]*Client),
@@ -135,16 +135,22 @@ func (h *Handler) HandleWebSocket(w http.ResponseWriter, r *http.Request) {
 
 	log.Printf("WebSocket client %s connected to session %s", clientID[:8], sessionID[:8])
 
-	// Start goroutines for this client
-	go h.handleClientOutput(client, ptySession)
-	go h.handleClientInput(client, ptySession)
-	go h.pingClient(client)
+	// Type assert to PTYSession
+	if ptySessionTyped, ok := ptySession.(*terminal.PTYSession); ok {
+		// Start goroutines for this client
+		go h.handleClientOutput(client, ptySessionTyped)
+		go h.handleClientInput(client, ptySessionTyped)
+		go h.pingClient(client)
 
-	// Wait for client to disconnect
-	<-client.Done
+		// Wait for client to disconnect
+		<-client.Done
 
-	// Clean up
-	h.cleanupClient(client, ptySession)
+		// Clean up
+		h.cleanupClient(client, ptySessionTyped)
+	} else {
+		log.Printf("Warning: PTY session not found or wrong type for session %s", sessionID)
+		client.Conn.Close()
+	}
 }
 
 // handleClientOutput streams terminal output to WebSocket client

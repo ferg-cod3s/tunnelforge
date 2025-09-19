@@ -23,6 +23,7 @@ import (
 	"github.com/ferg-cod3s/tunnelforge/go-server/internal/buffer"
 	"github.com/ferg-cod3s/tunnelforge/go-server/internal/config"
 	"github.com/ferg-cod3s/tunnelforge/go-server/internal/control"
+	"github.com/ferg-cod3s/tunnelforge/go-server/internal/domain"
 	"github.com/ferg-cod3s/tunnelforge/go-server/internal/events"
 	"github.com/ferg-cod3s/tunnelforge/go-server/internal/filesystem"
 	"github.com/ferg-cod3s/tunnelforge/go-server/internal/git"
@@ -57,6 +58,8 @@ type Server struct {
 	pushService        *push.PushService
 	pushHandler        *push.PushHandler
 	persistenceService *persistence.Service
+	domainService      domain.Service
+	domainHandler      *domain.Handler
 	startTime          time.Time
 	mu                 sync.RWMutex
 }
@@ -154,6 +157,9 @@ func New(cfg *Config) (*Server, error) {
 		}
 	}
 
+	// Initialize domain service
+	domainService := domain.NewService(domain.NewInMemoryRepository(), domain.NewMockCloudFlareService(), domain.NewMockCertificateService(), domain.NewMockValidationService(), domain.NewMockAuditLogger())
+	domainHandler := domain.NewHandler(domainService)
 	s := &Server{
 		config:             fullConfig,
 		sessionManager:     sessionManager,
@@ -166,7 +172,8 @@ func New(cfg *Config) (*Server, error) {
 		tmuxService:        tmuxService,
 		jwtAuth:            jwtAuth,
 		passwordAuth:       passwordAuth,
-		eventBroadcaster:   eventBroadcaster,
+		domainService:      domainService,
+		domainHandler:      domainHandler,
 		pushService:        pushService,
 		pushHandler:        pushHandler,
 		persistenceService: persistenceService,
@@ -321,6 +328,11 @@ func (s *Server) setupRoutes() {
 		s.pushHandler.RegisterRoutes(r)
 	}
 
+	// Domain setup routes
+	s.domainHandler.RegisterRoutes(r)
+
+	// Control stream route (for frontend compatibility)
+	sessionRouter.HandleFunc("/control/stream", s.handleControlStream).Methods("GET")
 	// Control stream route (for frontend compatibility)
 	sessionRouter.HandleFunc("/control/stream", s.handleControlStream).Methods("GET")
 

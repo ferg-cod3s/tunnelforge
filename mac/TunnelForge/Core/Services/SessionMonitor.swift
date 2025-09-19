@@ -74,6 +74,11 @@ final class SessionMonitor {
     private var previousSessions: [String: ServerSessionInfo] = [:]
     private var firstFetchDone = false
 
+    // Add new properties for error handling and state persistence
+    private var lastSuccessfulFetch: Date?
+    private var consecutiveErrors = 0
+    private var lastKnownSessionCount = 0
+
     /// Detect sessions that transitioned from running to not running
     static func detectEndedSessions(
         from old: [String: ServerSessionInfo],
@@ -102,7 +107,22 @@ final class SessionMonitor {
     /// Reference to GitRepositoryMonitor for pre-caching
     weak var gitRepositoryMonitor: GitRepositoryMonitor?
 
-    private init() {}
+    private init() {
+        // Monitor configuration changes for immediate power management updates
+        NotificationCenter.default.addObserver(
+            forName: .configurationChanged,
+            object: nil,
+            queue: .main
+        ) { [weak self] _ in
+            Task { @MainActor in
+                self?.updatePowerManagement()
+            }
+        }
+    }
+
+    deinit {
+        NotificationCenter.default.removeObserver(self)
+    }
 
     /// Set the local auth token for server requests
     func setLocalAuthToken(_ token: String?) {}
@@ -157,6 +177,11 @@ final class SessionMonitor {
             firstFetchDone = true
             self.lastFetch = Date()
 
+            // Update success tracking
+            lastSuccessfulFetch = Date()
+            consecutiveErrors = 0
+            lastKnownSessionCount = sessionCount
+
             // Update WindowTracker
             WindowTracker.shared.updateFromSessions(sessionsArray)
 
@@ -173,8 +198,18 @@ final class SessionMonitor {
                 self.lastError = error
             }
             logger.error("Failed to fetch sessions: \(error, privacy: .public)")
-            self.sessions = [:]
-            self.lastFetch = Date() // Still update timestamp to avoid hammering
+
+            // Intelligent error handling - preserve session data for transient errors
+            consecutiveErrors += 1
+            if shouldClearSessionsForError(error) {
+                self.sessions = [:]
+                logger.warning("Cleared session data due to permanent error: \(error)")
+            } else {
+                logger.info("Preserving session data during transient network error (consecutive errors: \(self.consecutiveErrors))")
+            }
+
+            // Still update timestamp, but with backoff for repeated failures
+            updateLastFetchWithBackoff()
         }
     }
 
@@ -236,25 +271,48 @@ final class SessionMonitor {
                 "Pre-caching Git data for \(uniqueDirectoriesToCheck.count) unique directories (from \(sessions.count) sessions)"
             )
     }
-    
+
+    /// Determine whether to clear session data based on error type
+    private func shouldClearSessionsForError(_ error: Error) -> Bool {
+        // Only clear sessions for permanent errors
+        if let serverError = error as? ServerManagerError {
+            switch serverError {
+            case .httpError(let code):
+                return code == 401 || code == 404 // Auth failure or not found
+            case .invalidURL:
+                return true // Configuration issue
+            default:
+                return false // Transient errors like network timeouts
+            }
+        }
+        return false // Preserve sessions for unknown errors
+    }
+
+    /// Update last fetch time with backoff for repeated failures
+    private func updateLastFetchWithBackoff() {
+        // Implement exponential backoff for repeated failures
+        let timeSinceLastSuccess = Date().timeIntervalSince(lastSuccessfulFetch ?? Date.distantPast)
+        let backoffDelay = min(max(1.0, timeSinceLastSuccess / 10), 30.0) // 1-30 second backoff
+
+        self.lastFetch = Date().addingTimeInterval(-cacheInterval + backoffDelay)
+    }
+
     /// Update power management state based on running sessions
     private func updatePowerManagement() {
         // Check if power management is enabled in config
         guard ConfigManager.shared.preventSleepWhenRunning else {
-            // If disabled in config, ensure sleep prevention is off
             PowerManagementService.shared.allowSleep()
             return
         }
-        
-        // Count running sessions
-        let runningCount = sessionCount
-        
-        if runningCount > 0 {
-            // Enable sleep prevention when sessions are running
+
+        // Use last known session count if current fetch failed
+        let currentCount = sessionCount
+        let effectiveCount = (consecutiveErrors > 0 && currentCount == 0) ? lastKnownSessionCount : currentCount
+
+        if effectiveCount > 0 {
             PowerManagementService.shared.preventSleep()
-            logger.info("Enabled sleep prevention - \(runningCount) running session(s)")
+            logger.info("Enabled sleep prevention - \(effectiveCount) session(s) (actual: \(currentCount), last known: \(self.lastKnownSessionCount))")
         } else {
-            // Disable sleep prevention when no sessions are running
             PowerManagementService.shared.allowSleep()
             logger.info("Disabled sleep prevention - no running sessions")
         }

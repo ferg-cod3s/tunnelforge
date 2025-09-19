@@ -261,8 +261,12 @@ enum ServerConfigurationHelpers {
     private static let logger = Logger(subsystem: BundleIdentifiers.loggerSubsystem, category: "ServerConfiguration")
 
     static func restartServerWithNewPort(_ port: Int, serverManager: ServerManager) async {
-        // Update the port in ServerManager and restart
-        serverManager.port = String(port)
+        // Update the port in ConfigManager first
+        let configManager = ConfigManager.shared
+        configManager.serverPort = port
+        configManager.saveConfiguration()
+
+        // Restart the server (it will pick up the new port from ConfigManager)
         try? await serverManager.restart()
         logger.info("Server restarted on port \(port)")
 

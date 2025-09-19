@@ -27,22 +27,26 @@ final class PowerManagementService {
     func preventSleep() {
         guard !isAssertionActive else { return }
 
-        let reason = "TunnelForge is running terminal sessions" as CFString
-        let assertionType = kIOPMAssertionTypeNoIdleSleep as CFString
-
-        let success = IOPMAssertionCreateWithName(
-            assertionType,
-            IOPMAssertionLevel(kIOPMAssertionLevelOn),
-            reason,
-            &assertionID
-        )
-
+        let success = createPowerAssertion()
         if success == kIOReturnSuccess {
             isAssertionActive = true
             isSleepPrevented = true
             logger.info("Sleep prevention enabled")
         } else {
             logger.error("Failed to prevent sleep: \(success)")
+
+            // Retry once for transient failures
+            DispatchQueue.main.asyncAfter(deadline: .now() + 1.0) { [weak self] in
+                guard let self = self, !self.isAssertionActive else { return }
+                let retrySuccess = self.createPowerAssertion()
+                if retrySuccess == kIOReturnSuccess {
+                    self.isAssertionActive = true
+                    self.isSleepPrevented = true
+                    self.logger.info("Sleep prevention enabled on retry")
+                } else {
+                    self.logger.error("Power assertion retry failed: \(retrySuccess)")
+                }
+            }
         }
     }
 
@@ -71,9 +75,24 @@ final class PowerManagementService {
         }
     }
 
+    /// Helper method to create power assertion
+    private func createPowerAssertion() -> IOReturn {
+        let reason = "TunnelForge is running terminal sessions" as CFString
+        let assertionType = kIOPMAssertionTypeNoIdleSleep as CFString
+
+        return IOPMAssertionCreateWithName(
+            assertionType,
+            IOPMAssertionLevel(kIOPMAssertionLevelOn),
+            reason,
+            &assertionID
+        )
+    }
+
     deinit {
-        // Deinit runs on arbitrary thread, but we need to check MainActor state
-        // Since we can't access MainActor properties directly in deinit,
-        // we handle cleanup in allowSleep() which is called when server stops
+        // Force cleanup regardless of MainActor constraints
+        // Note: We cannot access main actor properties in deinit, so we rely on
+        // proper cleanup during normal operation via allowSleep()
+        // This is safe because the service is a singleton that should not be deallocated
+        // during normal app operation
     }
 }

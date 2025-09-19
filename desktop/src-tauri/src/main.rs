@@ -101,6 +101,7 @@ async fn restart_server(state: State<'_, AppState>, app: AppHandle) -> Result<()
     }
     
     add_log_entry("info", "Server restarted successfully");
+    add_log_entry("info", "NOTIFICATION: TunnelForge - Server restarted successfully");
     Ok(())
 }
 
@@ -462,6 +463,7 @@ fn start_server_internal(state: &State<AppState>, app: &AppHandle) -> Result<(),
                 });
             }
             
+            add_log_entry("info", "NOTIFICATION: TunnelForge - Server started successfully");
             Ok(())
         }
         Err(e) => {
@@ -485,6 +487,7 @@ fn stop_server_internal(state: &State<AppState>) -> Result<(), String> {
                 // Wait for process to exit
                 let _ = child.wait();
                 info!("TunnelForge server stopped successfully");
+                add_log_entry("info", "NOTIFICATION: TunnelForge - Server stopped successfully");
                 Ok(())
             }
             Err(e) => {

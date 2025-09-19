@@ -531,7 +531,9 @@ export class SessionManager {
       return { versionChanged: false, cleanedCount: 0 };
     }
 
-    logger.log(chalk.yellow(`TunnelForge version changed from ${lastVersion} to ${currentVersion}`));
+    logger.log(
+      chalk.yellow(`TunnelForge version changed from ${lastVersion} to ${currentVersion}`)
+    );
     logger.log(chalk.yellow('cleaning up zombie sessions from old version...'));
 
     // First update zombie sessions to mark dead processes

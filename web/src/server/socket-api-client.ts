@@ -39,7 +39,8 @@ export class SocketApiClient {
 
   constructor() {
     // Use control directory from environment or default
-    this.controlDir = process.env.TUNNELFORGE_CONTROL_DIR || path.join(os.homedir(), '.tunnelforge');
+    this.controlDir =
+      process.env.TUNNELFORGE_CONTROL_DIR || path.join(os.homedir(), '.tunnelforge');
     // Use api.sock instead of control.sock to avoid conflicts with Mac app
     this.controlSocketPath = path.join(this.controlDir, 'api.sock');
 

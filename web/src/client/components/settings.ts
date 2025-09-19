@@ -13,6 +13,7 @@ import { ServerConfigService } from '../services/server-config-service.js';
 import { createLogger } from '../utils/logger.js';
 import { type MediaQueryState, responsiveObserver } from '../utils/responsive-utils.js';
 import { VERSION } from '../version.js';
+import { DomainSetup } from './domain-setup.js';
 
 const logger = createLogger('settings');
 
@@ -51,6 +52,7 @@ export class Settings extends LitElement {
   @state() private repositoryBasePath = DEFAULT_REPOSITORY_BASE_PATH;
   @state() private mediaState: MediaQueryState = responsiveObserver.getCurrentState();
   @state() private repositoryCount = 0;
+  @state() private activeTab: 'general' | 'notifications' | 'domains' = 'general';
   @state() private isDiscoveringRepositories = false;
 
   private permissionChangeUnsubscribe?: () => void;
@@ -542,10 +544,34 @@ export class Settings extends LitElement {
             </button>
           </div>
 
+          <!-- Tabs -->
+          <div class="border-b border-border/50 flex-shrink-0">
+            <div class="flex">
+              <button
+                class="px-4 py-2 text-sm font-medium border-b-2 transition-colors ${this.activeTab === 'general' ? 'border-primary text-primary' : 'border-transparent text-text-muted hover:text-primary'}"
+                @click=${() => (this.activeTab = 'general')}
+              >
+                General
+              </button>
+              <button
+                class="px-4 py-2 text-sm font-medium border-b-2 transition-colors ${this.activeTab === 'notifications' ? 'border-primary text-primary' : 'border-transparent text-text-muted hover:text-primary'}"
+                @click=${() => (this.activeTab = 'notifications')}
+              >
+                Notifications
+              </button>
+              <button
+                class="px-4 py-2 text-sm font-medium border-b-2 transition-colors ${this.activeTab === 'domains' ? 'border-primary text-primary' : 'border-transparent text-text-muted hover:text-primary'}"
+                @click=${() => (this.activeTab = 'domains')}
+              >
+                Domains
+              </button>
+            </div>
+          </div>
+
           <!-- Content -->
-          <div class="flex-1 overflow-y-auto p-4 space-y-6">
-            ${this.renderNotificationSettings()}
-            ${this.renderAppSettings()}
+          <div class="flex-1 overflow-y-auto p-4 ">
+            ${this.renderTabContent()}
+
           </div>
 
           <!-- Footer -->
@@ -816,5 +842,17 @@ export class Settings extends LitElement {
         </div>
       </div>
     `;
+  }
+  private renderTabContent() {
+    switch (this.activeTab) {
+      case 'general':
+        return this.renderAppSettings();
+      case 'notifications':
+        return this.renderNotificationSettings();
+      case 'domains':
+        return html`<domain-setup .authClient=${this.authClient} .visible=${true}></domain-setup>`;
+      default:
+        return this.renderAppSettings();
+    }
   }
 }

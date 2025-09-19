@@ -2,6 +2,29 @@ import Foundation
 import Observation
 import OSLog
 
+// Add notification name
+extension Notification.Name {
+    static let configurationChanged = Notification.Name("ConfigurationChanged")
+}
+
+/// Configuration for the effective server that should be used
+struct EffectiveServerConfig {
+    let serverType: ServerType
+    let port: Int
+    let binaryName: String
+    let isExternalServer: Bool
+
+    /// Whether this configuration represents a Go server
+    var isGoServer: Bool {
+        serverType == .goServer
+    }
+
+    /// Whether this configuration represents a Node.js server
+    var isNodeJSServer: Bool {
+        serverType == .nodeJS
+    }
+}
+
 /// Manager for TunnelForge configuration stored in ~/.vibetunnel/config.json
 /// Provides centralized configuration management for all app settings
 @MainActor
@@ -23,6 +46,12 @@ final class ConfigManager {
     var dashboardAccessMode: DashboardAccessMode = .network
     var cleanupOnStartup: Bool = true
     var authenticationMode: AuthenticationMode = .osAuth
+
+    // Go server settings
+    var serverType: ServerType = .nodeJS
+    var goServerPort: Int = 4_021
+    var goServerPath: String = ""
+    var enableGoServer: Bool = false
 
     // Development settings
     var debugMode: Bool = false
@@ -80,6 +109,11 @@ final class ConfigManager {
         var dashboardAccessMode: String
         var cleanupOnStartup: Bool
         var authenticationMode: String
+        // Go server configuration
+        var serverType: String?
+        var goServerPort: Int?
+        var goServerPath: String?
+        var enableGoServer: Bool?
     }
 
     private struct DevelopmentConfig: Codable {
@@ -166,6 +200,12 @@ final class ConfigManager {
                     self.dashboardAccessMode = DashboardAccessMode(rawValue: server.dashboardAccessMode) ?? .network
                     self.cleanupOnStartup = server.cleanupOnStartup
                     self.authenticationMode = AuthenticationMode(rawValue: server.authenticationMode) ?? .osAuth
+
+                    // Go server settings
+                    self.serverType = ServerType(rawValue: server.serverType ?? "nodejs") ?? .nodeJS
+                    self.goServerPort = server.goServerPort ?? 4_021
+                    self.goServerPath = server.goServerPath ?? ""
+                    self.enableGoServer = server.enableGoServer ?? false
                 }
 
                 // Development settings
@@ -248,7 +288,7 @@ final class ConfigManager {
 
     // MARK: - Configuration Saving
 
-    private func saveConfiguration() {
+    func saveConfiguration() {
         var config = TunnelForgeConfig(
             version: 2,
             quickStartCommands: quickStartCommands,
@@ -260,7 +300,11 @@ final class ConfigManager {
             port: serverPort,
             dashboardAccessMode: dashboardAccessMode.rawValue,
             cleanupOnStartup: cleanupOnStartup,
-            authenticationMode: authenticationMode.rawValue
+            authenticationMode: authenticationMode.rawValue,
+            serverType: serverType.rawValue,
+            goServerPort: goServerPort,
+            goServerPath: goServerPath,
+            enableGoServer: enableGoServer
         )
 
         // Development configuration
@@ -317,6 +361,9 @@ final class ConfigManager {
             // Write atomically to prevent corruption
             try data.write(to: configPath, options: Data.WritingOptions.atomic)
             logger.info("Saved configuration to disk")
+
+            // Post notification for configuration changes
+            NotificationCenter.default.post(name: .configurationChanged, object: nil)
         } catch {
             logger.error("Failed to save config: \(error.localizedDescription)")
         }
@@ -469,6 +516,74 @@ final class ConfigManager {
     /// Get the configuration file path for debugging
     var configurationPath: String {
         configPath.path
+    }
+
+    // MARK: - Server Configuration
+
+    /// Returns the effective server configuration based on current settings
+    var effectiveServerConfiguration: EffectiveServerConfig {
+        // Determine which server to use based on priority:
+        // 1. If Go server is explicitly enabled, use Go
+        // 2. If server type is explicitly set to Go, use Go
+        // 3. Otherwise use Node.js
+        let useGo = enableGoServer || serverType == .goServer
+
+        if useGo {
+            return EffectiveServerConfig(
+                serverType: .goServer,
+                port: goServerPort,
+                binaryName: ServerType.goServer.binaryName,
+                isExternalServer: true
+            )
+        } else {
+            return EffectiveServerConfig(
+                serverType: .nodeJS,
+                port: serverPort,
+                binaryName: ServerType.nodeJS.binaryName,
+                isExternalServer: false
+            )
+        }
+    }
+
+    /// Update server type and related settings
+    func updateServerType(_ type: ServerType) {
+        guard type != serverType else { return }
+
+        self.serverType = type
+        // Also update the enableGoServer flag for backward compatibility
+        self.enableGoServer = (type == .goServer)
+
+        saveConfiguration()
+        logger.info("Updated server type to: \(type.displayName)")
+    }
+
+    /// Update Go server specific settings
+    func updateGoServerSettings(port: Int? = nil, path: String? = nil, enabled: Bool? = nil) {
+        var changed = false
+
+        if let port = port, port != goServerPort {
+            self.goServerPort = port
+            changed = true
+        }
+
+        if let path = path, path != goServerPath {
+            self.goServerPath = path
+            changed = true
+        }
+
+        if let enabled = enabled, enabled != enableGoServer {
+            self.enableGoServer = enabled
+            // If enabling Go server, also update server type
+            if enabled {
+                self.serverType = .goServer
+            }
+            changed = true
+        }
+
+        if changed {
+            saveConfiguration()
+            logger.info("Updated Go server settings - port: \(self.goServerPort), enabled: \(self.enableGoServer)")
+        }
     }
 
     deinit {

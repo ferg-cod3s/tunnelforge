@@ -70,12 +70,12 @@ type SendCommandRequest struct {
 
 // TmuxService handles tmux operations
 type TmuxService struct {
-	sessionManager *session.Manager
+	sessionManager session.ManagerInterface
 	mu             sync.RWMutex
 }
 
 // NewTmuxService creates a new tmux service
-func NewTmuxService(sessionManager *session.Manager) *TmuxService {
+func NewTmuxService(sessionManager session.ManagerInterface) *TmuxService {
 	return &TmuxService{
 		sessionManager: sessionManager,
 	}

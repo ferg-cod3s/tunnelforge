@@ -1,11 +1,11 @@
-import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
-import type { Request, Response, NextFunction } from 'express';
-import { authenticateRequest, validateSession, checkPermissions } from './auth';
+import type { NextFunction, Request, Response } from 'express';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import { authenticateRequest, checkPermissions, validateSession } from './auth';
 
 // Create mock jwt module
 const mockJwt = {
   verify: vi.fn(),
-  sign: vi.fn()
+  sign: vi.fn(),
 };
 
 // Mock jsonwebtoken module
@@ -23,7 +23,7 @@ describe.skip('Authentication Middleware - Comprehensive Tests', () => {
       query: {},
       body: {},
       ip: '127.0.0.1',
-      get: vi.fn((header: string) => req.headers?.[header.toLowerCase()])
+      get: vi.fn((header: string) => req.headers?.[header.toLowerCase()]),
     };
 
     res = {
@@ -32,7 +32,7 @@ describe.skip('Authentication Middleware - Comprehensive Tests', () => {
       send: vi.fn().mockReturnThis(),
       cookie: vi.fn().mockReturnThis(),
       clearCookie: vi.fn().mockReturnThis(),
-      locals: {}
+      locals: {},
     };
 
     next = vi.fn();
@@ -45,7 +45,7 @@ describe.skip('Authentication Middleware - Comprehensive Tests', () => {
   describe('Token Validation Edge Cases', () => {
     it('should reject malformed JWT tokens', async () => {
       req.headers = { authorization: 'Bearer malformed.token.here' };
-      
+
       mockJwt.verify.mockImplementation(() => {
         throw new Error('Invalid token');
       });
@@ -55,14 +55,14 @@ describe.skip('Authentication Middleware - Comprehensive Tests', () => {
       expect(res.status).toHaveBeenCalledWith(401);
       expect(res.json).toHaveBeenCalledWith(
         expect.objectContaining({
-          error: expect.stringContaining('Invalid token')
+          error: expect.stringContaining('Invalid token'),
         })
       );
     });
 
     it('should reject expired tokens', async () => {
       req.headers = { authorization: 'Bearer expired.token' };
-      
+
       mockJwt.verify.mockImplementation(() => {
         const error: any = new Error('jwt expired');
         error.name = 'TokenExpiredError';
@@ -74,14 +74,14 @@ describe.skip('Authentication Middleware - Comprehensive Tests', () => {
       expect(res.status).toHaveBeenCalledWith(401);
       expect(res.json).toHaveBeenCalledWith(
         expect.objectContaining({
-          error: 'Token expired'
+          error: 'Token expired',
         })
       );
     });
 
     it('should handle tokens with invalid signatures', async () => {
       req.headers = { authorization: 'Bearer token.with.invalid.signature' };
-      
+
       mockJwt.verify.mockImplementation(() => {
         const error: any = new Error('invalid signature');
         error.name = 'JsonWebTokenError';
@@ -93,14 +93,14 @@ describe.skip('Authentication Middleware - Comprehensive Tests', () => {
       expect(res.status).toHaveBeenCalledWith(401);
       expect(res.json).toHaveBeenCalledWith(
         expect.objectContaining({
-          error: expect.stringContaining('invalid signature')
+          error: expect.stringContaining('invalid signature'),
         })
       );
     });
 
     it('should reject tokens signed with wrong algorithm', async () => {
       req.headers = { authorization: 'Bearer token' };
-      
+
       // Simulate algorithm mismatch attack
       mockJwt.verify.mockImplementation((token, secret, options: any) => {
         if (options?.algorithms && !options.algorithms.includes('HS256')) {
@@ -116,7 +116,7 @@ describe.skip('Authentication Middleware - Comprehensive Tests', () => {
         'token',
         expect.anything(),
         expect.objectContaining({
-          algorithms: ['HS256']
+          algorithms: ['HS256'],
         })
       );
     });
@@ -129,13 +129,17 @@ describe.skip('Authentication Middleware - Comprehensive Tests', () => {
 
       mockJwt.verify.mockReturnValue({
         userId: 'user1',
-        iat: Date.now() / 1000
+        iat: Date.now() / 1000,
       });
 
       await authenticateRequest(req as Request, res as Response, next);
 
       // Should use header token first
-      expect(mockJwt.verify).toHaveBeenCalledWith('header-token', expect.anything(), expect.anything());
+      expect(mockJwt.verify).toHaveBeenCalledWith(
+        'header-token',
+        expect.anything(),
+        expect.anything()
+      );
     });
 
     it('should fallback to cookie token when no header', async () => {
@@ -143,12 +147,16 @@ describe.skip('Authentication Middleware - Comprehensive Tests', () => {
 
       mockJwt.verify.mockReturnValue({
         userId: 'user1',
-        iat: Date.now() / 1000
+        iat: Date.now() / 1000,
       });
 
       await authenticateRequest(req as Request, res as Response, next);
 
-      expect(mockJwt.verify).toHaveBeenCalledWith('cookie-token', expect.anything(), expect.anything());
+      expect(mockJwt.verify).toHaveBeenCalledWith(
+        'cookie-token',
+        expect.anything(),
+        expect.anything()
+      );
     });
 
     it('should sanitize token before verification', async () => {
@@ -157,7 +165,7 @@ describe.skip('Authentication Middleware - Comprehensive Tests', () => {
 
       mockJwt.verify.mockReturnValue({
         userId: 'user1',
-        iat: Date.now() / 1000
+        iat: Date.now() / 1000,
       });
 
       await authenticateRequest(req as Request, res as Response, next);
@@ -174,12 +182,12 @@ describe.skip('Authentication Middleware - Comprehensive Tests', () => {
   describe('Session Validation Edge Cases', () => {
     it('should reject sessions that are too old', async () => {
       const oldSessionTime = Date.now() / 1000 - (24 * 60 * 60 + 1); // 24h + 1s ago
-      
+
       req.headers = { authorization: 'Bearer valid-token' };
       mockJwt.verify.mockReturnValue({
         userId: 'user1',
         sessionId: 'session1',
-        iat: oldSessionTime
+        iat: oldSessionTime,
       });
 
       await validateSession(req as Request, res as Response, next);
@@ -187,19 +195,19 @@ describe.skip('Authentication Middleware - Comprehensive Tests', () => {
       expect(res.status).toHaveBeenCalledWith(401);
       expect(res.json).toHaveBeenCalledWith(
         expect.objectContaining({
-          error: 'Session expired'
+          error: 'Session expired',
         })
       );
     });
 
     it('should handle session refresh for active users', async () => {
       const recentActivity = Date.now() / 1000 - 1800; // 30 minutes ago
-      
+
       req.headers = { authorization: 'Bearer valid-token' };
       mockJwt.verify.mockReturnValue({
         userId: 'user1',
         sessionId: 'session1',
-        iat: recentActivity
+        iat: recentActivity,
       });
 
       // Mock jwt.sign for refresh token
@@ -214,7 +222,7 @@ describe.skip('Authentication Middleware - Comprehensive Tests', () => {
         expect.objectContaining({
           httpOnly: true,
           secure: true,
-          sameSite: 'strict'
+          sameSite: 'strict',
         })
       );
     });
@@ -222,12 +230,12 @@ describe.skip('Authentication Middleware - Comprehensive Tests', () => {
     it('should detect and prevent session hijacking', async () => {
       req.headers = { authorization: 'Bearer valid-token' };
       req.ip = '192.168.1.100'; // Different IP
-      
+
       mockJwt.verify.mockReturnValue({
         userId: 'user1',
         sessionId: 'session1',
         ip: '10.0.0.1', // Original IP
-        iat: Date.now() / 1000
+        iat: Date.now() / 1000,
       });
 
       await validateSession(req as Request, res as Response, next);
@@ -236,34 +244,34 @@ describe.skip('Authentication Middleware - Comprehensive Tests', () => {
       expect(res.status).toHaveBeenCalledWith(401);
       expect(res.json).toHaveBeenCalledWith(
         expect.objectContaining({
-          error: expect.stringContaining('Security violation')
+          error: expect.stringContaining('Security violation'),
         })
       );
     });
 
     it('should handle concurrent session limits', async () => {
       req.headers = { authorization: 'Bearer valid-token' };
-      
+
       mockJwt.verify.mockReturnValue({
         userId: 'user1',
         sessionId: 'session5', // 5th session
-        iat: Date.now() / 1000
+        iat: Date.now() / 1000,
       });
 
       // Mock session store to show user has max sessions
       const mockSessionStore = {
-        getUserSessionCount: vi.fn().mockResolvedValue(5)
+        getUserSessionCount: vi.fn().mockResolvedValue(5),
       };
 
       await validateSession(req as Request, res as Response, next, {
         maxConcurrentSessions: 3,
-        sessionStore: mockSessionStore
+        sessionStore: mockSessionStore,
       });
 
       expect(res.status).toHaveBeenCalledWith(429);
       expect(res.json).toHaveBeenCalledWith(
         expect.objectContaining({
-          error: 'Maximum concurrent sessions exceeded'
+          error: 'Maximum concurrent sessions exceeded',
         })
       );
     });
@@ -274,8 +282,8 @@ describe.skip('Authentication Middleware - Comprehensive Tests', () => {
       res.locals = {
         user: {
           id: 'user1',
-          roles: ['admin']
-        }
+          roles: ['admin'],
+        },
       };
 
       const requireAdmin = checkPermissions(['admin']);
@@ -288,8 +296,8 @@ describe.skip('Authentication Middleware - Comprehensive Tests', () => {
       res.locals = {
         user: {
           id: 'user1',
-          roles: ['user']
-        }
+          roles: ['user'],
+        },
       };
 
       const requireAdmin = checkPermissions(['admin']);
@@ -298,7 +306,7 @@ describe.skip('Authentication Middleware - Comprehensive Tests', () => {
       expect(res.status).toHaveBeenCalledWith(403);
       expect(res.json).toHaveBeenCalledWith(
         expect.objectContaining({
-          error: 'Insufficient permissions'
+          error: 'Insufficient permissions',
         })
       );
     });
@@ -307,8 +315,8 @@ describe.skip('Authentication Middleware - Comprehensive Tests', () => {
       res.locals = {
         user: {
           id: 'user1',
-          permissions: ['sessions:*'] // Wildcard permission
-        }
+          permissions: ['sessions:*'], // Wildcard permission
+        },
       };
 
       const requireSessionWrite = checkPermissions(['sessions:write']);
@@ -321,16 +329,16 @@ describe.skip('Authentication Middleware - Comprehensive Tests', () => {
       res.locals = {
         user: {
           id: 'user1',
-          permissions: ['session:123:read'] // Specific resource
-        }
+          permissions: ['session:123:read'], // Specific resource
+        },
       };
-      
+
       req.params = { sessionId: '456' }; // Different session
 
       const requireSessionRead = checkPermissions((req) => [
-        `session:${req.params.sessionId}:read`
+        `session:${req.params.sessionId}:read`,
       ]);
-      
+
       await requireSessionRead(req as Request, res as Response, next);
 
       expect(res.status).toHaveBeenCalledWith(403);
@@ -342,9 +350,9 @@ describe.skip('Authentication Middleware - Comprehensive Tests', () => {
           id: 'user1',
           roles: ['moderator'],
           rolePermissions: {
-            moderator: ['user:*', 'session:view']
-          }
-        }
+            moderator: ['user:*', 'session:view'],
+          },
+        },
       };
 
       const requireUserManagement = checkPermissions(['user:delete']);
@@ -357,11 +365,11 @@ describe.skip('Authentication Middleware - Comprehensive Tests', () => {
   describe('CSRF Protection Edge Cases', () => {
     it('should validate CSRF tokens for state-changing operations', async () => {
       req.method = 'POST';
-      req.headers = { 
-        'x-csrf-token': 'invalid-csrf-token'
+      req.headers = {
+        'x-csrf-token': 'invalid-csrf-token',
       };
       req.session = {
-        csrfToken: 'valid-csrf-token'
+        csrfToken: 'valid-csrf-token',
       };
 
       await authenticateRequest(req as Request, res as Response, next);
@@ -369,7 +377,7 @@ describe.skip('Authentication Middleware - Comprehensive Tests', () => {
       expect(res.status).toHaveBeenCalledWith(403);
       expect(res.json).toHaveBeenCalledWith(
         expect.objectContaining({
-          error: 'Invalid CSRF token'
+          error: 'Invalid CSRF token',
         })
       );
     });
@@ -377,10 +385,10 @@ describe.skip('Authentication Middleware - Comprehensive Tests', () => {
     it('should skip CSRF for safe methods', async () => {
       req.method = 'GET';
       req.headers = { authorization: 'Bearer valid-token' };
-      
+
       mockJwt.verify.mockReturnValue({
         userId: 'user1',
-        iat: Date.now() / 1000
+        iat: Date.now() / 1000,
       });
 
       await authenticateRequest(req as Request, res as Response, next);
@@ -396,7 +404,7 @@ describe.skip('Authentication Middleware - Comprehensive Tests', () => {
 
       mockJwt.verify.mockReturnValue({
         userId: 'user1',
-        iat: Date.now() / 1000
+        iat: Date.now() / 1000,
       });
 
       await authenticateRequest(req as Request, res as Response, next);
@@ -409,30 +417,30 @@ describe.skip('Authentication Middleware - Comprehensive Tests', () => {
   describe('Rate Limiting Edge Cases', () => {
     it('should enforce rate limits per user', async () => {
       const mockRateLimiter = {
-        consume: vi.fn().mockRejectedValue({ remainingPoints: 0 })
+        consume: vi.fn().mockRejectedValue({ remainingPoints: 0 }),
       };
 
       req.headers = { authorization: 'Bearer valid-token' };
       mockJwt.verify.mockReturnValue({
         userId: 'user1',
-        iat: Date.now() / 1000
+        iat: Date.now() / 1000,
       });
 
       await authenticateRequest(req as Request, res as Response, next, {
-        rateLimiter: mockRateLimiter
+        rateLimiter: mockRateLimiter,
       });
 
       expect(res.status).toHaveBeenCalledWith(429);
       expect(res.json).toHaveBeenCalledWith(
         expect.objectContaining({
-          error: 'Too many requests'
+          error: 'Too many requests',
         })
       );
     });
 
     it('should handle rate limit by IP for unauthenticated requests', async () => {
       const mockRateLimiter = {
-        consume: vi.fn().mockRejectedValue({ remainingPoints: 0 })
+        consume: vi.fn().mockRejectedValue({ remainingPoints: 0 }),
       };
 
       req.ip = '192.168.1.100';
@@ -440,7 +448,7 @@ describe.skip('Authentication Middleware - Comprehensive Tests', () => {
 
       await authenticateRequest(req as Request, res as Response, next, {
         rateLimiter: mockRateLimiter,
-        allowAnonymous: true
+        allowAnonymous: true,
       });
 
       expect(mockRateLimiter.consume).toHaveBeenCalledWith('192.168.1.100');
@@ -448,21 +456,21 @@ describe.skip('Authentication Middleware - Comprehensive Tests', () => {
 
     it('should apply stricter limits for sensitive operations', async () => {
       const mockRateLimiter = {
-        consume: vi.fn().mockResolvedValue({ remainingPoints: 1 })
+        consume: vi.fn().mockResolvedValue({ remainingPoints: 1 }),
       };
 
       req.path = '/api/admin/users/delete';
       req.headers = { authorization: 'Bearer valid-token' };
-      
+
       mockJwt.verify.mockReturnValue({
         userId: 'admin1',
         roles: ['admin'],
-        iat: Date.now() / 1000
+        iat: Date.now() / 1000,
       });
 
       await authenticateRequest(req as Request, res as Response, next, {
         rateLimiter: mockRateLimiter,
-        sensitiveEndpoints: ['/api/admin/*']
+        sensitiveEndpoints: ['/api/admin/*'],
       });
 
       // Should use stricter rate limit
@@ -476,10 +484,10 @@ describe.skip('Authentication Middleware - Comprehensive Tests', () => {
   describe('Security Headers', () => {
     it('should set appropriate security headers', async () => {
       req.headers = { authorization: 'Bearer valid-token' };
-      
+
       mockJwt.verify.mockReturnValue({
         userId: 'user1',
-        iat: Date.now() / 1000
+        iat: Date.now() / 1000,
       });
 
       await authenticateRequest(req as Request, res as Response, next);
@@ -488,7 +496,7 @@ describe.skip('Authentication Middleware - Comprehensive Tests', () => {
         'X-Content-Type-Options': 'nosniff',
         'X-Frame-Options': 'DENY',
         'X-XSS-Protection': '1; mode=block',
-        'Strict-Transport-Security': 'max-age=31536000; includeSubDomains'
+        'Strict-Transport-Security': 'max-age=31536000; includeSubDomains',
       });
     });
   });
@@ -497,14 +505,14 @@ describe.skip('Authentication Middleware - Comprehensive Tests', () => {
     it('should allow local bypass when enabled', async () => {
       process.env.TUNNELFORGE_AUTH_BYPASS = 'true';
       req.ip = '127.0.0.1';
-      
+
       await authenticateRequest(req as Request, res as Response, next);
 
       expect(next).toHaveBeenCalled();
       expect(res.locals.user).toEqual(
         expect.objectContaining({
           id: 'local-user',
-          bypass: true
+          bypass: true,
         })
       );
 
@@ -514,11 +522,11 @@ describe.skip('Authentication Middleware - Comprehensive Tests', () => {
     it('should reject local bypass from non-local IPs', async () => {
       process.env.TUNNELFORGE_AUTH_BYPASS = 'true';
       req.ip = '192.168.1.100'; // Non-local IP
-      
+
       await authenticateRequest(req as Request, res as Response, next);
 
       expect(res.status).toHaveBeenCalledWith(401);
-      
+
       delete process.env.TUNNELFORGE_AUTH_BYPASS;
     });
 
@@ -527,11 +535,11 @@ describe.skip('Authentication Middleware - Comprehensive Tests', () => {
       process.env.TUNNELFORGE_BYPASS_TOKEN = 'secret-token';
       req.ip = '127.0.0.1';
       req.headers = { 'x-bypass-token': 'wrong-token' };
-      
+
       await authenticateRequest(req as Request, res as Response, next);
 
       expect(res.status).toHaveBeenCalledWith(401);
-      
+
       delete process.env.TUNNELFORGE_AUTH_BYPASS;
       delete process.env.TUNNELFORGE_BYPASS_TOKEN;
     });
@@ -541,39 +549,39 @@ describe.skip('Authentication Middleware - Comprehensive Tests', () => {
     it('should log authentication failures', async () => {
       const mockLogger = {
         warn: vi.fn(),
-        error: vi.fn()
+        error: vi.fn(),
       };
 
       req.headers = { authorization: 'Bearer invalid-token' };
       req.ip = '192.168.1.100';
-      
+
       mockJwt.verify.mockImplementation(() => {
         throw new Error('Invalid token');
       });
 
       await authenticateRequest(req as Request, res as Response, next, {
-        logger: mockLogger
+        logger: mockLogger,
       });
 
       expect(mockLogger.warn).toHaveBeenCalledWith(
         expect.objectContaining({
           event: 'auth_failure',
           ip: '192.168.1.100',
-          reason: expect.stringContaining('Invalid token')
+          reason: expect.stringContaining('Invalid token'),
         })
       );
     });
 
     it('should log permission violations', async () => {
       const mockLogger = {
-        warn: vi.fn()
+        warn: vi.fn(),
       };
 
       res.locals = {
         user: {
           id: 'user1',
-          roles: ['user']
-        }
+          roles: ['user'],
+        },
       };
 
       const requireAdmin = checkPermissions(['admin'], { logger: mockLogger });
@@ -584,7 +592,7 @@ describe.skip('Authentication Middleware - Comprehensive Tests', () => {
           event: 'permission_denied',
           userId: 'user1',
           required: ['admin'],
-          actual: ['user']
+          actual: ['user'],
         })
       );
     });

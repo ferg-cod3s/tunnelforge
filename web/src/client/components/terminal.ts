@@ -513,14 +513,14 @@ export class Terminal extends LitElement {
       // Get user preference for scrollback size (default to optimized value)
       const prefs = TerminalPreferencesManager.getInstance();
       const scrollbackLines = this.getOptimizedScrollback();
-      
+
       // Apply mobile-optimized font sizing
       const optimizedFontSize = this.getOptimizedFontSize();
       if (optimizedFontSize !== this.fontSize) {
         this.fontSize = optimizedFontSize;
         logger.debug(`[Terminal] Applied optimized font size: ${optimizedFontSize}px`);
       }
-      
+
       // Get mobile capabilities for additional optimizations
       const mobileCapabilities = this.getMobileCapabilities();
 
@@ -1746,7 +1746,7 @@ export class Terminal extends LitElement {
       // Increase base font size on mobile for better readability
       const mobileScaleFactor = 1.2;
       fontSize = Math.max(fontSize * mobileScaleFactor, 16);
-      
+
       // Consider device pixel ratio for high-DPI displays
       const devicePixelRatio = window.devicePixelRatio || 1;
       if (devicePixelRatio >= 2) {
@@ -1756,13 +1756,15 @@ export class Terminal extends LitElement {
         // On lower-DPI screens, increase font size for readability
         fontSize = fontSize * 1.1;
       }
-      
+
       // Clamp to reasonable range for mobile
       fontSize = Math.max(14, Math.min(22, fontSize));
-      
-      logger.debug(`[Terminal] Mobile font size adjusted: ${this.fontSize} → ${fontSize} (DPR: ${devicePixelRatio})`);
+
+      logger.debug(
+        `[Terminal] Mobile font size adjusted: ${this.fontSize} → ${fontSize} (DPR: ${devicePixelRatio})`
+      );
     }
-    
+
     return Math.round(fontSize);
   }
 
@@ -1775,27 +1777,27 @@ export class Terminal extends LitElement {
         isLowEnd: false,
         isTouchPrimary: false,
         hasHighDPI: false,
-        maxTouchPoints: 0
+        maxTouchPoints: 0,
       };
     }
-    
+
     const capabilities = {
       isLowEnd: false,
       isTouchPrimary: true,
       hasHighDPI: window.devicePixelRatio >= 2,
-      maxTouchPoints: navigator.maxTouchPoints || 0
+      maxTouchPoints: navigator.maxTouchPoints || 0,
     };
-    
+
     // Detect low-end devices based on hardware concurrency and memory
     if ('hardwareConcurrency' in navigator && navigator.hardwareConcurrency <= 2) {
       capabilities.isLowEnd = true;
     }
-    
+
     // Check for device memory API (if available)
     if ('deviceMemory' in navigator && (navigator as any).deviceMemory <= 2) {
       capabilities.isLowEnd = true;
     }
-    
+
     // Check connection quality for performance hints
     if ('connection' in navigator && (navigator as any).connection) {
       const connection = (navigator as any).connection;
@@ -1803,7 +1805,7 @@ export class Terminal extends LitElement {
         capabilities.isLowEnd = true;
       }
     }
-    
+
     logger.debug(`[Terminal] Mobile capabilities:`, capabilities);
     return capabilities;
   }
@@ -1860,7 +1862,7 @@ export class Terminal extends LitElement {
       }
 
       // Try to use Canvas addon if WebGL failed
-      if (CanvasAddon && (!WebglAddon || addonErrors.some(e => e.addon.includes('WebGL')))) {
+      if (CanvasAddon && (!WebglAddon || addonErrors.some((e) => e.addon.includes('WebGL')))) {
         try {
           const canvasAddon = new CanvasAddon();
           // Note: We can't call loadAddon on headless terminal, but we keep the logic for future use
@@ -1885,15 +1887,21 @@ export class Terminal extends LitElement {
       }
 
       const loadTime = performance.now() - startTime;
-      
+
       if (addonsLoaded.length > 0) {
-        logger.debug(`[Terminal] Performance addons loaded in ${loadTime.toFixed(2)}ms:`, addonsLoaded.join(', '));
+        logger.debug(
+          `[Terminal] Performance addons loaded in ${loadTime.toFixed(2)}ms:`,
+          addonsLoaded.join(', ')
+        );
       } else {
         logger.warn('[Terminal] No performance addons could be loaded');
       }
 
       if (addonErrors.length > 0) {
-        logger.warn('[Terminal] Some addons failed to load:', addonErrors.map(e => `${e.addon}: ${e.error.message}`).join(', '));
+        logger.warn(
+          '[Terminal] Some addons failed to load:',
+          addonErrors.map((e) => `${e.addon}: ${e.error.message}`).join(', ')
+        );
       }
 
       // Track performance metrics for debugging
@@ -1904,7 +1912,6 @@ export class Terminal extends LitElement {
           errors: addonErrors.length,
         });
       }
-
     } catch (error) {
       logger.error('[Terminal] Unexpected error during addon loading:', error);
     }

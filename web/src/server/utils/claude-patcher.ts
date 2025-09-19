@@ -66,7 +66,10 @@ export function patchClaudeBinary(claudePath: string): string {
   // Create a unique temp file for backup
   const claudeFilename = path.basename(claudePath);
   const tempDir = os.tmpdir();
-  const backupPath = path.join(tempDir, `tunnelforge-claude-backup-${Date.now()}-${claudeFilename}`);
+  const backupPath = path.join(
+    tempDir,
+    `tunnelforge-claude-backup-${Date.now()}-${claudeFilename}`
+  );
 
   // Create backup
   fs.copyFileSync(claudePath, backupPath);

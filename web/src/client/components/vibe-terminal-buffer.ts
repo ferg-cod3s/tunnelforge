@@ -40,7 +40,7 @@ export class VibeTerminalBuffer extends LitElement {
   @state() private error: string | null = null;
   @state() private displayedFontSize = 16;
   @state() private visibleRows = 0;
-  @state() private scrollTop = 0;
+  @state() private virtualScrollTop = 0;
   @state() private virtualScrollEnabled = true;
 
   private container: HTMLElement | null = null;
@@ -352,7 +352,7 @@ export class VibeTerminalBuffer extends LitElement {
     // Calculate visible range with buffer padding
     const containerHeight = this.container.clientHeight;
     const visibleRowCount = Math.ceil(containerHeight / lineHeight);
-    const scrollPosition = this.scrollTop / lineHeight;
+    const scrollPosition = this.virtualScrollTop / lineHeight;
 
     // Add buffer rows above and below for smooth scrolling
     const bufferRows = Math.min(10, visibleRowCount);
@@ -386,7 +386,7 @@ export class VibeTerminalBuffer extends LitElement {
     // Update scroll handling
     if (!this.container.onscroll) {
       this.container.onscroll = () => {
-        this.scrollTop = this.container!.scrollTop;
+        this.virtualScrollTop = this.container!.scrollTop;
         // Throttle re-rendering during scroll
         if (!this.updateTimeout) {
           this.updateTimeout = setTimeout(() => {

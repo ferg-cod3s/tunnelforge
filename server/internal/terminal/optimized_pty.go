@@ -26,9 +26,9 @@ type SSEBroadcaster interface {
 
 // OptimizedPTYManager manages terminal PTY sessions with performance optimizations
 type OptimizedPTYManager struct {
-	sessions      map[string]*OptimizedPTYSession
-	mu            sync.RWMutex
-	envTemplate   []string // Pre-computed environment template
+	sessions       map[string]*OptimizedPTYSession
+	mu             sync.RWMutex
+	envTemplate    []string       // Pre-computed environment template
 	sseBroadcaster SSEBroadcaster // For broadcasting to SSE streams
 }
 
@@ -58,7 +58,7 @@ type OptimizedPTYSession struct {
 	initialized int32 // atomic flag for lazy init
 	initMu      sync.Mutex
 	initErr     error
-	
+
 	// Reference to manager for SSE broadcasting
 	manager *OptimizedPTYManager
 }
@@ -71,8 +71,8 @@ func NewOptimizedPTYManager() *OptimizedPTYManager {
 	copy(envTemplate, baseEnv)
 
 	return &OptimizedPTYManager{
-		sessions:      make(map[string]*OptimizedPTYSession),
-		envTemplate:   envTemplate,
+		sessions:       make(map[string]*OptimizedPTYSession),
+		envTemplate:    envTemplate,
 		sseBroadcaster: nil, // Will be set later
 	}
 }
@@ -441,7 +441,7 @@ func (s *OptimizedPTYSession) BroadcastOutput(data []byte) {
 			log.Printf("Client %s send channel full, skipping output", client.ID[:8])
 		}
 	}
-	
+
 	// Broadcast to SSE streams via the manager
 	if s.manager != nil && s.manager.sseBroadcaster != nil {
 		s.manager.sseBroadcaster.BroadcastToSSEStreams(s.ID, data)
@@ -519,6 +519,23 @@ func (s *OptimizedPTYSession) GetClients() []*types.WSClient {
 		clients = append(clients, client)
 	}
 	return clients
+}
+
+// GetCommand returns the underlying exec.Cmd for process management
+func (s *OptimizedPTYSession) GetCommand() *exec.Cmd {
+	s.mu.RLock()
+	defer s.mu.RUnlock()
+	return s.cmd
+}
+
+// Initialize forces immediate initialization of the PTY session
+func (s *OptimizedPTYSession) Initialize() error {
+	// Get environment template from manager
+	if s.manager != nil {
+		// Use the manager's environment template
+		return s.ensureInitialized(s.manager.envTemplate)
+	}
+	return fmt.Errorf("manager not set")
 }
 
 // List other required methods for interface compatibility...
