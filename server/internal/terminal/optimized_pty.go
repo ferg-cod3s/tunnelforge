@@ -89,14 +89,17 @@ func (m *OptimizedPTYManager) CreateSession(req *types.SessionCreateRequest) (*t
 	now := time.Now()
 
 	// Set defaults without expensive operations
-	command := req.Command
-	if command == "" {
+	var command string
+	if len(req.Command) == 0 {
 		// Use system shell or fallback to zsh on macOS
 		shell := os.Getenv("SHELL")
 		if shell == "" {
 			shell = "/bin/zsh" // fallback for macOS
 		}
 		command = shell
+	} else {
+		// Join command array into string
+		command = strings.Join(req.Command, " ")
 	}
 
 	cwd := req.Cwd

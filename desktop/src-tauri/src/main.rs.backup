@@ -1,10 +1,7 @@
 // TunnelForge Desktop - Cross-Platform Tauri v2 Application
-use tauri::tray::{TrayIconBuilder, TrayIconEvent};
-use tauri::menu::{MenuBuilder, MenuItemBuilder, SubmenuBuilder};
-use tauri::image::Image;
 // This manages the Bun-based TunnelForge server and provides a native desktop interface.
 
-#[cfg_attr(not(debug_assertions), windows_subsystem = "windows")]
+#![cfg_attr(not(debug_assertions), windows_subsystem = "windows")]
 
 use std::process::{Child, Command};
 use std::sync::{Arc, Mutex};
@@ -12,7 +9,7 @@ use std::thread;
 use std::time::Duration;
 use std::path::Path;
 use serde::{Deserialize, Serialize};
-use tauri::{AppHandle, Manager, State, Emitter};
+use tauri::{AppHandle, Manager, State, Emitter, tray::TrayIcon};
 use log::{info, error};
 use tauri_plugin_log::{Target, TargetKind};
 
@@ -104,6 +101,7 @@ async fn restart_server(state: State<'_, AppState>, app: AppHandle) -> Result<()
     }
     
     add_log_entry("info", "Server restarted successfully");
+    add_log_entry("info", "NOTIFICATION: TunnelForge - Server restarted successfully");
     Ok(())
 }
 
@@ -227,6 +225,19 @@ async fn get_app_version() -> Result<String, String> {
 
 // Global log buffer for storing runtime logs
 static LOG_BUFFER: std::sync::Mutex<Vec<LogEntry>> = std::sync::Mutex::new(Vec::new());
+
+// Create system tray menu - temporarily disabled for Tauri v2 compatibility
+fn create_system_tray(app: &tauri::App) -> Result<(), String> {
+    // TODO: Implement Tauri v2 tray API properly
+    add_log_entry("info", "System tray functionality temporarily disabled");
+    Ok(())
+}
+
+// Handle system tray events - temporarily disabled for Tauri v2 compatibility
+fn handle_system_tray_event(app: &AppHandle, event: tauri::tray::TrayIconEvent) {
+    // TODO: Implement Tauri v2 tray event handling properly
+    add_log_entry("debug", "Tray event received but not handled");
+}
 
 // Add a log entry to the buffer
 fn add_log_entry(level: &str, message: &str) {
@@ -463,11 +474,9 @@ fn start_server_internal(state: &State<AppState>, app: &AppHandle) -> Result<(),
                     port: state.server_port,
                     pid: Some(child_id),
                 });
-                
-                // Update tray menu with new status
-                let _ = create_tray_menu(app, true);
             }
             
+            add_log_entry("info", "NOTIFICATION: TunnelForge - Server started successfully");
             Ok(())
         }
         Err(e) => {
@@ -491,6 +500,7 @@ fn stop_server_internal(state: &State<AppState>) -> Result<(), String> {
                 // Wait for process to exit
                 let _ = child.wait();
                 info!("TunnelForge server stopped successfully");
+                add_log_entry("info", "NOTIFICATION: TunnelForge - Server stopped successfully");
                 Ok(())
             }
             Err(e) => {
@@ -684,184 +694,11 @@ pub fn run() {
             }
             
             add_log_entry("info", "TunnelForge Desktop initialization complete");
-            
-            // Initialize system tray
-            add_log_entry("info", "Initializing system tray...");
-            if let Err(e) = create_tray_menu(app, false) {
-                add_log_entry("error", &format!("Failed to create system tray: {}", e));
-            } else {
-                add_log_entry("info", "System tray initialized successfully");
-            }
-            
-            // Set up periodic status updates for tray
-            let app_handle = app.handle().clone();
-            std::thread::spawn(move || {
-                loop {
-                    std::thread::sleep(Duration::from_secs(30)); // Update every 30 seconds
-                    let app = app_handle.clone();
-                    tauri::async_runtime::spawn(async move {
-                        let state = app.state::<AppState>();
-                        if let Ok(status) = get_server_status(state).await {
-                            // Update tray menu with current status
-                            let _ = create_tray_menu(&app, status.running);
-                        }
-                    });
-                }
-            });
-            
-            add_log_entry("info", "TunnelForge Desktop initialization complete");
             Ok(())
         })
         .run(tauri::generate_context!())
         .expect("error while running tauri application");
 }
-
-// Create system tray menu
-fn create_tray_menu(app: fn create_tray_menu(app: &AppHandle, server_running: bool)tauri::App, server_running: bool) -> Result<(), Box<dyn std::error::Error>> {
-    let status_text = if server_running { "🟢 Server Running" } else { "🔴 Server Stopped" };
-    
-    let menu = MenuBuilder::new(app)
-        .item(&MenuItemBuilder::new(status_text).enabled(false).build(app)?)
-        .separator()
-        .item(&MenuItemBuilder::new("Start Server").id("start_server").build(app)?)
-        .item(&MenuItemBuilder::new("Stop Server").id("stop_server").build(app)?)
-        .item(&MenuItemBuilder::new("Restart Server").id("restart_server").build(app)?)
-        .separator()
-        .item(&MenuItemBuilder::new("Open Dashboard").id("open_dashboard").build(app)?)
-        .item(&MenuItemBuilder::new("Open in Browser").id("open_browser").build(app)?)
-        .separator()
-        .item(&MenuItemBuilder::new("Settings").id("settings").build(app)?)
-        .item(&MenuItemBuilder::new("Check Status").id("check_status").build(app)?)
-        .separator()
-        .item(&MenuItemBuilder::new("Quit").id("quit").build(app)?)
-        .build()?;
-    
-    // Try to create tray icon with different icon paths
-    let icon_result = if Path::new("../assets/tray.png").exists() {
-        TrayIconBuilder::new()
-            .icon(Image::from_path("../assets/tray.png")?)
-            .menu(&menu)
-            .on_menu_event(move |app, event| {
-                handle_tray_menu_event(app, event);
-            })
-            .build(app)
-    } else if Path::new("icons/tray.png").exists() {
-        TrayIconBuilder::new()
-            .icon(Image::from_path("icons/tray.png")?)
-            .menu(&menu)
-            .on_menu_event(move |app, event| {
-                handle_tray_menu_event(app, event);
-            })
-            .build(app)
-    } else {
-        // Fallback without custom icon
-        TrayIconBuilder::new()
-            .menu(&menu)
-            .on_menu_event(move |app, event| {
-                handle_tray_menu_event(app, event);
-            })
-            .build(app)
-    };
-    
-    match icon_result {
-        Ok(_) => {
-            add_log_entry("info", "System tray icon created successfully");
-            Ok(())
-        }
-        Err(e) => {
-            add_log_entry("error", &format!("Failed to create tray icon: {}", e));
-            Err(Box::new(e))
-        }
-    }
-}
-
-// Handle tray menu events
-fn handle_tray_menu_event(app: fn handle_tray_menu_event(app: &AppHandle, event: TrayIconEvent)tauri::App, event: tauri::menu::MenuEvent) {
-    match event.id.as_str() {
-        "start_server" => {
-            add_log_entry("info", "Tray: Starting server...");
-            let app_handle = app.clone();
-            tauri::async_runtime::spawn(async move {
-                if let Err(e) = start_server_internal(&app_handle.state::<AppState>(), &app_handle) {
-                    add_log_entry("error", &format!("Tray: Failed to start server: {}", e));
-                }
-            });
-        }
-        "stop_server" => {
-            add_log_entry("info", "Tray: Stopping server...");
-            let app_handle = app.clone();
-            tauri::async_runtime::spawn(async move {
-                if let Err(e) = stop_server_internal(&app_handle.state::<AppState>()) {
-                    add_log_entry("error", &format!("Tray: Failed to stop server: {}", e));
-                }
-            });
-        }
-        "restart_server" => {
-            add_log_entry("info", "Tray: Restarting server...");
-            let app_handle = app.clone();
-            tauri::async_runtime::spawn(async move {
-                let state = app_handle.state::<AppState>();
-                if let Err(e) = stop_server_internal(&state) {
-                    add_log_entry("error", &format!("Tray: Failed to stop server: {}", e));
-                    return;
-                }
-                std::thread::sleep(Duration::from_millis(1000));
-                if let Err(e) = start_server_internal(&state, &app_handle) {
-                    add_log_entry("error", &format!("Tray: Failed to start server: {}", e));
-                }
-            });
-        }
-        "open_dashboard" => {
-            add_log_entry("info", "Tray: Opening dashboard...");
-            if let Some(window) = app.get_webview_window("main") {
-                let _ = window.show();
-                let _ = window.set_focus();
-            }
-        }
-        "open_browser" => {
-            add_log_entry("info", "Tray: Opening in browser...");
-            let url = "http://localhost:4021";
-            if let Err(e) = tauri_plugin_opener::open_url(url, None::<&str>) {
-                add_log_entry("error", &format!("Tray: Failed to open browser: {}", e));
-            }
-        }
-        "settings" => {
-            add_log_entry("info", "Tray: Opening settings...");
-            if let Some(window) = app.get_webview_window("main") {
-                let _ = window.show();
-                let _ = window.set_focus();
-                // Could emit an event to switch to settings tab
-                let _ = window.eval("showSection(\"settings\")");
-            }
-        }
-        "check_status" => {
-            add_log_entry("info", "Tray: Checking server status...");
-            let app_handle = app.clone();
-            tauri::async_runtime::spawn(async move {
-                let state = app_handle.state::<AppState>();
-                let status = get_server_status(state).await;
-                match status {
-                    Ok(s) => {
-                        let msg = format!("Server is {} on port {}", 
-                            if s.running { "running" } else { "stopped" }, s.port);
-                        add_log_entry("info", &format!("Tray: {}", msg));
-                        // Update tray menu with new status
-                        let _ = create_tray_menu(&app_handle, s.running);
-                    }
-                    Err(e) => add_log_entry("error", &format!("Tray: Failed to check status: {}", e)),
-                }
-            });
-        }
-        "quit" => {
-            add_log_entry("info", "Tray: Quitting application...");
-            app.exit(0);
-        }
-        _ => {
-            add_log_entry("debug", &format!("Tray: Unknown menu event: {}", event.id())format!("Tray: Unknown menu event: {:?}", event.id));
-        }
-    }
-}
-
 
 fn main() {
     run();
