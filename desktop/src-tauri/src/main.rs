@@ -9,7 +9,7 @@ use std::thread;
 use std::time::Duration;
 use std::path::Path;
 use serde::{Deserialize, Serialize};
-use tauri::{AppHandle, Manager, State, Emitter};
+use tauri::{AppHandle, Manager, State, Emitter, SystemTray, SystemTrayMenu, SystemTrayMenuItem, CustomMenuItem, SystemTrayEvent};
 use log::{info, error};
 use tauri_plugin_log::{Target, TargetKind};
 
@@ -225,6 +225,89 @@ async fn get_app_version() -> Result<String, String> {
 
 // Global log buffer for storing runtime logs
 static LOG_BUFFER: std::sync::Mutex<Vec<LogEntry>> = std::sync::Mutex::new(Vec::new());
+
+// Create system tray menu
+fn create_system_tray() -> SystemTray {
+    let open = CustomMenuItem::new("open".to_string(), "Open TunnelForge");
+    let new_session = CustomMenuItem::new("new_session".to_string(), "New Terminal Session");
+    let separator1 = SystemTrayMenuItem::Separator;
+    let server_status = CustomMenuItem::new("server_status".to_string(), "Server Status");
+    let separator2 = SystemTrayMenuItem::Separator;
+    let settings = CustomMenuItem::new("settings".to_string(), "Settings");
+    let about = CustomMenuItem::new("about".to_string(), "About");
+    let separator3 = SystemTrayMenuItem::Separator;
+    let quit = CustomMenuItem::new("quit".to_string(), "Quit TunnelForge");
+    
+    let menu = SystemTrayMenu::new()
+        .add_item(open)
+        .add_item(new_session)
+        .add_item(separator1)
+        .add_item(server_status)
+        .add_item(separator2)
+        .add_item(settings)
+        .add_item(about)
+        .add_item(separator3)
+        .add_item(quit);
+    
+    SystemTray::new().with_menu(menu)
+}
+
+// Handle system tray events
+fn handle_system_tray_event(app: &AppHandle, event: SystemTrayEvent) {
+    match event {
+        SystemTrayEvent::LeftClick { .. } => {
+            // Show/hide main window on left click
+            if let Some(window) = app.get_webview_window("main") {
+                if window.is_visible().unwrap_or(false) {
+                    let _ = window.hide();
+                } else {
+                    let _ = window.show();
+                    let _ = window.set_focus();
+                }
+            }
+        }
+        SystemTrayEvent::MenuItemClick { id, .. } => {
+            match id.as_str() {
+                "open" => {
+                    if let Some(window) = app.get_webview_window("main") {
+                        let _ = window.show();
+                        let _ = window.set_focus();
+                    }
+                }
+                "new_session" => {
+                    // Open new session in browser
+                    if let Some(window) = app.get_webview_window("main") {
+                        let _ = window.eval("window.location.href = '/';");
+                        let _ = window.show();
+                        let _ = window.set_focus();
+                    }
+                }
+                "server_status" => {
+                    // Show server status
+                    add_log_entry("info", "Server status requested from system tray");
+                }
+                "settings" => {
+                    // Open settings
+                    if let Some(window) = app.get_webview_window("main") {
+                        let _ = window.eval("window.location.href = '/settings';");
+                        let _ = window.show();
+                        let _ = window.set_focus();
+                    }
+                }
+                "about" => {
+                    // Show about dialog
+                    add_log_entry("info", "About dialog requested from system tray");
+                }
+                "quit" => {
+                    add_log_entry("info", "Quit requested from system tray");
+                    app.exit(0);
+                }
+                _ => {}
+            }
+        }
+        _ => {}
+    }
+}
 
 // Add a log entry to the buffer
 fn add_log_entry(level: &str, message: &str) {
@@ -627,6 +710,8 @@ pub fn run() {
 
     tauri::Builder::default()
         .manage(state)
+        .system_tray(create_system_tray())
+        .on_system_tray_event(handle_system_tray_event)
         .plugin(tauri_plugin_log::Builder::new()
             .targets([
                 Target::new(TargetKind::Stdout),

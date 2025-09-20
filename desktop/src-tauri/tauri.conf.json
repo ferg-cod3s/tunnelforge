@@ -2,7 +2,8 @@
   "$schema": "../gen/schemas/desktop-schema.json",
   "build": {
     "beforeBuildCommand": "echo 'Building TunnelForge Desktop interface'",
-    "frontendDist": "../dist"
+    "frontendDist": "../dist",
+    "devUrl": "http://localhost:4021"
   },
   "productName": "TunnelForge",
   "version": "1.0.0",
@@ -44,7 +45,7 @@
         "height": 800,
         "minWidth": 800,
         "minHeight": 600,
-        "visible": false,
+        "visible": true,
         "url": "index.html",
         "decorations": true,
         "alwaysOnTop": false,
