@@ -92,6 +92,14 @@ func (eb *EventBroadcaster) Stop() {
 
 // Broadcast sends an event to all connected clients
 func (eb *EventBroadcaster) Broadcast(event *types.ServerEvent) {
+	if eb == nil {
+		log.Printf("⚠️  EventBroadcaster is nil, cannot broadcast event: %s", event.Type)
+		return
+	}
+	if eb.eventChannel == nil {
+		log.Printf("⚠️  EventBroadcaster eventChannel is nil, cannot broadcast event: %s", event.Type)
+		return
+	}
 	select {
 	case eb.eventChannel <- event:
 		log.Printf("📢 Broadcasting event: %s", event.Type)
@@ -128,6 +136,11 @@ func (eb *EventBroadcaster) GetClientCount() int {
 // eventLoop handles the main event broadcasting logic
 func (eb *EventBroadcaster) eventLoop() {
 	defer log.Println("📡 Event broadcaster loop stopped")
+
+	if eb == nil {
+		log.Println("⚠️  EventBroadcaster is nil in eventLoop")
+		return
+	}
 
 	for {
 		select {
