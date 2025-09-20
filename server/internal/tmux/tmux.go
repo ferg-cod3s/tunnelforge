@@ -354,7 +354,7 @@ func (ts *TmuxService) AttachToTmux(sessionName string, windowIndex, paneIndex *
 
 	// Create terminal session that attaches to tmux
 	createOptions := &types.SessionCreateRequest{
-		Command: "tmux attach-session -t " + target,
+		Command: []string{"tmux", "attach-session", "-t", target},
 		Cwd:     "/",
 	}
 

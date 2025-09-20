@@ -1,0 +1,48 @@
+# Cross-compilation environment for Windows Tauri apps
+FROM ubuntu:22.04
+
+# Install basic dependencies
+RUN apt-get update && apt-get install -y \
+    curl \
+    wget \
+    git \
+    build-essential \
+    pkg-config \
+    libssl-dev \
+    && rm -rf /var/lib/apt/lists/*
+
+# Install Rust and cross-compilation tools
+RUN curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y
+ENV PATH="/root/.cargo/bin:${PATH}"
+RUN rustup target add x86_64-pc-windows-msvc
+
+# Install LLVM and Windows SDK tools
+RUN apt-get update && apt-get install -y \
+    llvm \
+    clang \
+    lld \
+    && rm -rf /var/lib/apt/lists/*
+
+# Install Node.js and Bun
+RUN curl -fsSL https://deb.nodesource.com/setup_18.x | bash - && \
+    apt-get install -y nodejs
+RUN curl -fsSL https://bun.sh/install | bash
+ENV PATH="/root/.bun/bin:${PATH}"
+
+# Install Tauri CLI
+RUN cargo install tauri-cli --locked
+
+# Set up working directory
+WORKDIR /app
+
+# Copy package files
+COPY package.json bun.lock* ./
+
+# Install dependencies
+RUN bun install
+
+# Copy source code
+COPY . .
+
+# Build command (will be run with proper volumes)
+CMD ["bash"]

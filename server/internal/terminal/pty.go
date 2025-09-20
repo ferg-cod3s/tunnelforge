@@ -7,6 +7,7 @@ import (
 	"log"
 	"os"
 	"os/exec"
+	"strings"
 	"sync"
 	"time"
 
@@ -63,14 +64,17 @@ func (m *PTYManager) CreateSession(req *types.SessionCreateRequest) (*types.Sess
 	sessionID := uuid.New().String()
 
 	// Set defaults
-	command := req.Command
-	if command == "" {
+	var command string
+	if len(req.Command) == 0 {
 		// Default to user's shell
 		shell := os.Getenv("SHELL")
 		if shell == "" {
 			shell = "/bin/zsh" // fallback for macOS
 		}
 		command = shell
+	} else {
+		// Join command array into string
+		command = strings.Join(req.Command, " ")
 	}
 
 	cwd := req.Cwd

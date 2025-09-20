@@ -37,11 +37,11 @@ type WSClient struct {
 
 // SessionCreateRequest represents a request to create a new session
 type SessionCreateRequest struct {
-	Command string `json:"command,omitempty"`
-	Cwd     string `json:"cwd,omitempty"`
-	Title   string `json:"title,omitempty"`
-	Cols    int    `json:"cols,omitempty"`
-	Rows    int    `json:"rows,omitempty"`
+	Command []string `json:"command,omitempty"`
+	Cwd     string   `json:"cwd,omitempty"`
+	Title   string   `json:"title,omitempty"`
+	Cols    int      `json:"cols,omitempty"`
+	Rows    int      `json:"rows,omitempty"`
 }
 
 // SessionResponse represents a session in API responses
