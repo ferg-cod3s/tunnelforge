@@ -7,10 +7,26 @@ import (
 	"sync"
 
 	"github.com/ferg-cod3s/tunnelforge/go-server/internal/persistence"
-	"github.com/ferg-cod3s/tunnelforge/go-server/internal/process"
 	"github.com/ferg-cod3s/tunnelforge/go-server/internal/terminal"
 	"github.com/ferg-cod3s/tunnelforge/go-server/pkg/types"
 )
+
+// ManagerInterface defines the interface for session management
+type ManagerInterface interface {
+	CreateSession(req *types.SessionCreateRequest) (*types.Session, error)
+	GetSession(sessionID string) (*types.Session, error)
+	DeleteSession(sessionID string) error
+	ListSessions() ([]*types.Session, error)
+	GetProcessInfo(sessionID string) (interface{}, bool)
+	GetProcessStats() map[string]interface{}
+	RegisterPTYProcess(sessionID string, cmd *exec.Cmd) error
+	// Additional methods needed by websocket handler
+	Get(sessionID string) *types.Session
+	AddClientToSession(sessionID string, client *types.WSClient) error
+	GetPTYSession(sessionID string) interface{}
+	// Additional methods needed by tmux
+	Create(req *types.SessionCreateRequest) (*types.Session, error)
+}
 
 type Manager struct {
 	ptyManager         *terminal.PTYManager
@@ -270,13 +286,30 @@ func (m *Manager) RegisterPTYProcess(sessionID string, cmd *exec.Cmd) error {
 }
 
 // GetProcessInfo gets process information (base implementation returns nil)
-func (m *Manager) GetProcessInfo(sessionID string) (*process.ProcessInfo, bool) {
+func (m *Manager) GetProcessInfo(sessionID string) (interface{}, bool) {
 	return nil, false
 }
 
 // GetProcessStats gets process statistics (base implementation returns empty map)
 func (m *Manager) GetProcessStats() map[string]interface{} {
 	return map[string]interface{}{}
+}
+
+
+// GetSession gets a session by ID (alias for Get)
+func (m *Manager) GetSession(sessionID string) (*types.Session, error) {
+	session := m.Get(sessionID)
+	if session == nil {
+		return nil, fmt.Errorf("session not found: %s", sessionID)
+	}
+	return session, nil
+}
+
+// DeleteSession deletes a session
+func (m *Manager) DeleteSession(sessionID string) error {
+	// Simple implementation - just return nil for now
+	// TODO: Implement proper session deletion
+	return nil
 }
 
 // Stop stops the manager (base implementation does nothing)
