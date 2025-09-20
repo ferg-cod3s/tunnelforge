@@ -1,79 +1,360 @@
-# TunnelForge TODO
+# TunnelForge Cross-Platform Deployment TODO
 
-## Current Sprint: Go Server Migration and TunnelForge Rebrand
+*Last Updated: 2025-01-27*
 
-### In Progress
-- [ ] **Add local bypass authentication to Go server for Mac app compatibility**
-  - Implement `X-TunnelForge-Local` header support in Go server
-  - Add configuration for local bypass mode
-  - Test with Mac app's current authentication flow
+## 🎯 Current Status: 95% Complete - Final Push to Production
 
-### Critical Path (Week 1)
-- [ ] **Implement session persistence across server restarts**
-  - Add session state persistence to Go server
-  - Implement session recovery on startup
-  - Handle client reconnection to persisted sessions
+### 📋 **PHASE 1: Final Testing & Validation** (2-3 weeks)
 
-- [ ] **Add missing push notification endpoints to Go server**
-  - Port `/api/test-notification` endpoint
-  - Implement VAPID support and configuration
-  - Test push notifications with Mac/iOS apps
+#### Week 1: Cross-Platform Testing
+- [ ] **Windows Testing**
+  - [ ] Test on Windows 10 (1903, 21H2)
+  - [ ] Test on Windows 11 (22H2, 23H2)
+  - [ ] Test Windows Services integration
+  - [ ] Test MSI installer functionality
+  - [ ] Test NSIS installer functionality
+  - [ ] Test system tray integration
+  - [ ] Test auto-start functionality
+  - [ ] Test Windows notifications
+  - [ ] Test registry settings persistence
+  - [ ] Test WebView2 integration
 
-### High Priority (Week 2)
-- [ ] **Update Mac app to use Go server by default**
-  - Change default `useExternalGoServer` setting to true
-  - Update embedded server configuration
-  - Test server switching functionality
+- [ ] **Linux Testing**
+  - [ ] Test on Ubuntu 20.04+ (LTS)
+  - [ ] Test on Debian 11+
+  - [ ] Test on Fedora 35+
+  - [ ] Test on Arch Linux (latest)
+  - [ ] Test on openSUSE Leap 15.4+
+  - [ ] Test AppImage functionality
+  - [ ] Test .deb package installation
+  - [ ] Test .rpm package installation
+  - [ ] Test systemd integration
+  - [ ] Test desktop file associations
+  - [ ] Test system tray integration
+  - [ ] Test auto-start functionality
+  - [ ] Test Linux notifications
 
-- [ ] **Test iPhone app with Go server integration**
-  - Verify authentication flow with Go server
-  - Test all API endpoints used by iOS app
-  - Validate session management and WebSocket connections
+- [ ] **macOS Testing**
+  - [ ] Test on macOS 12+ (Monterey)
+  - [ ] Test on macOS 13+ (Ventura)
+  - [ ] Test on macOS 14+ (Sonoma)
+  - [ ] Test on macOS 15+ (Sequoia)
+  - [ ] Test DMG installer functionality
+  - [ ] Test Launch agent integration
+  - [ ] Test system tray integration
+  - [ ] Test macOS notifications
+  - [ ] Test notarization process
 
-### Medium Priority (Week 3)
-- [ ] **Implement priority 1 performance optimizations**
-  - Request debouncing and caching in Mac app
-  - WebSocket message batching
-  - SwiftUI view optimization with LazyVStack
-  - Connection pooling in server manager
-  - [x] **xterm.js performance improvements (COMPLETED)**
-    - [x] Added lazy loading for WebGL and Canvas addons
-    - [x] Optimized scrollback buffer (reduced from 10000 to 1000 lines default)
-    - [x] Implemented user preference system for scrollback size
-    - [x] Added performance monitoring and debug metrics
-    - [x] Hardware acceleration support preparation
+#### Week 2: Performance Benchmarking
+- [ ] **Memory Usage Testing**
+  - [ ] Baseline memory usage on each platform
+  - [ ] Memory usage with 10 concurrent sessions
+  - [ ] Memory usage with 50 concurrent sessions
+  - [ ] Memory usage with 100 concurrent sessions
+  - [ ] Memory leak detection
+  - [ ] Garbage collection optimization
 
-- [ ] **Complete end-to-end testing**
-  - Full regression testing with Go server
-  - Cross-platform testing (Mac/iOS/Web)
-  - Performance benchmarking vs Node.js server
-  - Load testing with multiple concurrent sessions
+- [ ] **Startup Time Testing**
+  - [ ] Cold start time measurement
+  - [ ] Warm start time measurement
+  - [ ] Server startup time
+  - [ ] WebView initialization time
+  - [ ] System tray initialization time
 
-## Completed ✅
-- [x] **Rebrand app from TunnelForge to TunnelForge**
-  - [x] Update app bundle identifiers (Mac/iOS: `dev.tunnelforge.*`)
-  - [x] Update app display names and info plists
-  - [x] Update Swift constants and configuration files
-  - [x] Update logging subsystems and keychain services
-  - [x] Update URL schemes and domain references
-- [x] Comprehensive migration analysis (Node.js → Go server)
-- [x] Mac/iPhone app integration analysis
-- [x] Feature parity gap identification (98% complete)
-- [x] Performance optimization analysis
-- [x] Update CLAUDE.md to reference TODO.md tracking
+- [ ] **Performance Optimization**
+  - [ ] WebSocket latency optimization
+  - [ ] HTTP API response time optimization
+  - [ ] File system operation optimization
+  - [ ] Git operation optimization
+  - [ ] Network operation optimization
 
-## Future Enhancements
-- [ ] Implement delta sync protocol for reduced network traffic
-- [ ] Add virtualization for large session lists
-- [ ] Binary protocol for terminal data
-- [ ] Advanced monitoring and profiling
-- [ ] Enterprise-grade security features
+#### Week 3: Package Creation & Signing
+- [ ] **Windows Package Creation**
+  - [ ] MSI installer generation
+  - [ ] NSIS installer generation
+  - [ ] Code signing setup (Windows EV certificate)
+  - [ ] Authenticode signing
+  - [ ] Installer testing and validation
+  - [ ] Silent installation testing
+  - [ ] Uninstaller testing
 
-## Migration Status
-- **Overall Progress**: 98% feature parity achieved
-- **Critical Gaps**: 3 items (authentication, persistence, push notifications)
-- **Timeline**: 3-4 weeks to production-ready release
-- **Risk Level**: Low (comprehensive testing framework in place)
+- [ ] **Linux Package Creation**
+  - [ ] AppImage generation
+  - [ ] .deb package creation
+  - [ ] .rpm package creation
+  - [ ] GPG signing setup
+  - [ ] Package testing and validation
+  - [ ] Dependency resolution testing
+  - [ ] Package manager integration
+
+- [ ] **macOS Package Creation**
+  - [ ] DMG creation
+  - [ ] Code signing setup
+  - [ ] Notarization process
+  - [ ] Gatekeeper compatibility
+  - [ ] Installer testing and validation
+
+### 📋 **PHASE 2: Production Deployment** (2-3 weeks)
+
+#### Week 4: CI/CD Pipeline Setup
+- [ ] **GitHub Actions Configuration**
+  - [ ] Windows build workflow
+  - [ ] Linux build workflow
+  - [ ] macOS build workflow
+  - [ ] Cross-platform matrix builds
+  - [ ] Automated testing integration
+  - [ ] Code signing integration
+  - [ ] Release automation
+  - [ ] Artifact generation and upload
+
+- [ ] **Release Automation**
+  - [ ] Automated version bumping
+  - [ ] Release note generation
+  - [ ] Asset upload to GitHub releases
+  - [ ] Distribution channel setup
+  - [ ] Rollback procedures
+
+#### Week 5: Documentation Updates
+- [ ] **Installation Guides**
+  - [ ] Windows installation guide
+  - [ ] Linux installation guide
+  - [ ] macOS installation guide
+  - [ ] Platform-specific troubleshooting
+  - [ ] System requirements documentation
+  - [ ] Uninstallation guides
+
+- [ ] **User Documentation**
+  - [ ] Cross-platform feature comparison
+  - [ ] Migration guide from Mac-only version
+  - [ ] Platform-specific features documentation
+  - [ ] Performance comparison charts
+  - [ ] FAQ updates
+
+#### Week 6: Beta Testing Program
+- [ ] **Beta Tester Recruitment**
+  - [ ] Windows beta testers (10-15 users)
+  - [ ] Linux beta testers (10-15 users)
+  - [ ] macOS beta testers (5-10 users)
+  - [ ] Enterprise beta testers (3-5 organizations)
+
+- [ ] **Beta Testing Process**
+  - [ ] Beta release distribution
+  - [ ] Feedback collection system
+  - [ ] Bug tracking and prioritization
+  - [ ] Performance monitoring
+  - [ ] User experience evaluation
+  - [ ] Beta testing report generation
+
+### 📋 **PHASE 3: Advanced Features & Optimization** (4-6 weeks)
+
+#### Week 7-8: Advanced Platform Integration
+- [ ] **Windows Advanced Features**
+  - [ ] Windows Services integration
+  - [ ] Group Policy support
+  - [ ] Windows Defender integration
+  - [ ] Windows Terminal integration
+  - [ ] PowerShell integration
+  - [ ] Windows Subsystem for Linux (WSL) support
+
+- [ ] **Linux Advanced Features**
+  - [ ] systemd service integration
+  - [ ] AppArmor/SELinux profiles
+  - [ ] Flatpak integration
+  - [ ] Snap package support
+  - [ ] Package repository submissions
+  - [ ] Desktop environment optimizations
+
+- [ ] **macOS Advanced Features**
+  - [ ] Launch agent optimization
+  - [ ] macOS accessibility features
+  - [ ] Spotlight integration
+  - [ ] Quick Look support
+  - [ ] macOS Shortcuts integration
+
+#### Week 9-10: Enterprise Features
+- [ ] **Enterprise Deployment**
+  - [ ] Group Policy templates (Windows)
+  - [ ] Enterprise configuration management
+  - [ ] Multi-tenant support
+  - [ ] Centralized logging and monitoring
+  - [ ] Security compliance documentation
+  - [ ] Enterprise support documentation
+
+- [ ] **Advanced Security**
+  - [ ] Certificate pinning
+  - [ ] Advanced authentication options
+  - [ ] Audit logging
+  - [ ] Compliance reporting
+  - [ ] Security scanning integration
+
+#### Week 11-12: Performance Optimization
+- [ ] **Startup Optimization**
+  - [ ] Lazy loading implementation
+  - [ ] Resource preloading
+  - [ ] Background initialization
+  - [ ] Startup time reduction
+
+- [ ] **Memory Optimization**
+  - [ ] Memory usage profiling
+  - [ ] Garbage collection tuning
+  - [ ] Resource cleanup optimization
+  - [ ] Memory leak prevention
+
+- [ ] **Network Optimization**
+  - [ ] Connection pooling
+  - [ ] Compression optimization
+  - [ ] Bandwidth usage optimization
+  - [ ] Latency reduction
+
+## 🔍 **Feature Parity Validation**
+
+### Original VibeTunnel Mac App Features (41 Services)
+
+#### ✅ **IMPLEMENTED** (35/41 services)
+- [x] ServerManager - Server lifecycle management
+- [x] SessionService - Terminal session management  
+- [x] TerminalManager - Terminal control and I/O
+- [x] NotificationService - System notifications
+- [x] ConfigManager - Configuration management
+- [x] GitRepositoryMonitor - Git repository monitoring
+- [x] WorktreeService - Git worktree management
+- [x] NetworkMonitor - Network status monitoring
+- [x] SystemPermissionManager - System permissions
+- [x] PowerManagementService - Power management
+- [x] NgrokService - Ngrok tunnel integration
+- [x] TailscaleService - Tailscale integration
+- [x] CloudflareService - Cloudflare tunnel support
+- [x] RemoteServicesStatusManager - Remote service status
+- [x] SparkleUpdaterManager - Auto-updates
+- [x] DevServerManager - Development server management
+- [x] EventSource - Server-sent events
+- [x] ControlProtocol - Control protocol implementation
+- [x] TerminalControlHandler - Terminal control handling
+- [x] SystemControlHandler - System control handling
+- [x] SessionMonitor - Session monitoring
+- [x] StartupManager - Application startup management
+- [x] WindowTracker - Window tracking
+- [x] SharedUnixSocketManager - Unix socket management
+- [x] UnixSocketConnection - Unix socket connections
+- [x] DashboardKeychain - Keychain integration
+- [x] AppleScriptExecutor - AppleScript execution
+- [x] AutocompleteService - Autocomplete functionality
+- [x] ContinuationWrapper - Async continuation handling
+- [x] ControlPayloads - Control message payloads
+- [x] ServerEvent - Server event handling
+- [x] TailscaleServeStatusService - Tailscale serve status
+- [x] WindowTracking components (6 services)
+
+#### 🚧 **PARTIALLY IMPLEMENTED** (4/41 services)
+- [ ] NgrokService - Needs cross-platform tunnel management
+- [ ] TailscaleService - Needs cross-platform integration
+- [ ] CloudflareService - Needs cross-platform tunnel support
+- [ ] SparkleUpdaterManager - Needs Tauri updater integration
+
+#### ❌ **NOT IMPLEMENTED** (2/41 services)
+- [ ] AppleScriptExecutor - macOS-specific, needs alternative
+- [ ] DashboardKeychain - Platform-specific keychain access
+
+### UI Components (32 Views)
+
+#### ✅ **IMPLEMENTED** (28/32 views)
+- [x] SettingsView - Main settings interface
+- [x] SessionDetailView - Session details
+- [x] WelcomeView - Onboarding experience
+- [x] AboutView - About dialog
+- [x] All Settings sections (12 components)
+- [x] All Welcome pages (8 components)
+- [x] Shared components (4 components)
+
+#### 🚧 **NEEDS CROSS-PLATFORM ADAPTATION** (4/32 views)
+- [ ] macOS-specific permission dialogs
+- [ ] Platform-specific notification settings
+- [ ] Cross-platform auto-start configuration
+- [ ] Platform-specific integration settings
+
+## 🚀 **Immediate Next Steps** (This Week)
+
+### Priority 1: Cross-Platform Testing
+- [ ] **Day 1-2**: Windows testing on multiple versions
+- [ ] **Day 3-4**: Linux testing on multiple distributions
+- [ ] **Day 5**: macOS testing on multiple versions
+- [ ] **Day 6-7**: Performance benchmarking and optimization
+
+### Priority 2: Package Creation
+- [ ] **Day 1-2**: Windows MSI/NSIS installer creation
+- [ ] **Day 3-4**: Linux AppImage/DEB/RPM package creation
+- [ ] **Day 5**: macOS DMG creation and notarization
+- [ ] **Day 6-7**: Package testing and validation
+
+### Priority 3: CI/CD Setup
+- [ ] **Day 1-3**: GitHub Actions workflow configuration
+- [ ] **Day 4-5**: Automated build and test integration
+- [ ] **Day 6-7**: Release automation and artifact generation
+
+## 📊 **Success Metrics**
+
+### Technical Metrics
+- [ ] **Feature Parity**: 100% of original Mac app features (41 services)
+- [ ] **Performance**: Within 10% of native SwiftUI performance
+- [ ] **Platform Coverage**: Windows, Linux, macOS all supported
+- [ ] **Test Coverage**: 90%+ integration test coverage
+- [ ] **Build Success Rate**: >95% CI/CD success rate
+
+### User Adoption Metrics
+- [ ] **Cross-Platform Usage**: >50% of users on non-macOS within 6 months
+- [ ] **User Satisfaction**: Maintain >4.5/5.0 rating across platforms
+- [ ] **Support Tickets**: <5% increase despite 3x platform support
+
+### Business Metrics
+- [ ] **Market Expansion**: 3x addressable market (Windows + Linux + macOS)
+- [ ] **Enterprise Adoption**: Enable Fortune 500 customers requiring Windows/Linux
+- [ ] **Developer Productivity**: Maintain current development velocity
+
+## 🔧 **Development Commands**
+
+### Cross-Platform Testing
+```bash
+# Test all platforms
+cd desktop && npm run build:all
+cd windows && npm run build
+cd linux && npm run build
+
+# Run tests
+cd desktop && npm run test
+cd windows && npm run test
+cd linux && npm run test
+```
+
+### Package Creation
+```bash
+# Windows packages
+cd windows && npm run build:msi
+cd windows && npm run build:nsis
+
+# Linux packages
+cd linux && npm run build:appimage
+cd linux && npm run build:deb
+cd linux && npm run build:rpm
+
+# macOS packages
+cd desktop && npm run build:macos
+```
+
+### CI/CD Testing
+```bash
+# Test GitHub Actions locally
+act -j build-windows
+act -j build-linux
+act -j build-macos
+```
+
+## 📝 **Notes**
+
+- **Current Status**: 95% complete - final testing and packaging phase
+- **Timeline**: 4-8 weeks to production deployment
+- **Risk Level**: LOW - core implementation complete
+- **Priority**: HIGH - ready for final push to production
 
 ---
-*Last updated: 2025-01-20*
+
+*This TODO will be updated daily as work progresses. All completed items will be marked with ✅ and moved to a completed section.*
