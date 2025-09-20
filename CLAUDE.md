@@ -47,9 +47,16 @@ When the user says "release" or asks to create a release, ALWAYS read and follow
    - Creating branches without permission causes massive frustration and cleanup work
    - Even if changes seem unrelated to the current branch, STAY ON THE CURRENT BRANCH
 
-2. **NEVER commit and/or push before the user has tested your changes!**
-   - Always wait for user confirmation before committing
-   - The user needs to verify changes work correctly first
+2. **Commit Frequently During Development for Easy Rollbacks**
+   - **Research/Documentation/Planning**: Commit immediately to save progress
+   - **Code Development**: Commit frequently at logical checkpoints:
+     - After writing tests to specification
+     - After implementing code that passes tests
+     - After refactoring or major changes
+     - Before attempting risky changes
+   - **Final Testing**: Only push/merge after user has tested complete features
+   - Frequent commits enable easy rollbacks if something breaks
+   - Use descriptive commit messages for easy navigation
 
 3. **ABSOLUTELY FORBIDDEN: NEVER USE `git rebase --skip` EVER**
    - This command can cause data loss and repository corruption
