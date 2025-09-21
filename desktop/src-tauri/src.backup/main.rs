@@ -1,5 +1,5 @@
-// TunnelForge Desktop - Native Tauri v2 Application
-// This provides a native desktop interface that directly integrates with the Go server
+// TunnelForge Desktop - Cross-Platform Tauri v2 Application
+// This manages the Go-based TunnelForge server and provides a native desktop interface.
 
 #![cfg_attr(not(debug_assertions), windows_subsystem = "windows")]
 
@@ -12,7 +12,6 @@ use tunnelforge_desktop::{
     notifications,
     power,
     system,
-    ui,
 };
 
 use tunnelforge_desktop::{server, sessions};
@@ -189,10 +188,6 @@ async fn open_external_url(url: String) -> Result<(), String> {
 pub fn run() {
     tauri::Builder::default()
         .manage(init_app_state())
-        .manage(ui::MainWindow::new())
-        .manage(ui::SettingsWindow::new())
-        .manage(ui::SessionWindow::new())
-        .manage(ui::TrayManager::new(tauri::AppHandle::default()))
         .plugin(tauri_plugin_log::Builder::new()
             .targets([
                 Target::new(TargetKind::Stdout),
@@ -233,6 +228,9 @@ pub fn run() {
             check_cli_installation,
             install_cli_tool,
             open_external_url,
+            // TODO: Fix duplicate command macro issue
+            // get_app_version,
+            // get_backend_logs,
 
             // Server management commands (core VibeTunnel functionality)
             server::start_server,
@@ -246,29 +244,6 @@ pub fn run() {
             sessions::create_session,
             sessions::delete_session,
             sessions::get_session_details,
-
-            // UI commands
-            ui::show_main_window,
-            ui::hide_main_window,
-            ui::close_main_window,
-            ui::get_window_state,
-            ui::update_window_state,
-
-            ui::show_settings_window,
-            ui::hide_settings_window,
-            ui::close_settings_window,
-            ui::get_settings_window_state,
-            ui::update_settings_window_state,
-
-            ui::show_session_window,
-            ui::hide_session_window,
-            ui::close_session_window,
-            ui::get_session_window_state,
-            ui::update_session_window_state,
-
-            ui::update_tray_status,
-            ui::set_tray_tooltip,
-            ui::set_tray_icon,
         ])
         .setup(|app| {
             setup_app(app)?;

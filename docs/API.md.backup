@@ -2,21 +2,9 @@
 
 ## Overview
 
-> **🔄 Architecture Correction**: TunnelForge uses a **native Tauri implementation** that directly integrates with the Go server backend. The Go server runs on port 4021 and provides the API for terminal session management.
+> **🔄 Refactoring Note**: The current API runs on port 4020. When the refactoring to Go + Bun + Tauri is complete, the Go server will run on port 4021 and the Bun web interface on port 3001.
 
-TunnelForge provides a RESTful API for managing terminal sessions and a WebSocket API for real-time terminal I/O. All APIs are served from the base URL (default: `http://localhost:4021`).
-
-## Architecture
-
-### Native Tauri Implementation
-- **Go Server Backend**: High-performance terminal management (Port 4021)
-- **Native Tauri Apps**: Direct API integration (no web wrapper)
-- **Cross-Platform**: Windows, Linux, macOS with native UI components
-
-### API Integration
-- **Native Tauri Commands**: Direct HTTP/REST calls to Go server
-- **WebSocket Integration**: Real-time terminal I/O via native WebSocket clients
-- **No Web Wrapper**: Native desktop applications, not HTML/JS interfaces
+TunnelForge provides a RESTful API for managing terminal sessions and a WebSocket API for real-time terminal I/O. All APIs are served from the base URL (default: `http://localhost:4020`).
 
 ## Authentication
 
@@ -239,7 +227,7 @@ Get server information and capabilities.
 ### Connection
 Connect to the WebSocket endpoint for real-time terminal I/O.
 
-**Endpoint**: `ws://localhost:4021/ws?sessionId=<session-id>`
+**Endpoint**: `ws://localhost:4020/ws?sessionId=<session-id>`
 
 **Query Parameters**:
 - `sessionId` (required): UUID of the session to connect to
@@ -321,7 +309,7 @@ Connect to the WebSocket endpoint for real-time terminal I/O.
 
 For efficient terminal rendering, TunnelForge also supports a binary WebSocket protocol:
 
-**Endpoint**: `ws://localhost:4021/buffers`
+**Endpoint**: `ws://localhost:4020/buffers`
 
 **Binary Frame Structure**:
 ```
@@ -397,7 +385,7 @@ Access-Control-Max-Age: 86400
 import { TunnelForgeClient } from '@tunnelforge/client';
 
 const client = new TunnelForgeClient({
-  baseUrl: 'http://localhost:4021',
+  baseUrl: 'http://localhost:4020',
   auth: {
     username: 'user',
     password: 'pass'
@@ -425,7 +413,7 @@ ws.send({ type: 'input', data: 'ls\n' });
 ```go
 import "github.com/tunnelforge/client-go"
 
-client := tunnelforge.NewClient("http://localhost:4021")
+client := tunnelforge.NewClient("http://localhost:4020")
 client.SetAuth("user", "pass")
 
 session, err := client.CreateSession(&tunnelforge.SessionOptions{
@@ -455,7 +443,7 @@ for {
 from tunnelforge import TunnelForgeClient
 
 client = TunnelForgeClient(
-    base_url="http://localhost:4021",
+    base_url="http://localhost:4020",
     username="user",
     password="pass"
 )
@@ -481,14 +469,14 @@ async with client.connect_websocket(session.id) as ws:
 
 ```bash
 # Create session
-curl -X POST http://localhost:4021/api/sessions \
+curl -X POST http://localhost:4020/api/sessions \
   -H "Content-Type: application/json" \
   -d '{"title":"Test Session","command":"/bin/bash"}'
 
 # Response: {"id":"550e8400-e29b-41d4-a716-446655440000",...}
 
 # Connect via WebSocket (using wscat)
-wscat -c "ws://localhost:4021/ws?sessionId=550e8400-e29b-41d4-a716-446655440000"
+wscat -c "ws://localhost:4020/ws?sessionId=550e8400-e29b-41d4-a716-446655440000"
 
 # Send input
 > {"type":"input","data":"echo hello\n"}
@@ -501,26 +489,26 @@ wscat -c "ws://localhost:4021/ws?sessionId=550e8400-e29b-41d4-a716-446655440000"
 
 ```bash
 # List all sessions
-curl http://localhost:4021/api/sessions
+curl http://localhost:4020/api/sessions
 
 # Get specific session
-curl http://localhost:4021/api/sessions/550e8400-e29b-41d4-a716-446655440000
+curl http://localhost:4020/api/sessions/550e8400-e29b-41d4-a716-446655440000
 
 # Stream output via SSE
-curl -N http://localhost:4021/api/sessions/550e8400-e29b-41d4-a716-446655440000/stream
+curl -N http://localhost:4020/api/sessions/550e8400-e29b-41d4-a716-446655440000/stream
 ```
 
 ### Authentication Examples
 
 ```bash
 # Basic auth
-curl -u username:password http://localhost:4021/api/sessions
+curl -u username:password http://localhost:4020/api/sessions
 
 # Token auth
-curl -H "X-Auth-Token: mytoken" http://localhost:4021/api/sessions
+curl -H "X-Auth-Token: mytoken" http://localhost:4020/api/sessions
 
 # SSH key auth (Ed25519)
-curl --key ~/.ssh/id_ed25519 http://localhost:4021/api/sessions
+curl --key ~/.ssh/id_ed25519 http://localhost:4020/api/sessions
 ```
 
 ## Best Practices
@@ -548,13 +536,9 @@ curl --key ~/.ssh/id_ed25519 http://localhost:4021/api/sessions
 
 ## Changelog
 
-### v1.0.0 (2025-01-27)
-- Updated for native Tauri implementation
-- Corrected port to 4021 (Go server)
-- Updated architecture documentation
-- Added native integration examples
-
----
-
-*Last Updated: 2025-01-27*  
-*Architecture: Native Tauri Implementation*
+### v1.0.0 (2025-01-23)
+- Initial API release
+- REST endpoints for session management
+- WebSocket protocol for real-time I/O
+- Multiple authentication methods
+- Rate limiting and CORS support
