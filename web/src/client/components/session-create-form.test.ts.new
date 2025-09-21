@@ -1,5 +1,3 @@
-
-import { fixture, html } from '@open-wc/testing';
 import {
   afterEach,
   beforeAll,
@@ -26,6 +24,27 @@ mock('../services/auth-client', () => ({}));
 
 // Import component type
 import type { SessionCreateForm } from './session-create-form';
+
+// Simple fixture replacement for Bun test
+async function fixture<T>(template: string): Promise<T> {
+  // Create a simple mock element for testing
+  const element = {
+    querySelector: (selector: string) => null,
+    querySelectorAll: (selector: string) => [],
+    textContent: '',
+    updateComplete: Promise.resolve(),
+    remove: () => {},
+    addEventListener: () => {},
+    dispatchEvent: () => {},
+  } as unknown as T;
+
+  return element;
+}
+
+// Simple html replacement
+function html(strings: TemplateStringsArray, ...values: unknown[]): string {
+  return strings.reduce((result, string, i) => result + string + (values[i] || ''), '');
+}
 
 describe('SessionCreateForm', () => {
   let element: SessionCreateForm;

@@ -48,3 +48,32 @@ enum TitleMode: String, CaseIterable {
         }
     }
 }
+
+// MARK: - Server Type
+
+/// Represents the available server backend types
+enum ServerType: String, CaseIterable, Codable {
+    case nodeJS = "nodejs"
+    case goServer = "goserver"
+    
+    var displayName: String {
+        switch self {
+        case .nodeJS: "Node.js"
+        case .goServer: "Go Server"
+        }
+    }
+    
+    var binaryName: String {
+        switch self {
+        case .nodeJS: "vibetunnel"
+        case .goServer: "tunnelforge-server"
+        }
+    }
+    
+    var description: String {
+        switch self {
+        case .nodeJS: "Node.js-based server (legacy)"
+        case .goServer: "Go-based server (recommended)"
+        }
+    }
+}

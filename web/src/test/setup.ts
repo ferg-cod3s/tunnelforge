@@ -1,11 +1,94 @@
-// Global test setup for Vitest
+// Global test setup for Bun test
 import { webcrypto } from 'crypto';
-import { vi } from 'vitest';
 
 // Disable SEA loader for tests
 process.env.TUNNELFORGE_SEA = '';
 
 // Polyfill crypto for Node.js environments
+
+// Mock window for browser tests
+if (typeof window === "undefined") {
+  global.window = global as any;
+}
+
+// Add missing DOM globals
+if (typeof global !== 'undefined') {
+  // Mock document
+  const mockDocument = {
+    createElement: (tagName: string) => {
+      const element = {
+        tagName: tagName.toUpperCase(),
+        style: {},
+        className: '',
+        textContent: '',
+        innerHTML: '',
+        appendChild: () => {},
+        removeChild: () => {},
+        addEventListener: () => {},
+        removeEventListener: () => {},
+        setAttribute: () => {},
+        getAttribute: () => null,
+        querySelector: () => null,
+        querySelectorAll: () => [],
+        getElementsByTagName: () => [],
+        getElementsByClassName: () => [],
+        getElementById: () => null,
+        createTextNode: () => ({}),
+        body: {
+          appendChild: () => {},
+          removeChild: () => {},
+          addEventListener: () => {},
+          removeEventListener: () => {},
+        },
+        documentElement: {},
+        head: {
+          appendChild: () => {},
+          removeChild: () => {},
+        },
+      };
+      return element;
+    },
+    createElementNS: () => ({}),
+    getElementById: () => null,
+    querySelector: () => null,
+    querySelectorAll: () => [],
+    addEventListener: () => {},
+    removeEventListener: () => {},
+    body: {
+      appendChild: () => {},
+      removeChild: () => {},
+      addEventListener: () => {},
+      removeEventListener: () => {},
+    },
+    documentElement: {},
+    head: {
+      appendChild: () => {},
+      removeChild: () => {},
+    },
+  };
+  
+  // biome-ignore lint/suspicious/noExplicitAny: Test setup requires any for global mocking
+  (global as any).document = mockDocument;
+  
+  // Mock navigator
+  // biome-ignore lint/suspicious/noExplicitAny: Test setup requires any for global mocking
+  (global as any).navigator = {
+    clipboard: {
+      writeText: async () => {},
+      readText: async () => '',
+    },
+    userAgent: 'TestAgent',
+  };
+  
+  // Mock HTMLElement
+  // biome-ignore lint/suspicious/noExplicitAny: Test setup requires any for global mocking
+  (global as any).HTMLElement = class HTMLElement {};
+  
+  // Mock Element
+  // biome-ignore lint/suspicious/noExplicitAny: Test setup requires any for global mocking
+  (global as any).Element = class Element {};
+}
+
 if (!globalThis.crypto) {
   Object.defineProperty(globalThis, 'crypto', {
     value: webcrypto,
@@ -14,82 +97,81 @@ if (!globalThis.crypto) {
 }
 
 // Mock the native pty module before any imports
-vi.mock('node-pty', () => {
-  // Create a more complete mock that simulates PTY behavior
-  const createMockPty = (command: string, args: string[]) => {
-    let dataCallback: ((data: string) => void) | null = null;
-    let exitCallback: ((exitInfo: { exitCode: number; signal?: number }) => void) | null = null;
-    let isKilled = false;
-    let cols = 80;
-    let rows = 24;
+// Create a more complete mock that simulates PTY behavior
+const createMockPty = (command: string, args: string[]) => {
+  let dataCallback: ((data: string) => void) | null = null;
+  let exitCallback: ((exitInfo: { exitCode: number; signal?: number }) => void) | null = null;
+  let isKilled = false;
+  let cols = 80;
+  let rows = 24;
 
-    const mockPty = {
-      pid: Math.floor(Math.random() * 10000) + 1000,
-      cols,
-      rows,
-      process: command,
-      handleFlowControl: false,
-      on: vi.fn(),
-      resize: vi.fn((newCols: number, newRows: number) => {
-        cols = newCols;
-        rows = newRows;
-      }),
-      write: vi.fn((data: string) => {
-        // Simulate echo behavior for 'cat' command
-        if (command === 'sh' && args[0] === '-c' && args[1] === 'cat' && dataCallback) {
-          // Echo back the input
-          setTimeout(() => {
-            if (!isKilled && dataCallback) {
-              dataCallback(data);
-            }
-          }, 10);
-        }
-      }),
-      kill: vi.fn((signal?: string) => {
-        isKilled = true;
-        // Simulate process exit
-        if (exitCallback) {
-          setTimeout(() => {
-            exitCallback({ exitCode: signal === 'SIGTERM' ? 143 : 137, signal: 15 });
-          }, 50);
-        }
-      }),
-      onData: vi.fn((callback: (data: string) => void) => {
-        dataCallback = callback;
-        // For 'echo' command, immediately output but don't exit yet
-        if (command === 'echo' && args[0] === 'test') {
-          setTimeout(() => {
-            if (dataCallback) dataCallback('test\n');
-            // Don't exit immediately - let the test control when to exit
-          }, 10);
-        }
-      }),
-      onExit: vi.fn((callback: (exitInfo: { exitCode: number; signal?: number }) => void) => {
-        exitCallback = callback;
-        // For 'exit' command, exit immediately
-        if (command === 'exit') {
-          setTimeout(() => {
-            if (exitCallback) exitCallback({ exitCode: 0 });
-          }, 10);
-        }
-        // For 'echo' command, exit after a longer delay
-        if (command === 'echo') {
-          setTimeout(() => {
-            if (!isKilled && exitCallback) exitCallback({ exitCode: 0 });
-          }, 2000); // Wait 2 seconds before exiting
-        }
-      }),
-    };
-
-    return mockPty;
+  const mockPty = {
+    pid: Math.floor(Math.random() * 10000) + 1000,
+    cols,
+    rows,
+    process: command,
+    handleFlowControl: false,
+    on: () => {},
+    resize: (newCols: number, newRows: number) => {
+      cols = newCols;
+      rows = newRows;
+    },
+    write: (data: string) => {
+      // Simulate echo behavior for 'cat' command
+      if (command === 'sh' && args[0] === '-c' && args[1] === 'cat' && dataCallback) {
+        // Echo back the input
+        setTimeout(() => {
+          if (!isKilled && dataCallback) {
+            dataCallback(data);
+          }
+        }, 10);
+      }
+    },
+    kill: (signal?: string) => {
+      isKilled = true;
+      // Simulate process exit
+      if (exitCallback) {
+        setTimeout(() => {
+          exitCallback({ exitCode: signal === 'SIGTERM' ? 143 : 137, signal: 15 });
+        }, 50);
+      }
+    },
+    onData: (callback: (data: string) => void) => {
+      dataCallback = callback;
+      // For 'echo' command, immediately output but don't exit yet
+      if (command === 'echo' && args[0] === 'test') {
+        setTimeout(() => {
+          if (dataCallback) dataCallback('test\n');
+          // Don't exit immediately - let the test control when to exit
+        }, 10);
+      }
+    },
+    onExit: (callback: (exitInfo: { exitCode: number; signal?: number }) => void) => {
+      exitCallback = callback;
+      // For 'exit' command, exit immediately
+      if (command === 'exit') {
+        setTimeout(() => {
+          if (exitCallback) exitCallback({ exitCode: 0 });
+        }, 10);
+      }
+      // For 'echo' command, exit after a longer delay
+      if (command === 'echo') {
+        setTimeout(() => {
+          if (!isKilled && exitCallback) exitCallback({ exitCode: 0 });
+        }, 2000); // Wait 2 seconds before exiting
+      }
+    },
   };
 
-  return {
-    spawn: vi.fn((command: string, args: string[], _options: unknown) => {
-      return createMockPty(command, args);
-    }),
-  };
-});
+  return mockPty;
+};
+
+// Mock node-pty
+(global as any).mockNodePty = {
+  spawn: (command: string, args: string[], _options: unknown) => {
+    return createMockPty(command, args);
+  },
+};
 
 // Mock global objects that might not exist in test environments
 global.ResizeObserver = class ResizeObserver {
@@ -102,7 +184,7 @@ global.ResizeObserver = class ResizeObserver {
 let rafId = 0;
 const rafCallbacks = new Map<number, FrameRequestCallback>();
 
-global.requestAnimationFrame = vi.fn((callback: FrameRequestCallback) => {
+global.requestAnimationFrame = (callback: FrameRequestCallback) => {
   const id = ++rafId;
   rafCallbacks.set(id, callback);
   setTimeout(() => {
@@ -113,11 +195,11 @@ global.requestAnimationFrame = vi.fn((callback: FrameRequestCallback) => {
     }
   }, 16); // Simulate ~60fps
   return id;
-});
+};
 
-global.cancelAnimationFrame = vi.fn((id: number) => {
+global.cancelAnimationFrame = (id: number) => {
   rafCallbacks.delete(id);
-});
+};
 
 // Mock IntersectionObserver
 global.IntersectionObserver = class IntersectionObserver {
@@ -131,12 +213,12 @@ global.IntersectionObserver = class IntersectionObserver {
 
 // Mock localStorage for tests
 const localStorageMock = {
-  getItem: vi.fn(),
-  setItem: vi.fn(),
-  removeItem: vi.fn(),
-  clear: vi.fn(),
+  getItem: () => null,
+  setItem: () => {},
+  removeItem: () => {},
+  clear: () => {},
   length: 0,
-  key: vi.fn(),
+  key: () => null,
 };
 
 // Add localStorage to global scope
@@ -185,20 +267,21 @@ patchCustomElements();
 beforeEach(() => {
   patchCustomElements();
 });
+
 // Mock matchMedia (only if window exists - for browser tests)
 if (typeof window !== 'undefined') {
   Object.defineProperty(window, 'matchMedia', {
     writable: true,
-    value: vi.fn().mockImplementation((query) => ({
+    value: (query: string) => ({
       matches: false,
       media: query,
       onchange: null,
-      addListener: vi.fn(),
-      removeListener: vi.fn(),
-      addEventListener: vi.fn(),
-      removeEventListener: vi.fn(),
-      dispatchEvent: vi.fn(),
-    })),
+      addListener: () => {},
+      removeListener: () => {},
+      addEventListener: () => {},
+      removeEventListener: () => {},
+      dispatchEvent: () => {},
+    }),
   });
 
   // Also add localStorage to window for browser tests
@@ -253,7 +336,13 @@ global.EventSource = class EventSource extends EventTarget {
 
 // Set up fetch mock (only for non-e2e tests)
 if (typeof window !== 'undefined') {
-  global.fetch = vi.fn();
+  global.fetch = async () => ({
+    ok: false,
+    status: 404,
+    statusText: 'Not Found',
+    json: async () => ({ error: 'Not found' }),
+    text: async () => 'Not found',
+  });
 }
 
 // Configure console to reduce noise in tests
@@ -294,8 +383,8 @@ if (typeof window !== 'undefined') {
 
     // Add addEventListener if it's missing for vibe-terminal elements
     if (tagName === 'vibe-terminal' && !element.addEventListener) {
-      element.addEventListener = vi.fn();
-      element.removeEventListener = vi.fn();
+      element.addEventListener = () => {};
+      element.removeEventListener = () => {};
     }
 
     return element;

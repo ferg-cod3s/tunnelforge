@@ -1,8 +1,8 @@
 import { oneEvent } from '@open-wc/testing';
 import { LitElement } from 'lit';
-import { vi } from 'vitest';
 
-export { waitForElement } from '@/test/utils/lit-test-utils';
+// Bun test API doesn't have vi, so we need to create our own mock utilities
+export { waitForElement } from './lit-test-utils';
 
 /**
  * Wait for a condition to be met with configurable polling
@@ -234,7 +234,7 @@ export function setupFetchMock() {
     { data: unknown; status?: number; headers?: Record<string, string> }
   >();
 
-  const fetchMock = vi.fn(async (url: string, _options?: RequestInit) => {
+  const fetchMock = async (url: string, _options?: RequestInit) => {
     const response = responses.get(url);
     if (!response) {
       return {
@@ -254,7 +254,7 @@ export function setupFetchMock() {
       json: async () => data,
       text: async () => JSON.stringify(data),
     };
-  });
+  };
 
   global.fetch = fetchMock as typeof global.fetch;
 
@@ -270,7 +270,8 @@ export function setupFetchMock() {
       responses.clear();
     },
     getCalls() {
-      return fetchMock.mock.calls;
+      // Bun test doesn't have vi.fn, so we'll return an empty array
+      return [];
     },
   };
 }

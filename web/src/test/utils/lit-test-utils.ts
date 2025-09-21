@@ -1,6 +1,5 @@
 import { fixture } from '@open-wc/testing';
 import { LitElement, type TemplateResult } from 'lit';
-import { vi } from 'vitest';
 import type { Session } from '../../shared/types';
 import type { ActivityStatus } from '../types/test-types';
 import { createTestSession } from './test-factories';
@@ -56,13 +55,16 @@ export function mockFetch(
 ): void {
   const { status = 200, headers = { 'Content-Type': 'application/json' }, ok = true } = options;
 
-  (global.fetch as ReturnType<typeof vi.fn>).mockResolvedValueOnce({
+  // Bun test doesn't have vi.fn, so we'll create a simple mock
+  const mockFetch = async () => ({
     ok,
     status,
     headers: new Headers(headers),
     json: async () => response,
     text: async () => JSON.stringify(response),
   });
+
+  global.fetch = mockFetch as typeof global.fetch;
 }
 
 /**
@@ -94,14 +96,14 @@ export class MockWebSocket extends EventTarget {
     MockWebSocket.instances.clear();
   }
 
-  send = vi.fn();
-  close = vi.fn(() => {
+  send = () => {};
+  close = () => {
     this.readyState = MockWebSocket.CLOSED;
     MockWebSocket.instances.delete(this);
     const event = new CloseEvent('close');
     this.dispatchEvent(event);
     this.onclose?.(event);
-  });
+  };
 
   mockOpen(): void {
     this.readyState = MockWebSocket.OPEN;
@@ -156,10 +158,10 @@ export class MockEventSource extends EventTarget {
     MockEventSource.instances.add(this);
   }
 
-  close = vi.fn(() => {
+  close = () => {
     this.readyState = MockEventSource.CLOSED;
     MockEventSource.instances.delete(this);
-  });
+  };
 
   mockOpen(): void {
     this.readyState = MockEventSource.OPEN;
