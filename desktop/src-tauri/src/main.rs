@@ -281,3 +281,10 @@ pub fn run() {
 fn main() {
     run();
 }
+            // Server management commands (core VibeTunnel functionality)
+            server::start_server,
+            server::stop_server,
+            server::get_server_status,
+            server::get_server_url,
+            server::restart_server,
+            server::open_web_interface,

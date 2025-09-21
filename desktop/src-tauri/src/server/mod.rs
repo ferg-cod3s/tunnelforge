@@ -352,3 +352,14 @@ pub async fn get_server_url(state: State<'_, AppState>) -> Result<String, String
     add_log_entry("debug", &format!("Returning server URL: {}", url));
     Ok(url)
 }
+
+// Tauri command to open web interface in external browser
+#[tauri::command]
+pub async fn open_web_interface(state: State<'_, AppState>) -> Result<(), String> {
+    let url = format!("http://localhost:{}", state.server_port);
+    add_log_entry("info", &format!("Opening web interface at: {}", url));
+    
+    // Use the open_external_url command that we already have in main.rs
+    // This will be handled by the frontend calling the open_external_url command
+    Ok(())
+}

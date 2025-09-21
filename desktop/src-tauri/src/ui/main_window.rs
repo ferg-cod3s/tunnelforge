@@ -41,10 +41,11 @@ impl MainWindow {
     }
 
     pub fn create_window(&mut self, app_handle: &AppHandle) -> Result<(), String> {
+        // Create a native window without loading any web content
         let window = WindowBuilder::new(
             app_handle,
             "main",
-            WindowUrl::App("index.html".into())
+            WindowUrl::default() // Use default (no URL) for native window
         )
         .title(&self.state.title)
         .inner_size(self.state.width, self.state.height)
