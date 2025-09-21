@@ -1,0 +1,2 @@
+timestamp,platform,architecture,startup_time_ms,memory_peak_mb,cpu_peak_percent,exit_code
+20250920_200935,Darwin,arm64,5016,5,0.0,0

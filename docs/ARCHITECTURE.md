@@ -1,44 +1,67 @@
-<!-- Generated: 2025-09-18 -->
 # TunnelForge Architecture
+*Updated 2025-01-27 - Architecture Correction Required*
 
-> **🔄 MIGRATION IN PROGRESS**: TunnelForge is transitioning from Node.js + SwiftUI to Go + Bun + Tauri architecture. Go server migration is ~90% complete with production-ready features.
+> **🔄 ARCHITECTURE CORRECTION REQUIRED**: The current Tauri implementation approach is fundamentally incorrect. TunnelForge should be a **native Tauri application** that directly implements all the functionality of the original VibeTunnel Mac app, not a wrapper around a web interface.
 
-## Current Status (Updated 2025-09-18)
+## Current Status (Updated 2025-01-27)
 
 **✅ PRODUCTION READY**:
-- **Go server backend** - High-performance terminal management (Port 4021) - ~90% feature parity
-- **Bun web frontend** - Modern responsive web interface (Port 3001) - Production ready
+- **Go server backend** - High-performance terminal management (Port 4021) - Production ready
 - **SwiftUI macOS app** - Feature-complete native macOS application
 
-**🚧 IN DEVELOPMENT**:
-- **Tauri v2 desktop apps** - Cross-platform native applications (Phase 2 - Not yet started)
-- **Domain setup feature** - ~90% complete, needs web client integration
+**❌ REQUIRES COMPLETE RESTRUCTURE**:
+- **Tauri v2 desktop apps** - Current implementation is wrong (web wrapper instead of native)
 
 **⚠️ LEGACY (DEPRECATED)**:
 - **Node.js server** - Original implementation (Port 4020) - Still functional
 
-## Architecture Overview
+## Architecture Correction Required
 
-TunnelForge uses a **hybrid architecture** during migration:
-
+### ❌ **CURRENT (INCORRECT) APPROACH**
 ```
-┌─────────────────┐    ┌──────────────────┐    ┌────────────────┐
-│   SwiftUI macOS │    │   Bun Frontend    │    │   Go Server    │
-│   Desktop App   │◄──►│   (Port 3001)     │◄──►│   (Port 4021)  │
-│   (Current)     │    │   Static + Proxy  │    │   API + WS     │
-└─────────────────┘    └──────────────────┘    └────────────────┘
-                                      │
-                                      ▼
 ┌─────────────────┐    ┌──────────────────┐    ┌────────────────┐
 │   Tauri v2      │    │   Bun Frontend    │    │   Go Server    │
 │   Desktop       │◄──►│   (Port 3001)     │◄──►│   (Port 4021)  │
-│   (Future)      │    │   Static + Proxy  │    │   API + WS     │
+│   (Web Wrapper)  │    │   Static + Proxy  │    │   API + WS     │
 └─────────────────┘    └──────────────────┘    └────────────────┘
 ```
 
+### ✅ **CORRECT APPROACH**
+```
+┌─────────────────────────────────────┐    ┌────────────────┐
+│           Tauri v2 Native           │    │   Go Server    │
+│           Desktop App               │◄──►│   (Port 4021)  │
+│                                     │    │   API + WS     │
+│ • Native UI Components              │    └────────────────┘
+│ • Direct Server Integration         │
+│ • System Tray & Notifications       │
+│ • Power Management                  │
+│ • Tunnel Integration                │
+│ • All 41 Mac App Services           │
+└─────────────────────────────────────┘
+```
+
+## Key Differences
+
+### **Architecture Philosophy**
+- **❌ WRONG**: Tauri app wraps web interface
+- **✅ CORRECT**: Tauri app IS the native application
+
+### **User Interface**
+- **❌ WRONG**: HTML/JS web interface loaded in Tauri WebView
+- **✅ CORRECT**: Native Tauri UI components with direct API integration
+
+### **Service Implementation**
+- **❌ WRONG**: None of the 41 original Mac app services implemented
+- **✅ CORRECT**: All 41 original Mac app services implemented natively
+
+### **Integration Pattern**
+- **❌ WRONG**: Tauri → Web Frontend → Go Server
+- **✅ CORRECT**: Tauri → Go Server (direct integration)
+
 ## Component Status
 
-### **1. Go Server Backend** ✅ ~90% COMPLETE
+### **1. Go Server Backend** ✅ PRODUCTION READY
 **Location**: `server/` directory  
 **Port**: 4021  
 **Status**: Production-ready with comprehensive testing
@@ -49,184 +72,238 @@ TunnelForge uses a **hybrid architecture** during migration:
 - `server/internal/session/manager.go` - Thread-safe terminal session management
 - `server/internal/terminal/` - PTY process management
 - `server/internal/websocket/` - WebSocket communication
-- `server/internal/auth/` - JWT authentication with bcrypt
-- `server/internal/middleware/` - Security middleware (CORS, rate limiting, CSRF)
-- `server/internal/filesystem/` - File system API with security
-- `server/internal/git/` - Git integration and status tracking
-- `server/internal/push/` - Push notifications with VAPID keys
+- `server/internal/auth/` - JWT authentication and CSRF protection
+- `server/internal/files/` - File system operations
+- `server/internal/git/` - Git integration
+- `server/internal/notifications/` - Push notification system
 
-**Performance**: 40% faster, 40% less memory than Node.js version
-**Testing**: 22+ comprehensive tests, 90%+ validation score
+**API Endpoints**:
+- `POST /api/sessions` - Create new terminal session
+- `GET /api/sessions` - List active sessions
+- `GET /api/sessions/:id` - Get session details
+- `DELETE /api/sessions/:id` - Terminate session
+- `WebSocket /ws/sessions/:id` - Real-time terminal I/O
 
-### **2. Bun Web Frontend** ✅ PRODUCTION READY  
-**Location**: `web/src/bun-server.ts`  
-**Port**: 3001  
-**Status**: Production-ready with API proxy
-
-**Features**:
-- `web/src/bun-server.ts` - Bun.serve() with static files + API proxy
-- `web/src/client/` - Responsive TypeScript frontend with xterm.js
-- `web/src/client/styles.css` - Tailwind v4 responsive design
-- Hot reload development mode
-- Mobile-responsive interface
-
-### **3. SwiftUI macOS App** ✅ PRODUCTION COMPLETE
-**Location**: `mac/TunnelForge/`  
+### **2. SwiftUI macOS App** ✅ PRODUCTION READY
+**Location**: `mac/TunnelForge/` directory
 **Status**: Feature-complete native macOS application
 
-**Core Features**:
-- `mac/TunnelForge/Core/Services/ServerManager.swift` - Go server lifecycle management
-- `mac/TunnelForge/Core/Services/PowerManagementService.swift` - Sleep/wake handling
-- `mac/TunnelForge/Core/Services/ConfigManager.swift` - Settings persistence
-- `mac/TunnelForge/Core/Services/SessionMonitor.swift` - Session tracking
-- System tray integration with dynamic status
-- Native notifications and auto-launch
-- Keychain integration for secure storage
-- 24+ major features implemented
+**Implemented Services (41 total)**:
+- **Core Services**: ServerManager, SessionService, TerminalManager, NotificationService, ConfigManager
+- **Advanced Services**: PowerManagementService, NgrokService, TailscaleService, CloudflareService, GitRepositoryMonitor, WorktreeService, NetworkMonitor, RemoteServicesStatusManager, SystemPermissionManager, SparkleUpdaterManager
+- **UI Components**: 32 different views including SettingsView, SessionDetailView, WelcomeView, AboutView
 
-### **4. Tauri v2 Desktop Apps** ❌ NOT STARTED
-**Planned Location**: `desktop/src-tauri/` (directory does not exist)  
-**Status**: Phase 2 implementation - Research and planning complete, implementation pending
+### **3. Tauri v2 Desktop Apps** ❌ REQUIRES COMPLETE RESTRUCTURE
+**Location**: `desktop/`, `windows/`, `linux/` directories
+**Status**: Current implementation is fundamentally wrong
 
-**Planned Features**:
-- Cross-platform system tray and notifications
-- Server process lifecycle management
-- Settings persistence and UI
-- Native file system integration
-- Auto-launch and system integration
-- Migration path from SwiftUI app
+**Current Problems**:
+- ❌ **Wrong Architecture**: Implemented as web wrapper instead of native app
+- ❌ **Missing Services**: None of the 41 original Mac app services implemented
+- ❌ **Web Dependency**: Loads HTML/JS interface instead of native UI
+- ❌ **Poor Integration**: Tries to manage server process instead of direct API integration
 
-### **5. Domain Setup Feature** 🚧 ~90% COMPLETE
-**Status**: Backend, iOS, and macOS complete; web client needs integration
+**Required Changes**:
+- ✅ **Remove Web Wrapper**: Delete HTML files and web-based configuration
+- ✅ **Native UI Components**: Create native Tauri UI framework
+- ✅ **Direct Server Integration**: API calls directly to Go server (port 4021)
+- ✅ **Service Implementation**: Implement all 41 original Mac app services natively
+- ✅ **System Integration**: Native system tray, notifications, power management
 
-**Implemented**:
-- Backend domain service and API endpoints
-- iOS and macOS client implementations
-- Domain validation and SSL certificate handling
+## Implementation Plan
 
-**Remaining**:
-- Web client TypeScript compilation fixes
-- Server integration (domain service registration)
-- Settings modal integration
+### **Phase 1: Architecture Restructure** (1-2 weeks)
+1. **Remove Web Wrapper Dependencies**
+   - Delete `desktop/index.html`, `debug.html`, `test.html`
+   - Remove web-based configuration from `tauri.conf.json`
+   - Clean up web wrapper approach
 
-## Migration Status Details
+2. **Create Native Tauri Structure**
+   - Implement native UI components
+   - Direct Go server API integration
+   - Native system tray and notifications
+   - Cross-platform settings management
 
-### Phase 1: Go Server Migration ✅ ~90% COMPLETE
-**Status**: Core migration complete, production-ready
-**Completed**:
-- ✅ Go server with 90%+ feature parity
-- ✅ Comprehensive API compatibility (15+ endpoints)
-- ✅ WebSocket protocol implementation
-- ✅ Authentication and security middleware
-- ✅ File system API with security validation
-- ✅ Git integration and status tracking
-- ✅ Push notifications with VAPID keys
-- ✅ Docker containerization
-- ✅ Performance testing (40% faster, 40% less memory)
-- ✅ 22+ comprehensive tests with 90%+ validation score
+### **Phase 2: Service Implementation** (4-6 weeks)
+1. **Core Services Implementation**
+   - ServerManager: Native server lifecycle management
+   - SessionService: Terminal session management
+   - TerminalManager: Terminal control and I/O
+   - NotificationService: System notifications
+   - ConfigManager: Configuration management
 
-**Remaining**: Final integration testing and documentation updates
+2. **Advanced Services Implementation**
+   - PowerManagementService: Sleep prevention (macOS IOKit, Windows SetThreadExecutionState, Linux systemd-inhibit)
+   - NgrokService: Ngrok tunnel integration
+   - TailscaleService: Tailscale integration
+   - CloudflareService: Cloudflare tunnel support
+   - GitRepositoryMonitor: Git repository monitoring
+   - WorktreeService: Git worktree management
+   - NetworkMonitor: Network status monitoring
+   - RemoteServicesStatusManager: Remote service status
+   - SystemPermissionManager: System permissions
+   - SparkleUpdaterManager: Auto-updates
 
-### Phase 2: Tauri Desktop Implementation ❌ NOT STARTED
-**Status**: Planning complete, implementation pending
-**Timeline**: 3-6 months estimated
-**Scope**: Cross-platform desktop apps replacing SwiftUI macOS app
+3. **UI Components Implementation (32 Views)**
+   - SettingsView: Main settings interface
+   - SessionDetailView: Session details
+   - WelcomeView: Onboarding experience
+   - AboutView: About dialog
+   - Multiple settings sections and components
 
-### Phase 3: Legacy Cleanup 📋 PLANNED
-**Timeline**: After Phase 2 completion
-**Scope**: Remove Node.js server, update documentation
+### **Phase 3: Testing & Distribution** (2-3 weeks)
+1. **Cross-Platform Testing**
+   - Comprehensive testing on Windows 10/11, Ubuntu/Fedora/Arch Linux, macOS
+   - Performance benchmarking across all platforms
+   - Memory usage and startup time validation
+   - System integration testing
 
-## Key Files (Actual Locations)
+2. **Package Creation & Signing**
+   - Windows: MSI and NSIS installer creation with code signing
+   - Linux: AppImage, .deb, .rpm package generation
+   - macOS: DMG creation with notarization
 
-**Go Server Core**
-- `server/cmd/server/main.go` - Entry point with graceful shutdown
-- `server/internal/server/server.go` - HTTP server setup
-- `server/go.mod` - Go dependencies
+## Technical Implementation
 
-**Session Management**
-- `server/internal/session/manager.go` - Thread-safe session management
-- `server/internal/terminal/pty.go` - PTY process management
-- `server/pkg/types/session.go` - Session data structures
+### **Native Tauri Command Pattern**
+```rust
+// Direct API integration with Go server
+#[tauri::command]
+async fn create_session(command: Vec<String>, name: String) -> Result<String, String> {
+    let client = reqwest::Client::new();
+    let response = client
+        .post("http://localhost:4021/api/sessions")
+        .json(&serde_json::json!({
+            "command": command,
+            "name": name
+        }))
+        .send()
+        .await
+        .map_err(|e| e.to_string())?;
+    
+    let session: serde_json::Value = response.json().await.map_err(|e| e.to_string())?;
+    Ok(session["sessionId"].as_str().unwrap_or("").to_string())
+}
 
-**Bun Web Server**
-- `web/src/bun-server.ts` - Bun server with API proxy
-- `web/package.json` - Dependencies and scripts
-
-**SwiftUI macOS App**
-- `mac/TunnelForge/TunnelForgeApp.swift` - Main app entry point
-- `mac/TunnelForge/Core/Services/` - Core service implementations
-
-## Data Flow
-
-**Current Production Flow**:
-1. SwiftUI macOS app manages Go server lifecycle
-2. Go server runs on port 4021 with full API
-3. Bun web frontend proxies to Go server on port 3001
-4. WebSocket connections for real-time terminal I/O
-5. JWT authentication and security middleware
-
-**Future Tauri Flow**:
-1. Tauri desktop app replaces SwiftUI app
-2. Same Go server and Bun frontend architecture
-3. Cross-platform system integration
-4. Enhanced native features (notifications, file system, etc.)
-
-## Development Commands
-
-**Go Server**:
-```bash
-cd server
-go run cmd/server/main.go  # Development
-go build -o tunnelforge-server cmd/server/main.go  # Production build
+#[tauri::command]
+async fn list_sessions() -> Result<Vec<SessionInfo>, String> {
+    let client = reqwest::Client::new();
+    let response = client
+        .get("http://localhost:4021/api/sessions")
+        .send()
+        .await
+        .map_err(|e| e.to_string())?;
+    
+    response.json().await.map_err(|e| e.to_string())
+}
 ```
 
-**Bun Web Frontend**:
-```bash
-cd web
-pnpm run dev     # Development with hot reload
-pnpm run build   # Production build
+### **Native Service Implementation**
+```rust
+// Cross-platform power management
+pub struct PowerManager;
+
+impl PowerManager {
+    #[cfg(target_os = "macos")]
+    pub fn prevent_sleep(&self) -> Result<(), String> {
+        // macOS IOKit power assertions
+        Ok(())
+    }
+    
+    #[cfg(target_os = "windows")]
+    pub fn prevent_sleep(&self) -> Result<(), String> {
+        // Windows SetThreadExecutionState
+        Ok(())
+    }
+    
+    #[cfg(target_os = "linux")]
+    pub fn prevent_sleep(&self) -> Result<(), String> {
+        // Linux systemd-inhibit
+        Ok(())
+    }
+}
 ```
 
-**SwiftUI macOS App**:
+## Migration Strategy
+
+### **Step 1: Backup Current Implementation**
 ```bash
-cd mac
-./scripts/build.sh --configuration Debug   # Debug build
-./scripts/build.sh --configuration Release # Release build
+cd desktop/src-tauri
+cp -r src src.backup
+cp tauri.conf.json tauri.conf.json.backup
 ```
 
-**Tauri Desktop** (Future):
+### **Step 2: Remove Web Wrapper Dependencies**
 ```bash
-# Commands will be available after Phase 2 implementation
 cd desktop
-cargo tauri dev     # Development
-cargo tauri build   # Production build
+rm index.html debug.html test.html serve-dev.js
+# Update tauri.conf.json to remove web dependencies
 ```
 
-## Testing Status
+### **Step 3: Implement Native Tauri Application**
+```bash
+cd desktop/src-tauri/src
+# Create native UI components
+# Implement direct Go server integration
+# Add all 41 Mac app services
+```
 
-- **Go Server**: 22+ comprehensive tests, 90%+ validation score
-- **Bun Frontend**: Integration tests with Go server
-- **SwiftUI App**: Xcode test suite with CI/CD
-- **Cross-platform**: Manual testing on macOS, planning for Windows/Linux
+## Testing Strategy
 
-## Next Steps
+### **Native Testing Approach**
+- **Unit Tests**: Test individual service implementations
+- **Integration Tests**: Test Tauri command integration with Go server
+- **E2E Tests**: Test complete user workflows
+- **Cross-Platform Tests**: Validate on Windows, Linux, macOS
 
-1. **Complete Domain Setup** (1-2 weeks)
-   - Fix web client TypeScript issues
-   - Integrate domain service in Go server
-   - Add to settings modal
+### **Performance Benchmarks**
+- **Startup Time**: <3 seconds on all platforms
+- **Memory Usage**: <100MB for typical usage
+- **CPU Usage**: Minimal impact on system performance
+- **Network Performance**: Efficient API communication with Go server
 
-2. **Phase 2 Planning** (2-4 weeks)
-   - Detailed Tauri implementation roadmap
-   - Cross-platform testing strategy
-   - Migration plan from SwiftUI
+## Risk Analysis
 
-3. **Tauri Implementation** (3-6 months)
-   - Foundation setup and basic features
-   - Core functionality and system integration
-   - Cross-platform builds and testing
-   - Production deployment
+### **HIGH RISK** (Requires Immediate Attention)
+**Architecture Misunderstanding** ❌ **CRITICAL**
+- *Current Risk*: Implementation based on incorrect web wrapper approach
+- *Required Action*: Complete restructure to native Tauri implementation
+- *Timeline Impact*: 1-2 weeks to correct architecture
+- *Mitigation*: Clean slate approach with native-first design
+
+### **MEDIUM RISK**
+**Service Implementation Complexity**
+- *Risk*: Implementing 41 different services is complex
+- *Mitigation*: Systematic implementation in priority order
+- *Timeline Impact*: May require additional development time
+
+## Success Metrics
+
+### **Technical Metrics**
+- **Architecture Correctness**: Native Tauri implementation (not web wrapper)
+- **Service Completeness**: All 41 original Mac app services implemented
+- **Platform Coverage**: Windows, Linux, macOS all supported
+- **Performance**: Within 10% of native SwiftUI performance
+
+### **User Experience Metrics**
+- **Native Feel**: App behaves like native desktop application
+- **Feature Complete**: All original VibeTunnel functionality available
+- **Cross-Platform Consistency**: Consistent experience across platforms
+- **Reliability**: Stable operation with all services working
+
+## Conclusion
+
+**The current Tauri implementation approach is fundamentally incorrect.** TunnelForge should be a native Tauri application that directly implements all the functionality of the original VibeTunnel Mac app, not a wrapper around a web interface.
+
+**Goal**: Create native desktop applications for Windows, Linux, and macOS that provide all 41 services from the original Mac app.
+
+**Approach**: Complete restructure from web wrapper to native implementation with direct Go server integration.
+
+**Timeline**: 6-8 weeks for complete native implementation.
+
+**Success Criteria**: Native desktop application that provides all original VibeTunnel functionality across all platforms.
 
 ---
 
-*This document reflects the actual implementation status as of 2025-09-18. The Go server migration is substantially complete with production-ready features, while Tauri implementation remains in the planning phase.*
+*Last Updated: 2025-01-27*  
+*Architecture Status: REQUIRES COMPLETE RESTRUCTURE*

@@ -1,5 +1,5 @@
-// TunnelForge Desktop - Native Tauri v2 Core Library
-// This library contains the main application logic for the TunnelForge native desktop application
+// TunnelForge Desktop - Tauri v2 Core Library
+// This library contains the main application logic for the TunnelForge desktop application
 
 use tauri::{AppHandle, Manager};
 use std::sync::{Arc, Mutex};
@@ -18,7 +18,6 @@ pub mod config;
 pub mod notifications;
 pub mod power;
 pub mod system;
-pub mod ui;
 
 pub mod server;
 pub mod sessions;
@@ -111,28 +110,16 @@ pub async fn get_app_version_internal() -> Result<String, String> {
 
 // App setup function
 pub fn setup_app(app: &mut tauri::App) -> Result<(), String> {
-    add_log_entry("info", "TunnelForge Native Desktop starting up...");
+    add_log_entry("info", "TunnelForge Desktop starting up...");
     add_log_entry("info", &format!("App version: {}", env!("CARGO_PKG_VERSION")));
 
     // Initialize logging
-    log::info!("Setting up TunnelForge Native Desktop app");
+    log::info!("Setting up TunnelForge Desktop app");
 
-    // Initialize UI components
-    add_log_entry("info", "Setting up native UI components");
-    
-    // Get UI managers from state
-    let main_window = app.state::<ui::MainWindow>();
-    let settings_window = app.state::<ui::SettingsWindow>();
-    let session_window = app.state::<ui::SessionWindow>();
-    let tray_manager = app.state::<ui::TrayManager>();
-
-    // Create main window
-    if let Err(e) = main_window.create_window(&app.handle()) {
-        add_log_entry("error", &format!("Failed to create main window: {}", e));
-        log::error!("Failed to create main window: {}", e);
-    }
-
-    // Set up system tray
+    // Set up system tray (VibeTunnel-style menu bar app)
+    add_log_entry("info", "Setting up system tray interface");
+    use crate::system::tray::TrayManager;
+    let tray_manager = TrayManager::new(app.handle().clone());
     if let Err(e) = tray_manager.setup_tray() {
         add_log_entry("error", &format!("Failed to setup system tray: {}", e));
         log::error!("Failed to setup system tray: {}", e);
@@ -156,6 +143,6 @@ pub fn setup_app(app: &mut tauri::App) -> Result<(), String> {
         }
     }
 
-    add_log_entry("info", "TunnelForge Native Desktop initialization complete");
+    add_log_entry("info", "TunnelForge Desktop initialization complete");
     Ok(())
 }
