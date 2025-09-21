@@ -191,3 +191,4 @@ cypress/screenshots/
 *.temp
 temp/
 tmp/
+windows/src-tauri/bin/
