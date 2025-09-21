@@ -1,8 +1,7 @@
 {
   "$schema": "../gen/schemas/desktop-schema.json",
   "build": {
-    "beforeBuildCommand": "echo 'Building TunnelForge Native Desktop App'",
-    "devUrl": "http://localhost:4021"
+    "beforeBuildCommand": "echo 'Building TunnelForge Native Desktop App'"
   },
   "productName": "TunnelForge",
   "version": "1.0.0",
