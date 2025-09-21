@@ -525,7 +525,7 @@ final class NotificationService: NSObject, @preconcurrency UNUserNotificationCen
             return
         }
 
-        if serverProvider.authMode != "none", serverProvider.localAuthToken == nil {
+        if serverProvider.authMode != "none" {
             logger.error("No auth token available for notification service in auth mode '\(serverProvider.authMode)'")
             return
         }
@@ -546,7 +546,7 @@ final class NotificationService: NSObject, @preconcurrency UNUserNotificationCen
 
         // Add authorization header if auth token is available.
         // When auth mode is "none", there's no token, and that's okay.
-        if let authToken = serverProvider.localAuthToken {
+        if serverProvider.authMode != "none" { let authToken = serverProvider.localAuthToken
             headers["Authorization"] = "Bearer \(authToken)"
             // Show token prefix for debugging (first 10 chars only for security)
             let tokenPrefix = String(authToken.prefix(10))

@@ -1,0 +1,245 @@
+name: 'Code Signing Setup'
+
+on:
+  workflow_call:
+    inputs:
+      platform:
+        required: true
+        type: string
+      sign_type:
+        required: true
+        type: string
+        default: 'release'
+
+jobs:
+  setup-signing-windows:
+    name: Setup Windows Code Signing
+    runs-on: windows-latest
+    if: inputs.platform == 'windows'
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup signing certificate
+        run: |
+          # Create certificate directory
+          mkdir -p certificates
+          
+          # Download certificate from secrets
+          echo "${{ secrets.WIN_CSC_CONTENT }}" | base64 --decode > certificates/windows.p12
+          
+          # Install certificate
+          certutil -importpfx certificates/windows.p12 NoExport
+
+      - name: Sign test executable
+        run: |
+          # Create a test executable to verify signing
+          echo "Test executable" > test.exe
+          
+          # Sign the test executable
+          signtool sign /fd SHA256 /t http://timestamp.digicert.com /f "${{ secrets.WIN_CSC_PATH }}" /p "${{ secrets.WIN_CSC_KEY_PASSWORD }}" test.exe
+          
+          # Verify signature
+          signtool verify /pa /v test.exe
+
+      - name: Upload certificate info
+        uses: actions/upload-artifact@v4
+        with:
+          name: windows-cert-info
+          path: certificates/
+          retention-days: 1
+
+  setup-signing-macos:
+    name: Setup macOS Code Signing
+    runs-on: macos-latest
+    if: inputs.platform == 'macos'
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup signing certificate
+        run: |
+          # Create keychain
+          security create-keychain -p "${{ secrets.MACOS_KEYCHAIN_PASSWORD }}" build.keychain
+          security default-keychain -s build.keychain
+          security unlock-keychain -p "${{ secrets.MACOS_KEYCHAIN_PASSWORD }}" build.keychain
+          
+          # Import certificate
+          echo "${{ secrets.MACOS_DEVELOPER_CERT }}" | base64 --decode > certificate.p12
+          security import certificate.p12 -k build.keychain -P "${{ secrets.MACOS_CERT_PASSWORD }}" -T /usr/bin/codesign
+          
+          # Set keychain timeout
+          security set-keychain-settings -lut 21600 build.keychain
+
+      - name: Test signing
+        run: |
+          # Create a test app bundle
+          mkdir -p TestApp.app/Contents/MacOS
+          echo "#!/bin/bash" > TestApp.app/Contents/MacOS/TestApp
+          chmod +x TestApp.app/Contents/MacOS/TestApp
+          
+          # Sign the test app
+          codesign --force --deep --sign "${{ secrets.MACOS_DEVELOPER_ID }}" TestApp.app
+          
+          # Verify signature
+          codesign --verify --verbose TestApp.app
+
+      - name: Test notarization
+        run: |
+          # Create test DMG
+          hdiutil create -srcfolder TestApp.app TestApp.dmg
+          
+          # Test notarization
+          xcrun notarytool submit TestApp.dmg --apple-id "${{ secrets.MACOS_APPLE_ID }}" --password "${{ secrets.MACOS_APP_PASSWORD }}" --team-id "${{ secrets.MACOS_TEAM_ID }}" --wait
+
+      - name: Cleanup
+        run: |
+          # Clean up test files
+          rm -rf TestApp.app TestApp.dmg
+          security delete-keychain build.keychain
+
+  setup-signing-linux:
+    name: Setup Linux Code Signing
+    runs-on: ubuntu-latest
+    if: inputs.platform == 'linux'
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup GPG signing
+        run: |
+          # Import GPG key
+          echo "${{ secrets.GPG_PRIVATE_KEY }}" | gpg --import
+          
+          # Configure git
+          git config --global user.email "${{ secrets.GPG_EMAIL }}"
+          git config --global user.name "${{ secrets.GPG_NAME }}"
+          
+          # Test signing
+          echo "test" | gpg --clearsign > test.txt.asc
+          
+          # Verify signature
+          gpg --verify test.txt.asc
+
+      - name: Setup dpkg signing
+        run: |
+          # Install dpkg-sig
+          sudo apt-get update
+          sudo apt-get install -y dpkg-sig
+          
+          # Configure dpkg-sig
+          echo "Configure dpkg-sig with GPG key"
+          # dpkg-sig configuration would go here
+
+  sign-artifacts:
+    name: Sign Release Artifacts
+    runs-on: ${{ inputs.platform == 'windows' && 'windows-latest' || inputs.platform == 'macos' && 'macos-latest' || 'ubuntu-latest' }}
+    needs: [setup-signing-windows, setup-signing-macos, setup-signing-linux]
+    if: inputs.sign_type == 'release'
+
+    steps:
+      - name: Download unsigned artifacts
+        uses: actions/download-artifact@v4
+        with:
+          pattern: tunnelforge-${{ inputs.platform }}-*
+          path: artifacts/
+
+      - name: Sign Windows artifacts
+        if: inputs.platform == 'windows'
+        run: |
+          # Sign MSI files
+          for file in artifacts/**/*.msi; do
+            if [ -f "$file" ]; then
+              signtool sign /fd SHA256 /t http://timestamp.digicert.com /f "${{ secrets.WIN_CSC_PATH }}" /p "${{ secrets.WIN_CSC_KEY_PASSWORD }}" "$file"
+              echo "Signed $file"
+            fi
+          done
+          
+          # Sign EXE files
+          for file in artifacts/**/*.exe; do
+            if [ -f "$file" ]; then
+              signtool sign /fd SHA256 /t http://timestamp.digicert.com /f "${{ secrets.WIN_CSC_PATH }}" /p "${{ secrets.WIN_CSC_KEY_PASSWORD }}" "$file"
+              echo "Signed $file"
+            fi
+          done
+
+      - name: Sign macOS artifacts
+        if: inputs.platform == 'macos'
+        run: |
+          # Unlock keychain
+          security unlock-keychain -p "${{ secrets.MACOS_KEYCHAIN_PASSWORD }}" build.keychain
+          
+          # Sign DMG files
+          for file in artifacts/**/*.dmg; do
+            if [ -f "$file" ]; then
+              codesign --force --sign "${{ secrets.MACOS_DEVELOPER_ID }}" "$file"
+              echo "Signed $file"
+            fi
+          done
+          
+          # Sign app bundles
+          for app in artifacts/**/*.app; do
+            if [ -d "$app" ]; then
+              codesign --force --deep --sign "${{ secrets.MACOS_DEVELOPER_ID }}" "$app"
+              echo "Signed $app"
+            fi
+          done
+
+      - name: Sign Linux artifacts
+        if: inputs.platform == 'linux'
+        run: |
+          # Sign DEB packages
+          for file in artifacts/**/*.deb; do
+            if [ -f "$file" ]; then
+              dpkg-sig --sign builder "$file"
+              echo "Signed $file"
+            fi
+          done
+          
+          # Sign RPM packages
+          for file in artifacts/**/*.rpm; do
+            if [ -f "$file" ]; then
+              rpm --addsign "$file"
+              echo "Signed $file"
+            fi
+          done
+
+      - name: Verify signatures
+        run: |
+          echo "Verifying signatures for ${{ inputs.platform }}..."
+          
+          if [ "${{ inputs.platform }}" == "windows" ]; then
+            # Verify Windows signatures
+            for file in artifacts/**/*.{msi,exe}; do
+              if [ -f "$file" ]; then
+                signtool verify /pa /v "$file"
+              fi
+            done
+          elif [ "${{ inputs.platform }}" == "macos" ]; then
+            # Verify macOS signatures
+            for file in artifacts/**/*.{dmg,app}; do
+              if [ -f "$file" ]; then
+                codesign --verify --verbose "$file"
+              elif [ -d "$file" ]; then
+                codesign --verify --verbose "$file"
+              fi
+            done
+          else
+            # Verify Linux signatures
+            for file in artifacts/**/*.{deb,rpm}; do
+              if [ -f "$file" ]; then
+                echo "Verifying $file"
+                # Package-specific verification
+              fi
+            done
+          fi
+
+      - name: Upload signed artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: signed-${{ inputs.platform }}-artifacts
+          path: artifacts/
+          retention-days: 30

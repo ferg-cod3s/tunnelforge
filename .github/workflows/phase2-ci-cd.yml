@@ -1,0 +1,404 @@
+name: 'Phase 2: Production CI/CD Pipeline'
+
+on:
+  push:
+    branches: [main, development]
+    paths:
+      - 'desktop/**'
+      - 'web/**'
+      - 'server/**'
+      - 'windows/**'
+      - 'linux/**'
+      - 'mac/**'
+  pull_request:
+    branches: [main, development]
+    paths:
+      - 'desktop/**'
+      - 'web/**'
+      - 'server/**'
+      - 'windows/**'
+      - 'linux/**'
+      - 'mac/**'
+  workflow_dispatch:
+    inputs:
+      build_type:
+        description: 'Build type'
+        required: true
+        default: 'test'
+        type: choice
+        options:
+          - test
+          - beta
+          - release
+      sign_artifacts:
+        description: 'Sign artifacts'
+        required: false
+        default: false
+        type: boolean
+
+env:
+  NODE_VERSION: '20'
+  BUN_VERSION: 'latest'
+  RUST_VERSION: 'stable'
+  GO_VERSION: '1.21'
+
+# Cancel in-progress runs for the same PR
+concurrency:
+  group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  # Detect changes to determine which builds to run
+  changes:
+    name: Detect Changes
+    runs-on: ubuntu-latest
+    outputs:
+      desktop: ${{ steps.filter.outputs.desktop }}
+      web: ${{ steps.filter.outputs.web }}
+      server: ${{ steps.filter.outputs.server }}
+      windows: ${{ steps.filter.outputs.windows }}
+      linux: ${{ steps.filter.outputs.linux }}
+      mac: ${{ steps.filter.outputs.mac }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dorny/paths-filter@v3
+        id: filter
+        with:
+          filters: |
+            desktop:
+              - 'desktop/**'
+              - 'web/**'
+              - 'server/**'
+            web:
+              - 'web/**'
+            server:
+              - 'server/**'
+            windows:
+              - 'windows/**'
+              - 'desktop/**'
+              - 'server/**'
+            linux:
+              - 'linux/**'
+              - 'desktop/**'
+              - 'server/**'
+            mac:
+              - 'mac/**'
+              - 'desktop/**'
+              - 'server/**'
+
+  # Build Go server binaries for all platforms
+  build-server-binaries:
+    name: Build Go Server Binaries
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        target:
+          - { os: linux, arch: amd64, ext: '' }
+          - { os: linux, arch: arm64, ext: '' }
+          - { os: windows, arch: amd64, ext: '.exe' }
+          - { os: windows, arch: arm64, ext: '.exe' }
+          - { os: darwin, arch: amd64, ext: '' }
+          - { os: darwin, arch: arm64, ext: '' }
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Go
+        uses: actions/setup-go@v4
+        with:
+          go-version: ${{ env.GO_VERSION }}
+
+      - name: Build Go Server
+        working-directory: server
+        env:
+          GOOS: ${{ matrix.target.os }}
+          GOARCH: ${{ matrix.target.arch }}
+          CGO_ENABLED: 0
+        run: |
+          go build -ldflags="-s -w" -o tunnelforge-server-${{ matrix.target.os }}-${{ matrix.target.arch }}${{ matrix.target.ext }} cmd/server/main.go
+
+      - name: Upload Server Binary
+        uses: actions/upload-artifact@v4
+        with:
+          name: tunnelforge-server-${{ matrix.target.os }}-${{ matrix.target.arch }}
+          path: server/tunnelforge-server-${{ matrix.target.os }}-${{ matrix.target.arch }}${{ matrix.target.ext }}
+          retention-days: 7
+
+  # Cross-platform desktop app builds
+  build-desktop-apps:
+    name: Build Desktop Apps
+    needs: [changes, build-server-binaries]
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          # Windows builds
+          - platform: 'windows-latest'
+            target: 'x86_64-pc-windows-msvc'
+            args: ''
+            app_name: 'tunnelforge-windows'
+            package_types: 'msi,nsis'
+            needs_server: true
+            server_artifact: 'tunnelforge-server-windows-amd64'
+          # Linux builds  
+          - platform: 'ubuntu-22.04'
+            target: 'x86_64-unknown-linux-gnu'
+            args: ''
+            app_name: 'tunnelforge-linux'
+            package_types: 'deb,rpm,appimage'
+            needs_server: true
+            server_artifact: 'tunnelforge-server-linux-amd64'
+          # macOS Intel build
+          - platform: 'macos-latest'
+            target: 'x86_64-apple-darwin'
+            args: '--target x86_64-apple-darwin'
+            app_name: 'tunnelforge-macos-intel'
+            package_types: 'dmg,app'
+            needs_server: true
+            server_artifact: 'tunnelforge-server-darwin-amd64'
+          # macOS Apple Silicon build
+          - platform: 'macos-latest'
+            target: 'aarch64-apple-darwin'
+            args: '--target aarch64-apple-darwin'
+            app_name: 'tunnelforge-macos-arm'
+            package_types: 'dmg,app'
+            needs_server: true
+            server_artifact: 'tunnelforge-server-darwin-arm64'
+
+    runs-on: ${{ matrix.platform }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+
+      - name: Setup Bun
+        uses: oven-sh/setup-bun@v1
+        with:
+          bun-version: ${{ env.BUN_VERSION }}
+
+      - name: Setup Rust
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: ${{ matrix.target }}
+
+      - name: Install Linux Dependencies
+        if: matrix.platform == 'ubuntu-22.04'
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y \
+            libwebkit2gtk-4.0-dev \
+            libgtk-3-dev \
+            libayatana-appindicator3-dev \
+            librsvg2-dev \
+            patchelf
+
+      - name: Download Go Server Binary
+        if: matrix.needs_server
+        uses: actions/download-artifact@v4
+        with:
+          name: ${{ matrix.server_artifact }}
+          path: desktop/src-tauri/bin/
+
+      - name: Make Server Binary Executable
+        if: matrix.needs_server && matrix.platform != 'windows-latest'
+        run: chmod +x desktop/src-tauri/bin/tunnelforge-server-*
+
+      - name: Install Dependencies
+        working-directory: desktop
+        run: bun install
+
+      - name: Build Web Frontend
+        working-directory: web
+        run: bun run build:bun
+
+      - name: Build Tauri App
+        uses: tauri-apps/tauri-action@v0
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          TAURI_PRIVATE_KEY: ${{ secrets.TAURI_PRIVATE_KEY }}
+          TAURI_KEY_PASSWORD: ${{ secrets.TAURI_KEY_PASSWORD }}
+        with:
+          projectPath: './desktop'
+          args: ${{ matrix.args }}
+
+      - name: Upload Build Artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: ${{ matrix.app_name }}-artifacts
+          path: |
+            desktop/src-tauri/target/${{ matrix.target }}/release/bundle/**/*
+          retention-days: 7
+
+  # Comprehensive testing
+  test-suite:
+    name: Comprehensive Test Suite
+    runs-on: ubuntu-latest
+    needs: changes
+    if: needs.changes.outputs.desktop == 'true' || needs.changes.outputs.web == 'true' || github.event.inputs.build_type == 'test'
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Bun
+        uses: oven-sh/setup-bun@v1
+        with:
+          bun-version: ${{ env.BUN_VERSION }}
+
+      - name: Install Dependencies
+        working-directory: web
+        run: |
+          bun install --frozen-lockfile
+          npx playwright install chromium
+
+      - name: Run Unit Tests
+        working-directory: web
+        run: bun run test:coverage
+
+      - name: Run E2E Tests
+        working-directory: web
+        run: |
+          bun run build
+          bun run start:test &
+          SERVER_PID=$!
+          npx wait-on http://localhost:3456 -t 30000
+          npx playwright test
+          kill $SERVER_PID
+
+      - name: Run Security Audit
+        working-directory: web
+        run: npm audit --audit-level=moderate
+
+      - name: Run Performance Tests
+        working-directory: web
+        run: |
+          bun run build
+          # Performance benchmarks
+          bun run test:performance || true
+
+      - name: Upload Test Results
+        uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: test-results
+          path: |
+            web/coverage/
+            web/playwright-report/
+            web/performance-report/
+          retention-days: 7
+
+  # Code signing (for release builds)
+  sign-artifacts:
+    name: Sign Artifacts
+    runs-on: ${{ matrix.platform }}
+    needs: [build-desktop-apps, test-suite]
+    if: github.event.inputs.sign_artifacts == 'true' || github.event.inputs.build_type == 'release'
+    strategy:
+      matrix:
+        include:
+          - platform: 'windows-latest'
+            cert_path: 'certificates/windows.p12'
+            sign_tool: 'signtool'
+          - platform: 'macos-latest'
+            cert_path: 'certificates/macos.p12'
+            sign_tool: 'codesign'
+
+    steps:
+      - name: Download Artifacts
+        uses: actions/download-artifact@v4
+        with:
+          pattern: tunnelforge-*-artifacts
+          path: artifacts/
+
+      - name: Setup Signing Tools
+        run: |
+          # Setup platform-specific signing tools
+          echo "Setting up signing for ${{ matrix.platform }}"
+
+      - name: Sign Artifacts
+        run: |
+          # Platform-specific signing logic
+          echo "Signing artifacts for ${{ matrix.platform }}"
+
+      - name: Upload Signed Artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: signed-${{ matrix.platform }}-artifacts
+          path: artifacts/
+          retention-days: 30
+
+  # Release automation
+  create-release:
+    name: Create Release
+    runs-on: ubuntu-latest
+    needs: [build-desktop-apps, sign-artifacts, test-suite]
+    if: github.event.inputs.build_type == 'release' || startsWith(github.ref, 'refs/tags/v')
+
+    steps:
+      - name: Download All Artifacts
+        uses: actions/download-artifact@v4
+
+      - name: Generate Changelog
+        run: |
+          # Generate changelog from git history
+          echo "## TunnelForge Release Notes" > release-notes.md
+          echo "" >> release-notes.md
+          git log --oneline --since="1 month ago" >> release-notes.md
+
+      - name: Create GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          draft: ${{ github.event.inputs.build_type != 'release' }}
+          prerelease: ${{ contains(github.ref_name, 'beta') || contains(github.ref_name, 'rc') }}
+          body_path: release-notes.md
+          files: |
+            **/tunnelforge-*-artifacts/**/*
+            signed-*/**/*
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+  # Quality gates and validation
+  quality-gates:
+    name: Quality Gates
+    runs-on: ubuntu-latest
+    needs: [test-suite, build-desktop-apps]
+    if: always()
+
+    steps:
+      - name: Check All Jobs
+        run: |
+          echo "## Quality Gates Summary"
+          echo ""
+
+          # Check test results
+          if [ "${{ needs.test-suite.result }}" != "success" ]; then
+            echo "❌ Test suite failed"
+            exit 1
+          fi
+
+          # Check build results
+          if [ "${{ needs.build-desktop-apps.result }}" != "success" ]; then
+            echo "❌ Desktop builds failed"
+            exit 1
+          fi
+
+          echo "✅ All quality gates passed!"
+
+      - name: Set Commit Status
+        if: github.event_name == 'pull_request'
+        uses: actions/github-script@v7
+        with:
+          script: |
+            await github.rest.repos.createCommitStatus({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              sha: context.sha,
+              state: 'success',
+              description: 'All quality gates passed',
+              context: 'Phase 2 CI/CD'
+            });

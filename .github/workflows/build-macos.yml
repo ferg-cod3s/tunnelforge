@@ -1,0 +1,138 @@
+name: 'Build macOS Apps'
+
+on:
+  workflow_call:
+    inputs:
+      build_type:
+        required: true
+        type: string
+        default: 'test'
+      sign_artifacts:
+        required: false
+        type: boolean
+        default: false
+
+jobs:
+  build-macos:
+    name: Build macOS Desktop App
+    runs-on: macos-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        target:
+          - x86_64-apple-darwin
+          - aarch64-apple-darwin
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: Setup Bun
+        uses: oven-sh/setup-bun@v1
+        with:
+          bun-version: latest
+
+      - name: Setup Rust
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: ${{ matrix.target }}
+
+      - name: Install dependencies
+        working-directory: desktop
+        run: |
+          bun install
+          cargo install tauri-cli
+
+      - name: Build web frontend
+        working-directory: web
+        run: bun run build:bun
+
+      - name: Build Tauri app
+        working-directory: desktop
+        run: |
+          bun run build --target ${{ matrix.target }}
+        env:
+          TAURI_PRIVATE_KEY: ${{ secrets.TAURI_PRIVATE_KEY }}
+          TAURI_KEY_PASSWORD: ${{ secrets.TAURI_KEY_PASSWORD }}
+
+      - name: Notarize and sign
+        if: inputs.sign_artifacts
+        run: |
+          # Create keychain
+          security create-keychain -p "${{ secrets.MACOS_KEYCHAIN_PASSWORD }}" build.keychain
+          security default-keychain -s build.keychain
+          security unlock-keychain -p "${{ secrets.MACOS_KEYCHAIN_PASSWORD }}" build.keychain
+          
+          # Import certificate
+          echo "${{ secrets.MACOS_DEVELOPER_CERT }}" | base64 --decode > certificate.p12
+          security import certificate.p12 -k build.keychain -P "${{ secrets.MACOS_CERT_PASSWORD }}" -T /usr/bin/codesign
+          
+          # Sign the app
+          codesign --force --deep --sign "${{ secrets.MACOS_DEVELOPER_ID }}" "desktop/src-tauri/target/${{ matrix.target }}/release/bundle/dmg/TunnelForge.app"
+          
+          # Notarize
+          if [ -f "desktop/src-tauri/target/${{ matrix.target }}/release/bundle/dmg/TunnelForge.dmg" ]; then
+            xcrun notarytool submit "desktop/src-tauri/target/${{ matrix.target }}/release/bundle/dmg/TunnelForge.dmg" --apple-id "${{ secrets.MACOS_APPLE_ID }}" --password "${{ secrets.MACOS_APP_PASSWORD }}" --team-id "${{ secrets.MACOS_TEAM_ID }}"
+          fi
+
+      - name: Upload macOS artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: tunnelforge-macos-${{ matrix.target }}
+          path: |
+            desktop/src-tauri/target/${{ matrix.target }}/release/bundle/dmg/*.dmg
+            desktop/src-tauri/target/${{ matrix.target }}/release/bundle/macos/*.app
+          retention-days: 7
+
+  test-macos:
+    name: Test macOS Installation
+    runs-on: macos-latest
+    needs: build-macos
+    if: inputs.build_type == 'test'
+
+    steps:
+      - name: Download artifacts
+        uses: actions/download-artifact@v4
+        with:
+          name: tunnelforge-macos-x86_64-apple-darwin
+          path: artifacts/
+
+      - name: Test DMG installation
+        run: |
+          # Mount DMG
+          hdiutil attach artifacts/*.dmg
+          
+          # Install app
+          cp -R "/Volumes/TunnelForge/TunnelForge.app" "/Applications/"
+          
+          # Verify installation
+          if [ -d "/Applications/TunnelForge.app" ]; then
+            echo "✅ TunnelForge successfully installed"
+          else
+            echo "❌ TunnelForge installation failed"
+            exit 1
+          fi
+
+      - name: Test app functionality
+        run: |
+          # Test if app launches
+          open "/Applications/TunnelForge.app" || true
+          sleep 5
+          
+          # Check if TunnelForge processes are running
+          if pgrep -f "TunnelForge" > /dev/null; then
+            echo "✅ TunnelForge app launched successfully"
+          else
+            echo "⚠️ TunnelForge app launch verification incomplete"
+          fi
+
+      - name: Cleanup
+        run: |
+          # Clean up test installation
+          killall TunnelForge 2>/dev/null || true
+          rm -rf "/Applications/TunnelForge.app"

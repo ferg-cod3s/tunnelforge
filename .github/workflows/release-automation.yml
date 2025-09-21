@@ -1,0 +1,285 @@
+name: 'Release Automation'
+
+on:
+  workflow_call:
+    inputs:
+      release_type:
+        required: true
+        type: string
+        default: 'patch'
+      create_tag:
+        required: false
+        type: boolean
+        default: true
+      draft_release:
+        required: false
+        type: boolean
+        default: false
+
+env:
+  NODE_VERSION: '20'
+  BUN_VERSION: 'latest'
+
+jobs:
+  version-bump:
+    name: Version Bump
+    runs-on: ubuntu-latest
+    outputs:
+      new_version: ${{ steps.version.outputs.new_version }}
+      changelog: ${{ steps.changelog.outputs.changelog }}
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+
+      - name: Setup Bun
+        uses: oven-sh/setup-bun@v1
+        with:
+          bun-version: ${{ env.BUN_VERSION }}
+
+      - name: Install dependencies
+        working-directory: web
+        run: bun install --frozen-lockfile
+
+      - name: Get current version
+        id: current
+        run: |
+          # Get version from package.json
+          VERSION=$(node -p "require('./web/package.json').version")
+          echo "current_version=$VERSION" >> $GITHUB_OUTPUT
+
+      - name: Calculate new version
+        id: version
+        run: |
+          CURRENT="${{ steps.current.outputs.current_version }}"
+          TYPE="${{ inputs.release_type }}"
+          
+          # Parse current version (assuming semver)
+          MAJOR=$(echo $CURRENT | cut -d. -f1)
+          MINOR=$(echo $CURRENT | cut -d. -f2)
+          PATCH=$(echo $CURRENT | cut -d. -f3)
+          
+          case $TYPE in
+            "major")
+              MAJOR=$((MAJOR + 1))
+              MINOR=0
+              PATCH=0
+              ;;
+            "minor")
+              MINOR=$((MINOR + 1))
+              PATCH=0
+              ;;
+            "patch")
+              PATCH=$((PATCH + 1))
+              ;;
+          esac
+          
+          NEW_VERSION="$MAJOR.$MINOR.$PATCH"
+          echo "new_version=$NEW_VERSION" >> $GITHUB_OUTPUT
+          echo "New version: $NEW_VERSION"
+
+      - name: Update version files
+        run: |
+          NEW_VERSION="${{ steps.version.outputs.new_version }}"
+          
+          # Update package.json files
+          for pkg_file in $(find . -name "package.json" -not -path "./node_modules/*"); do
+            if [ -f "$pkg_file" ]; then
+              # Update version in package.json
+              sed -i "s/\"version\": \"[^\"]*\"/\"version\": \"$NEW_VERSION\"/" "$pkg_file"
+              echo "Updated $pkg_file to version $NEW_VERSION"
+            fi
+          done
+
+      - name: Generate changelog
+        id: changelog
+        run: |
+          NEW_VERSION="${{ steps.version.outputs.new_version }}"
+          
+          # Generate changelog from git commits
+          echo "## TunnelForge v$NEW_VERSION" > changelog.md
+          echo "" >> changelog.md
+          echo "### Changes" >> changelog.md
+          echo "" >> changelog.md
+          
+          # Get commits since last tag
+          LAST_TAG=$(git describe --tags --abbrev=0 HEAD~1 2>/dev/null || echo "")
+          if [ -n "$LAST_TAG" ]; then
+            git log --oneline --pretty=format:"- %s (%h)" $LAST_TAG..HEAD >> changelog.md
+          else
+            git log --oneline --pretty=format:"- %s (%h)" -10 >> changelog.md
+          fi
+          
+          # Add installation instructions
+          echo "" >> changelog.md
+          echo "### Installation" >> changelog.md
+          echo "" >> changelog.md
+          echo "**Linux (AppImage):**" >> changelog.md
+          echo '```bash' >> changelog.md
+          echo "chmod +x TunnelForge-$NEW_VERSION.AppImage" >> changelog.md
+          echo "./TunnelForge-$NEW_VERSION.AppImage" >> changelog.md
+          echo '```' >> changelog.md
+          echo "" >> changelog.md
+          echo "**Windows:**" >> changelog.md
+          echo '```cmd' >> changelog.md
+          echo "TunnelForge-$NEW_VERSION.msi" >> changelog.md
+          echo '```' >> changelog.md
+          echo "" >> changelog.md
+          echo "**macOS:**" >> changelog.md
+          echo '```bash' >> changelog.md
+          echo "open TunnelForge-$NEW_VERSION.dmg" >> changelog.md
+          echo '```' >> changelog.md
+          
+          # Read changelog content
+          CHANGELOG=$(cat changelog.md)
+          echo "changelog<<EOF" >> $GITHUB_OUTPUT
+          echo "$CHANGELOG" >> $GITHUB_OUTPUT
+          echo "EOF" >> $GITHUB_OUTPUT
+
+      - name: Commit version changes
+        run: |
+          git config --local user.email "action@github.com"
+          git config --local user.name "GitHub Action"
+          
+          git add .
+          git commit -m "Bump version to ${{ steps.version.outputs.new_version }}"
+          
+          git push
+
+      - name: Create git tag
+        if: inputs.create_tag
+        run: |
+          NEW_VERSION="${{ steps.version.outputs.new_version }}"
+          git tag "v$NEW_VERSION"
+          git push origin "v$NEW_VERSION"
+
+  create-release:
+    name: Create GitHub Release
+    runs-on: ubuntu-latest
+    needs: version-bump
+    if: inputs.create_tag
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Download all artifacts
+        uses: actions/download-artifact@v4
+
+      - name: Create release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: v${{ needs.version-bump.outputs.new_version }}
+          name: TunnelForge v${{ needs.version-bump.outputs.new_version }}
+          body: ${{ needs.version-bump.outputs.changelog }}
+          draft: ${{ inputs.draft_release }}
+          prerelease: ${{ contains(needs.version-bump.outputs.new_version, 'beta') || contains(needs.version-bump.outputs.new_version, 'alpha') }}
+          files: |
+            **/tunnelforge-*-artifacts/**/*
+            signed-*/**/*
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+  notify-release:
+    name: Notify Release
+    runs-on: ubuntu-latest
+    needs: [version-bump, create-release]
+    if: always() && inputs.create_tag
+
+    steps:
+      - name: Notify Discord
+        if: env.DISCORD_WEBHOOK_URL != ''
+        run: |
+          curl -X POST "${{ secrets.DISCORD_WEBHOOK_URL }}" \
+            -H "Content-Type: application/json" \
+            -d '{
+              "embeds": [{
+                "title": "🚀 New TunnelForge Release",
+                "description": "Version ${{ needs.version-bump.outputs.new_version }} has been released!",
+                "url": "https://github.com/${{ github.repository }}/releases/tag/v${{ needs.version-bump.outputs.new_version }}",
+                "color": 5763719,
+                "fields": [
+                  {
+                    "name": "Version",
+                    "value": "${{ needs.version-bump.outputs.new_version }}",
+                    "inline": true
+                  },
+                  {
+                    "name": "Release Type",
+                    "value": "${{ inputs.release_type }}",
+                    "inline": true
+                  }
+                ]
+              }]
+            }'
+
+      - name: Notify Slack
+        if: env.SLACK_WEBHOOK_URL != ''
+        run: |
+          curl -X POST "${{ secrets.SLACK_WEBHOOK_URL }}" \
+            -H "Content-Type: application/json" \
+            -d '{
+              "text": "🚀 New TunnelForge Release",
+              "blocks": [
+                {
+                  "type": "section",
+                  "text": {
+                    "type": "mrkdwn",
+                    "text": "*TunnelForge v${{ needs.version-bump.outputs.new_version }}* has been released!\n\n${{ needs.version-bump.outputs.changelog }}"
+                  }
+                },
+                {
+                  "type": "actions",
+                  "elements": [
+                    {
+                      "type": "button",
+                      "text": {
+                        "type": "plain_text",
+                        "text": "View Release"
+                      },
+                      "url": "https://github.com/${{ github.repository }}/releases/tag/v${{ needs.version-bump.outputs.new_version }}"
+                    }
+                  ]
+                }
+              ]
+            }'
+
+  update-documentation:
+    name: Update Documentation
+    runs-on: ubuntu-latest
+    needs: version-bump
+    if: inputs.create_tag
+
+    steps:
+      - name: Checkout docs
+        uses: actions/checkout@v4
+        with:
+          repository: ${{ github.repository }}-docs
+          token: ${{ secrets.GITHUB_TOKEN }}
+          path: docs-repo
+
+      - name: Update version references
+        run: |
+          # Update version in documentation
+          find docs-repo -name "*.md" -exec sed -i "s/TunnelForge v[0-9]\+\.[0-9]\+\.[0-9]\+/TunnelForge v${{ needs.version-bump.outputs.new_version }}/g" {} \;
+
+      - name: Commit documentation changes
+        run: |
+          cd docs-repo
+          git config --local user.email "action@github.com"
+          git config --local user.name "GitHub Action"
+          
+          git add .
+          git commit -m "Update version references to ${{ needs.version-bump.outputs.new_version }}" || true
+          
+          git push

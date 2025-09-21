@@ -1,0 +1,150 @@
+name: 'Build Linux Apps'
+
+on:
+  workflow_call:
+    inputs:
+      build_type:
+        required: true
+        type: string
+        default: 'test'
+      sign_artifacts:
+        required: false
+        type: boolean
+        default: false
+
+jobs:
+  build-linux:
+    name: Build Linux Desktop App
+    runs-on: ubuntu-22.04
+    strategy:
+      fail-fast: false
+      matrix:
+        target:
+          - x86_64-unknown-linux-gnu
+          - aarch64-unknown-linux-gnu
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: Setup Bun
+        uses: oven-sh/setup-bun@v1
+        with:
+          bun-version: latest
+
+      - name: Setup Rust
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: ${{ matrix.target }}
+
+      - name: Install Linux dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y \
+            libwebkit2gtk-4.0-dev \
+            libgtk-3-dev \
+            libayatana-appindicator3-dev \
+            librsvg2-dev \
+            patchelf
+
+      - name: Install dependencies
+        working-directory: linux
+        run: |
+          bun install
+          cargo install tauri-cli
+
+      - name: Build web frontend
+        working-directory: web
+        run: bun run build:bun
+
+      - name: Build Tauri app
+        working-directory: linux
+        run: |
+          bun run build
+        env:
+          TAURI_PRIVATE_KEY: ${{ secrets.TAURI_PRIVATE_KEY }}
+          TAURI_KEY_PASSWORD: ${{ secrets.TAURI_KEY_PASSWORD }}
+
+      - name: Sign packages
+        if: inputs.sign_artifacts
+        run: |
+          # Sign .deb packages
+          if [ -d "linux/src-tauri/target/${{ matrix.target }}/release/bundle/deb" ]; then
+            dpkg-sig --sign builder "linux/src-tauri/target/${{ matrix.target }}/release/bundle/deb/*.deb"
+          fi
+          
+          # Sign .rpm packages
+          if [ -d "linux/src-tauri/target/${{ matrix.target }}/release/bundle/rpm" ]; then
+            rpm --addsign "linux/src-tauri/target/${{ matrix.target }}/release/bundle/rpm/*.rpm"
+          fi
+
+      - name: Upload Linux artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: tunnelforge-linux-${{ matrix.target }}
+          path: |
+            linux/src-tauri/target/${{ matrix.target }}/release/bundle/deb/*.deb
+            linux/src-tauri/target/${{ matrix.target }}/release/bundle/rpm/*.rpm
+            linux/src-tauri/target/${{ matrix.target }}/release/bundle/appimage/*.AppImage
+          retention-days: 7
+
+  test-linux:
+    name: Test Linux Installation
+    runs-on: ubuntu-22.04
+    needs: build-linux
+    if: inputs.build_type == 'test'
+    strategy:
+      matrix:
+        distro:
+          - ubuntu:20.04
+          - ubuntu:22.04
+          - debian:11
+          - fedora:37
+
+    steps:
+      - name: Download artifacts
+        uses: actions/download-artifact@v4
+        with:
+          name: tunnelforge-linux-x86_64-unknown-linux-gnu
+          path: artifacts/
+
+      - name: Test .deb installation
+        run: |
+          # Test on Ubuntu/Debian
+          if [ -f "artifacts/*.deb" ]; then
+            sudo dpkg -i artifacts/*.deb
+            sudo apt-get install -f -y
+            dpkg -l | grep tunnelforge
+            sudo dpkg -r tunnelforge
+          fi
+
+      - name: Test .rpm installation
+        run: |
+          # Test on Fedora
+          if [ -f "artifacts/*.rpm" ]; then
+            sudo rpm -i artifacts/*.rpm
+            rpm -q tunnelforge
+            sudo rpm -e tunnelforge
+          fi
+
+      - name: Test AppImage
+        run: |
+          # Test AppImage
+          if [ -f "artifacts/*.AppImage" ]; then
+            chmod +x artifacts/*.AppImage
+            ./artifacts/*.AppImage --version || true
+          fi
+
+      - name: Verify installation
+        run: |
+          # Check if TunnelForge processes can run
+          if command -v tunnelforge >/dev/null 2>&1; then
+            echo "✅ TunnelForge successfully installed"
+          else
+            echo "⚠️ TunnelForge installation verification incomplete"
+          fi

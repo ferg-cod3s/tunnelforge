@@ -1,18 +1,26 @@
-// @vitest-environment happy-dom
+
 import { fixture, html } from '@open-wc/testing';
-import { afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
+import {
+  afterEach,
+  beforeAll,
+  beforeEach,
+  describe,
+  expect,
+  it,
+  mock,
+} from 'bun:test';
 import {
   restoreLocalStorage,
   setupFetchMock,
   setupLocalStorageMock,
   typeInInput,
   waitForAsync,
-} from '@/test/utils/component-helpers';
+} from '../../test/utils/component-helpers';
 import { TitleMode } from '../../shared/types';
 import type { AuthClient } from '../services/auth-client';
 
 // Mock AuthClient
-vi.mock('../services/auth-client');
+mock('../services/auth-client', () => ({}));
 
 // localStorage mock will be created in beforeEach
 
@@ -36,16 +44,19 @@ describe('SessionCreateForm', () => {
     localStorageMock = setupLocalStorageMock();
 
     // Spy on localStorage methods for assertions
-    vi.spyOn(localStorageMock, 'setItem');
-    vi.spyOn(localStorageMock, 'getItem');
+    const originalSetItem = localStorageMock.setItem;
+    const originalGetItem = localStorageMock.getItem;
+
+    localStorageMock.setItem = mock(() => {});
+    localStorageMock.getItem = mock(() => null);
 
     // Setup fetch mock
     fetchMock = setupFetchMock();
 
     // Create mock auth client
     mockAuthClient = {
-      getAuthHeader: vi.fn(() => ({ Authorization: 'Bearer test-token' })),
-      fetch: vi.fn((url, options) => global.fetch(url, options)),
+      getAuthHeader: () => ({ Authorization: 'Bearer test-token' }),
+      fetch: (url, options) => global.fetch(url, options),
     } as unknown as AuthClient;
 
     // Create component
@@ -60,7 +71,6 @@ describe('SessionCreateForm', () => {
     element.remove();
     fetchMock.clear();
     restoreLocalStorage();
-    vi.clearAllMocks();
   });
 
   describe('initialization', () => {
@@ -73,7 +83,7 @@ describe('SessionCreateForm', () => {
     });
 
     it('should load saved values from localStorage', async () => {
-      localStorageMock.getItem.mockImplementation((key) => {
+      localStorageMock.getItem = mock((key) => {
         if (key === 'tunnelforge_last_working_dir') return '/home/user/projects';
         if (key === 'tunnelforge_last_command') return 'npm run dev';
         return null;
@@ -117,7 +127,7 @@ describe('SessionCreateForm', () => {
     });
 
     it('should update working directory on input', async () => {
-      const changeHandler = vi.fn();
+      const changeHandler = mock(() => {});
       element.addEventListener('working-dir-change', changeHandler);
 
       await typeInInput(element, 'input[placeholder="~/"]', '/usr/local');
@@ -212,7 +222,7 @@ describe('SessionCreateForm', () => {
         message: 'Session created',
       });
 
-      const createdHandler = vi.fn();
+      const createdHandler = mock(() => {});
       element.addEventListener('session-created', createdHandler);
 
       // Fill form
@@ -297,7 +307,7 @@ describe('SessionCreateForm', () => {
         { status: 403 }
       );
 
-      const errorHandler = vi.fn();
+      const errorHandler = mock(() => {});
       element.addEventListener('error', errorHandler);
 
       element.command = 'test';
@@ -315,7 +325,7 @@ describe('SessionCreateForm', () => {
     });
 
     it('should validate required fields', async () => {
-      const errorHandler = vi.fn();
+      const errorHandler = mock(() => {});
       element.addEventListener('error', errorHandler);
 
       // Empty command but valid working directory
@@ -406,7 +416,7 @@ describe('SessionCreateForm', () => {
 
   describe('keyboard shortcuts', () => {
     it('should close on Escape key', async () => {
-      const cancelHandler = vi.fn();
+      const cancelHandler = mock(() => {});
       element.addEventListener('cancel', cancelHandler);
 
       // Simulate global escape key
@@ -423,7 +433,7 @@ describe('SessionCreateForm', () => {
       element.workingDir = '/test';
       await element.updateComplete;
 
-      const createdHandler = vi.fn();
+      const createdHandler = mock(() => {});
       element.addEventListener('session-created', createdHandler);
 
       // Simulate global enter key
@@ -438,7 +448,7 @@ describe('SessionCreateForm', () => {
     });
 
     it('should not create on Enter when form is invalid', async () => {
-      const errorHandler = vi.fn();
+      const errorHandler = mock(() => {});
       element.addEventListener('error', errorHandler);
 
       element.command = '';
@@ -454,7 +464,7 @@ describe('SessionCreateForm', () => {
 
   describe('cancel functionality', () => {
     it('should emit cancel event when cancel button is clicked', async () => {
-      const cancelHandler = vi.fn();
+      const cancelHandler = mock(() => {});
       element.addEventListener('cancel', cancelHandler);
 
       // Directly call the cancel handler
@@ -464,7 +474,7 @@ describe('SessionCreateForm', () => {
     });
 
     it('should emit cancel event when close button is clicked', async () => {
-      const cancelHandler = vi.fn();
+      const cancelHandler = mock(() => {});
       element.addEventListener('cancel', cancelHandler);
 
       // The close button also calls handleCancel
@@ -524,7 +534,7 @@ describe('SessionCreateForm', () => {
     });
 
     it('should show spawn window toggle when Mac app is connected', async () => {
-      // Clear existing mocks
+      // Clear existing calls
       fetchMock.clear();
 
       // Mock auth config endpoint
@@ -716,7 +726,7 @@ describe('SessionCreateForm', () => {
 
       // Override global fetch with a custom mock that handles Git API patterns
       const originalFetch = global.fetch;
-      global.fetch = vi.fn(async (url: string, options?: RequestInit) => {
+      global.fetch = async (url: string, options?: RequestInit) => {
         const urlStr = url.toString();
 
         // Track the call
@@ -780,7 +790,7 @@ describe('SessionCreateForm', () => {
 
         // For all other URLs, use the original fetchMock
         return originalFetch(url, options);
-      });
+      };
     });
 
     it('should check for Git repository when working directory changes', async () => {
@@ -828,7 +838,7 @@ describe('SessionCreateForm', () => {
 
     it('should not show branch selector for non-Git directories', async () => {
       // Override fetch to return non-Git response
-      global.fetch = vi.fn(async (url: string) => {
+      global.fetch = async (url: string) => {
         const urlStr = url.toString();
         if (urlStr.includes('/api/git/repo-info')) {
           return {
@@ -838,7 +848,7 @@ describe('SessionCreateForm', () => {
           } as Response;
         }
         return fetchMock(url);
-      });
+      };
 
       // Trigger Git check
       element.workingDir = '/home/user/not-git';
@@ -942,7 +952,7 @@ describe('SessionCreateForm', () => {
 
     it('should handle Git check errors gracefully', async () => {
       // Override fetch to return error
-      global.fetch = vi.fn(async (url: string) => {
+      global.fetch = async (url: string) => {
         const urlStr = url.toString();
         if (urlStr.includes('/api/git/repo-info')) {
           return {
@@ -952,7 +962,7 @@ describe('SessionCreateForm', () => {
           } as Response;
         }
         return fetchMock(url);
-      });
+      };
 
       // Trigger working directory change which should check Git
       element.workingDir = '/home/user/restricted';
