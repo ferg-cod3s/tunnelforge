@@ -1,11 +1,6 @@
 // System-level functionality for VibeTunnel clone
 
-pub mod tray;
-
-pub use tray::*;
-
 use serde::{Deserialize, Serialize};
-
 
 use crate::add_log_entry;
 

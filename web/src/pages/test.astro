@@ -1,0 +1,43 @@
+---
+import BaseLayout from '../layouts/BaseLayout.astro';
+---
+
+<BaseLayout title="TunnelForge Test" description="Test page for TunnelForge UI components">
+  <div class="p-8">
+    <h1 class="text-2xl font-bold mb-4">TunnelForge UI Test</h1>
+    <p class="mb-4">This is a test page to verify the Astro + Svelte Islands setup.</p>
+
+    <div class="bg-blue-100 dark:bg-blue-900 p-4 rounded mb-4">
+      <h2 class="text-lg font-semibold mb-2">✅ Astro Setup Complete</h2>
+      <ul class="list-disc list-inside space-y-1">
+        <li>Astro configuration created</li>
+        <li>Tailwind CSS integrated</li>
+        <li>Svelte Islands enabled</li>
+        <li>TypeScript support configured</li>
+      </ul>
+    </div>
+
+    <div class="bg-green-100 dark:bg-green-900 p-4 rounded mb-4">
+      <h2 class="text-lg font-semibold mb-2">✅ Components Created</h2>
+      <ul class="list-disc list-inside space-y-1">
+        <li>SettingsWindow (main interface)</li>
+        <li>CloudflareIntegration</li>
+        <li>NgrokIntegration</li>
+        <li>AccessModeControls</li>
+        <li>GeneralSettings</li>
+        <li>ServerSettings</li>
+        <li>NotificationSettings</li>
+      </ul>
+    </div>
+
+    <div class="bg-yellow-100 dark:bg-yellow-900 p-4 rounded">
+      <h2 class="text-lg font-semibold mb-2">🚧 Next Steps</h2>
+      <ul class="list-disc list-inside space-y-1">
+        <li>Integrate with Tauri backend commands</li>
+        <li>Test cross-platform compatibility</li>
+        <li>Add responsive design improvements</li>
+        <li>Create production build pipeline</li>
+      </ul>
+    </div>
+  </div>
+</BaseLayout>

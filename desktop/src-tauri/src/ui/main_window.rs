@@ -1,8 +1,9 @@
 // Native Tauri Main Window Implementation
 // This provides the main application window for TunnelForge
 
-use tauri::{AppHandle, Manager, Window, WindowBuilder, WindowUrl};
+use tauri::{AppHandle, Manager, Window, WindowBuilder};
 use serde::{Deserialize, Serialize};
+use std::sync::Mutex;
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct WindowState {
@@ -28,41 +29,42 @@ impl Default for WindowState {
 }
 
 pub struct MainWindow {
-    window: Option<Window>,
-    state: WindowState,
+    window: Mutex<Option<Window>>,
+    state: Mutex<WindowState>,
 }
 
 impl MainWindow {
     pub fn new() -> Self {
         Self {
-            window: None,
-            state: WindowState::default(),
+            window: Mutex::new(None),
+            state: Mutex::new(WindowState::default()),
         }
     }
 
-    pub fn create_window(&mut self, app_handle: &AppHandle) -> Result<(), String> {
+    pub fn create_window(&self, app_handle: &AppHandle) -> Result<(), String> {
+        let mut window = self.window.lock().unwrap();
+        let state = self.state.lock().unwrap();
+        
         // Create a native window without loading any web content
-        let window = WindowBuilder::new(
-            app_handle,
-            "main",
-            WindowUrl::default() // Use default (no URL) for native window
-        )
-        .title(&self.state.title)
-        .inner_size(self.state.width, self.state.height)
-        .resizable(self.state.resizable)
-        .always_on_top(self.state.always_on_top)
-        .visible(self.state.visible)
-        .decorations(true)
-        .skip_taskbar(false)
-        .build()
-        .map_err(|e| format!("Failed to create main window: {}", e))?;
+        let window_builder = WindowBuilder::new(app_handle, "main")
+            .title(&state.title)
+            .inner_size(state.width, state.height)
+            .resizable(state.resizable)
+            .always_on_top(state.always_on_top)
+            .visible(state.visible)
+            .decorations(true)
+            .skip_taskbar(false);
 
-        self.window = Some(window);
+        let built_window = window_builder.build()
+            .map_err(|e| format!("Failed to create main window: {}", e))?;
+
+        *window = Some(built_window);
         Ok(())
     }
 
     pub fn show(&self) -> Result<(), String> {
-        if let Some(window) = &self.window {
+        let window = self.window.lock().unwrap();
+        if let Some(window) = window.as_ref() {
             window.show()
                 .map_err(|e| format!("Failed to show main window: {}", e))?;
             window.set_focus()
@@ -74,7 +76,8 @@ impl MainWindow {
     }
 
     pub fn hide(&self) -> Result<(), String> {
-        if let Some(window) = &self.window {
+        let window = self.window.lock().unwrap();
+        if let Some(window) = window.as_ref() {
             window.hide()
                 .map_err(|e| format!("Failed to hide main window: {}", e))?;
             Ok(())
@@ -84,7 +87,8 @@ impl MainWindow {
     }
 
     pub fn close(&self) -> Result<(), String> {
-        if let Some(window) = &self.window {
+        let window = self.window.lock().unwrap();
+        if let Some(window) = window.as_ref() {
             window.close()
                 .map_err(|e| format!("Failed to close main window: {}", e))?;
             Ok(())
@@ -93,18 +97,24 @@ impl MainWindow {
         }
     }
 
-    pub fn get_window(&self) -> Option<&Window> {
-        self.window.as_ref()
+    pub fn get_window(&self) -> Option<Window> {
+        self.window.lock().unwrap().as_ref().cloned()
     }
 
-    pub fn update_state(&mut self, new_state: WindowState) {
-        self.state = new_state;
-        if let Some(window) = &self.window {
+    pub fn update_state(&self, new_state: WindowState) {
+        let mut state = self.state.lock().unwrap();
+        *state = new_state.clone();
+        let window = self.window.lock().unwrap();
+        if let Some(window) = window.as_ref() {
             // Apply state changes to existing window
-            let _ = window.set_title(&self.state.title);
-            let _ = window.set_resizable(self.state.resizable);
-            let _ = window.set_always_on_top(self.state.always_on_top);
+            let _ = window.set_title(&new_state.title);
+            let _ = window.set_resizable(new_state.resizable);
+            let _ = window.set_always_on_top(new_state.always_on_top);
         }
+    }
+
+    pub fn get_state(&self) -> WindowState {
+        self.state.lock().unwrap().clone()
     }
 }
 
@@ -134,7 +144,7 @@ pub async fn close_main_window(app_handle: AppHandle) -> Result<(), String> {
 pub async fn get_window_state(app_handle: AppHandle) -> Result<WindowState, String> {
     let window_manager = app_handle.state::<MainWindow>();
     let window_manager = window_manager.inner();
-    Ok(window_manager.state.clone())
+    Ok(window_manager.get_state())
 }
 
 #[tauri::command]
@@ -143,8 +153,7 @@ pub async fn update_window_state(
     new_state: WindowState
 ) -> Result<(), String> {
     let window_manager = app_handle.state::<MainWindow>();
-    let mut window_manager = window_manager.inner().lock()
-        .map_err(|e| format!("Failed to lock window manager: {}", e))?;
+    let window_manager = window_manager.inner();
     window_manager.update_state(new_state);
     Ok(())
 }

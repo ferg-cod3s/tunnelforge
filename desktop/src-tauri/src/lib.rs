@@ -124,7 +124,6 @@ pub fn setup_app(app: &mut tauri::App) -> Result<(), String> {
     let main_window = app.state::<ui::MainWindow>();
     let settings_window = app.state::<ui::SettingsWindow>();
     let session_window = app.state::<ui::SessionWindow>();
-    let tray_manager = app.state::<ui::TrayManager>();
 
     // Create main window
     if let Err(e) = main_window.create_window(&app.handle()) {
@@ -133,7 +132,7 @@ pub fn setup_app(app: &mut tauri::App) -> Result<(), String> {
     }
 
     // Set up system tray
-    if let Err(e) = tray_manager.setup_tray() {
+    if let Err(e) = ui::tray::setup_tray(&app.handle()) {
         add_log_entry("error", &format!("Failed to setup system tray: {}", e));
         log::error!("Failed to setup system tray: {}", e);
     }
@@ -159,3 +158,9 @@ pub fn setup_app(app: &mut tauri::App) -> Result<(), String> {
     add_log_entry("info", "TunnelForge Native Desktop initialization complete");
     Ok(())
 }
+pub mod cloudflare_service;
+use crate::cloudflare_service::CloudflareService;
+pub mod ngrok_service;
+use crate::ngrok_service::NgrokService;
+pub mod access_mode_service;
+use crate::access_mode_service::{AccessMode, AccessModeService};
