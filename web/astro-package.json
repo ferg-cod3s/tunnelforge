@@ -1,0 +1,25 @@
+{
+  "name": "tunnelforge-desktop-ui",
+  "version": "1.0.0",
+  "description": "TunnelForge Desktop UI with Astro and Svelte Islands",
+  "type": "module",
+  "scripts": {
+    "dev": "astro dev",
+    "start": "astro dev",
+    "build": "astro build",
+    "preview": "astro preview",
+    "astro": "astro"
+  },
+  "dependencies": {
+    "astro": "^4.15.0",
+    "@astrojs/svelte": "^5.7.0",
+    "@astrojs/tailwind": "^5.1.0",
+    "svelte": "^4.2.18",
+    "tailwindcss": "^3.4.10",
+    "@tailwindcss/typography": "^0.5.14"
+  },
+  "devDependencies": {
+    "@types/node": "^22.5.4",
+    "typescript": "^5.6.2"
+  }
+}

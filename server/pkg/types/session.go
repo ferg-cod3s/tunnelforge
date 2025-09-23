@@ -76,3 +76,31 @@ type OutputMessage struct {
 	Type string      `json:"type"`
 	Data interface{} `json:"data"`
 }
+
+// TunnelInfo represents tunnel information associated with a session
+type TunnelInfo struct {
+	TunnelID string `json:"tunnel_id,omitempty"`
+	Domain   string `json:"domain,omitempty"`
+	Status   string `json:"status,omitempty"` // "active", "inactive", "pending"
+}
+
+// Session represents a terminal session
+type Session struct {
+	ID        string    `json:"id"`
+	Title     string    `json:"title"`
+	Command   string    `json:"command"`
+	Cwd       string    `json:"cwd"`
+	Cols      int       `json:"cols"`
+	Rows      int       `json:"rows"`
+	CreatedAt time.Time `json:"createdAt"`
+	UpdatedAt time.Time `json:"updatedAt"`
+	Active    bool      `json:"active"`
+
+	// Tunnel information
+	TunnelInfo *TunnelInfo `json:"tunnel_info,omitempty"`
+
+	// Internal fields (not serialized)
+	PTY     interface{} `json:"-"` // Will be *os.File from pty.Start()
+	Cmd     *exec.Cmd   `json:"-"`
+	Clients []*WSClient `json:"-"`
+}

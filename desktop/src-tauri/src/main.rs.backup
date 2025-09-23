@@ -1,16 +1,38 @@
 // TunnelForge Desktop - Native Tauri v2 Application
+// TunnelForge Desktop - Native Tauri v2 Application
+// This provides a native desktop interface that directly integrates with the Go server
 // This provides a native desktop interface that directly integrates with the Go server
 
+
+#![cfg_attr(not(debug_assertions), windows_subsystem = "windows")]
 #![cfg_attr(not(debug_assertions), windows_subsystem = "windows")]
 
-use tauri::Manager;
+
+use tauri_plugin_log::{Target, TargetKind};
 use tauri_plugin_log::{Target, TargetKind};
 
+
 // Import the library modules
+// Import the library modules
+use tunnelforge_desktop::{init_app_state, setup_app, config, notifications, power, system, ui};
 use tunnelforge_desktop::{
-    init_app_state, setup_app, config, notifications, power, system, ui,
-    access_mode_service, ngrok_service, cloudflare_service, server, sessions
+use tunnelforge_desktop::access_mode_service;
+    init_app_state, setup_app,
+use tunnelforge_desktop::ngrok_service;
+    config,
+use tunnelforge_desktop::cloudflare_service;
+    notifications,
+    power,
+    system,
+    ui,
 };
+
+use tunnelforge_desktop::access_mode_service;
+use tunnelforge_desktop::ngrok_service;
+
+use tunnelforge_desktop::cloudflare_service;
+
+use tunnelforge_desktop::{server, sessions};
 
 // Additional CLI-specific Tauri commands
 #[tauri::command]
@@ -181,11 +203,14 @@ async fn open_external_url(url: String) -> Result<(), String> {
 }
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
+        .manage(tunnelforge_desktop::AccessModeService::new())
 pub fn run() {
     tauri::Builder::default()
+        .manage(tunnelforge_desktop::NgrokService::new())
         .manage(init_app_state())
         .manage(ui::MainWindow::new())
         .manage(ui::SettingsWindow::new())
+        .manage(tunnelforge_desktop::CloudflareService::new())
         .manage(ui::SessionWindow::new())
         .plugin(tauri_plugin_log::Builder::new()
             .targets([
@@ -211,8 +236,6 @@ pub fn run() {
             notifications::show_server_notification,
             notifications::get_notification_settings,
             notifications::update_notification_settings,
-            notifications::test_notification,
-            notifications::open_notification_settings,
 
             // Power management commands
             power::start_power_monitoring,
@@ -264,28 +287,65 @@ pub fn run() {
 
             ui::update_tray_status,
             ui::set_tray_tooltip,
-            ui::set_tray_icon,
-
-            // Service integration commands
-            ui::toggle_tailscale_integration,
-            ui::toggle_cloudflare_integration,
-            ui::toggle_ngrok_integration,
             ui::set_ngrok_auth_token,
-
+            open_notification_settings,
+            open_tailscale_app,
+            open_tailscale_setup_guide,
+            open_tailscale_download,
+            open_tailscale_app_store,
+            get_tailscale_serve_status,
+            check_tailscale_status,
+            get_tailscale_status,
+            // Cloudflare tunnel commands
+            // Tailscale commands
+            get_cloudflare_status,
+            
+            check_cloudflare_status,
+            test_notification,
+            start_cloudflare_tunnel,
+            update_notification_settings,
+            stop_cloudflare_tunnel,
+            get_notification_settings,
+            open_cloudflare_homebrew,
+            show_server_notification,
+            open_cloudflare_download,
+            show_notification,
+            // ngrok tunnel commands
+            open_cloudflare_setup_guide,
+            get_ngrok_status,
+            // Notification commands
+            check_ngrok_status,
+            
+            start_ngrok_tunnel,
+            ui::toggle_ngrok_integration,
+            stop_ngrok_tunnel,
+            ui::toggle_cloudflare_integration,
+            open_ngrok_download,
+            ui::toggle_tailscale_integration,
             // Access mode commands
+            open_ngrok_setup_guide,
+            get_access_mode_status,
+            ui::update_notification_settings,
+            check_network_access,
+            // Access mode commands
+            ui::set_theme,
             access_mode_service::get_access_mode_status,
+            set_access_mode,
             access_mode_service::check_network_access,
+            ui::toggle_autostart,
             access_mode_service::set_access_mode,
+            get_current_binding,
             access_mode_service::get_current_binding,
+            ui::update_server_port,
             access_mode_service::test_network_connectivity,
+            test_network_connectivity,
+            ui::save_settings_config,
+            ui::get_settings_config,
+            // Settings configuration commands
+            
+            ui::set_tray_icon,
         ])
         .setup(|app| {
-            // Create services that need AppHandle during setup
-            let app_handle = app.handle();
-            app.manage(access_mode_service::AccessModeService::new(app_handle.clone()));
-            app.manage(ngrok_service::NgrokService::new(app_handle.clone()));
-            app.manage(cloudflare_service::CloudflareService::new(app_handle.clone()));
-
             setup_app(app)?;
             Ok(())
         })

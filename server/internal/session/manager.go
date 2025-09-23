@@ -480,3 +480,69 @@ func (m *Manager) BroadcastToSSEStreams(sessionID string, data []byte) {
 		}
 	}
 }
+
+// AssociateTunnelWithSession associates a tunnel with a session
+func (m *Manager) AssociateTunnelWithSession(sessionID, tunnelID, domain string) error {
+	session := m.Get(sessionID)
+	if session == nil {
+		return fmt.Errorf("session not found: %s", sessionID)
+	}
+	
+	session.TunnelInfo = &types.TunnelInfo{
+		TunnelID: tunnelID,
+		Domain:   domain,
+		Status:   "active",
+	}
+	
+	// Update session in persistence if enabled
+	if m.persistenceEnabled && m.persistenceService != nil {
+		if err := m.persistenceService.SaveSession(session); err != nil {
+			log.Printf("Warning: failed to persist session with tunnel info: %v", err)
+		}
+	}
+	
+	log.Printf("Associated tunnel %s with session %s (domain: %s)", tunnelID, sessionID, domain)
+	return nil
+}
+
+// GetSessionByTunnel gets a session by tunnel ID
+func (m *Manager) GetSessionByTunnel(tunnelID string) (*types.Session, error) {
+	sessions := m.List()
+	for _, session := range sessions {
+		if session.TunnelInfo != nil && session.TunnelInfo.TunnelID == tunnelID {
+			return session, nil
+		}
+	}
+	
+	return nil, fmt.Errorf("session not found for tunnel: %s", tunnelID)
+}
+
+// GetTunnelInfoForSession gets tunnel information for a session
+func (m *Manager) GetTunnelInfoForSession(sessionID string) (*types.TunnelInfo, error) {
+	session := m.Get(sessionID)
+	if session == nil {
+		return nil, fmt.Errorf("session not found: %s", sessionID)
+	}
+	
+	return session.TunnelInfo, nil
+}
+
+// DisassociateTunnelFromSession removes tunnel association from a session
+func (m *Manager) DisassociateTunnelFromSession(sessionID string) error {
+	session := m.Get(sessionID)
+	if session == nil {
+		return fmt.Errorf("session not found: %s", sessionID)
+	}
+	
+	session.TunnelInfo = nil
+	
+	// Update session in persistence if enabled
+	if m.persistenceEnabled && m.persistenceService != nil {
+		if err := m.persistenceService.SaveSession(session); err != nil {
+			log.Printf("Warning: failed to persist session without tunnel info: %v", err)
+		}
+	}
+	
+	log.Printf("Disassociated tunnel from session %s", sessionID)
+	return nil
+}

@@ -113,3 +113,15 @@ func getEnvDuration(key string, defaultValue time.Duration) time.Duration {
 	}
 	return defaultValue
 }
+
+	// Cloudflare tunnel configuration
+	EnableCloudflareTunnels bool   // Whether to enable Cloudflare tunnel support
+	CloudflareAPIToken      string // Cloudflare API token for tunnel management
+	CloudflareAccountID     string // Cloudflare account ID
+	CloudflareConfigDir     string // Directory to store tunnel configurations
+
+		// Cloudflare tunnel defaults
+		EnableCloudflareTunnels: getEnvBool("ENABLE_CLOUDFLARE_TUNNELS", false),                                    // Disabled by default
+		CloudflareAPIToken:      getEnv("CLOUDFLARE_API_TOKEN", ""),                                               // Must be set to enable
+		CloudflareAccountID:     getEnv("CLOUDFLARE_ACCOUNT_ID", ""),                                              // Must be set to enable
+		CloudflareConfigDir:     getEnv("CLOUDFLARE_CONFIG_DIR", os.Getenv("HOME")+"/.tunnelforge/cloudflare"),     // Default config directory
