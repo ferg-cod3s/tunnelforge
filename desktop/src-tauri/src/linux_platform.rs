@@ -1,6 +1,7 @@
 // Linux-specific platform integration for TunnelForge
 
 use super::PlatformIntegration;
+use tauri::AppHandle;
 use log::{info, warn};
 
 pub struct LinuxPlatform;
@@ -54,52 +55,26 @@ Hidden=false
 }
 
 impl PlatformIntegration for LinuxPlatform {
-    fn register_startup_entry(&self, enable: bool) -> Result<(), Box<dyn std::error::Error>> {
-        self.create_desktop_entry(enable)
+    fn setup_auto_launch(&self, enabled: bool) -> Result<(), String> {
+        self.create_desktop_entry(enabled)
+            .map_err(|e| format!("Failed to setup auto launch: {}", e))
     }
 
-    fn show_notification(&self, title: &str, message: &str) {
-        // Linux desktop notifications using libnotify
-        info!("Linux notification: {} - {}", title, message);
-        
-        // Try to use notify-send if available
-        if let Ok(mut cmd) = std::process::Command::new("notify-send")
-            .arg("--app-name=TunnelForge")
-            .arg("--icon=tunnelforge")
-            .arg(title)
-            .arg(message)
-            .spawn()
-        {
-            let _ = cmd.wait();
-        } else {
-            // Fallback to zenity if notify-send is not available
-            if let Ok(mut cmd) = std::process::Command::new("zenity")
-                .arg("--info")
-                .arg("--title")
-                .arg(title)
-                .arg("--text")
-                .arg(message)
-                .arg("--no-wrap")
-                .spawn()
-            {
-                let _ = cmd.wait();
-            }
-        }
-    }
-
-    fn setup_platform_specific(&self) -> Result<(), Box<dyn std::error::Error>> {
-        info!("Setting up Linux-specific integrations");
-        
-        // Additional Linux setup can go here:
-        // - Create systemd user service
-        // - Register MIME types
-        // - Set up file associations
-        // - Configure desktop integration
-
+    fn setup_system_tray(&self, _app_handle: &AppHandle) -> Result<(), String> {
+        // System tray is handled by Tauri's built-in tray support on Linux
+        info!("System tray setup for Linux (handled by Tauri)");
         Ok(())
     }
 
-    fn get_platform_name(&self) -> &'static str {
-        "Linux"
+    fn setup_notifications(&self) -> Result<(), String> {
+        // Notifications are handled by Tauri's notification plugin
+        info!("Notification setup for Linux");
+        Ok(())
+    }
+
+    fn setup_power_management(&self) -> Result<(), String> {
+        // Power management is handled by the system on Linux
+        info!("Power management setup for Linux (system default)");
+        Ok(())
     }
 }

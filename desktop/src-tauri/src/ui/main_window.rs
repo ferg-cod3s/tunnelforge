@@ -1,7 +1,7 @@
 // Native Tauri Main Window Implementation
 // This provides the main application window for TunnelForge
 
-use tauri::{AppHandle, Manager, Window, WindowBuilder};
+use tauri::{AppHandle, Manager, WebviewWindow, WebviewWindowBuilder, WebviewUrl};
 use serde::{Deserialize, Serialize};
 use std::sync::Mutex;
 
@@ -29,7 +29,7 @@ impl Default for WindowState {
 }
 
 pub struct MainWindow {
-    window: Mutex<Option<Window>>,
+    window: Mutex<Option<WebviewWindow>>,
     state: Mutex<WindowState>,
 }
 
@@ -43,22 +43,39 @@ impl MainWindow {
 
     pub fn create_window(&self, app_handle: &AppHandle) -> Result<(), String> {
         let mut window = self.window.lock().unwrap();
+        
+        // Check if window already exists
+        if window.is_some() {
+            return Ok(());
+        }
+        
         let state = self.state.lock().unwrap();
         
-        // Create a native window without loading any web content
-        let window_builder = WindowBuilder::new(app_handle, "main")
-            .title(&state.title)
-            .inner_size(state.width, state.height)
-            .resizable(state.resizable)
-            .always_on_top(state.always_on_top)
-            .visible(state.visible)
-            .decorations(true)
-            .skip_taskbar(false);
+        // Create a window that loads the local settings HTML
+        let webview_window = WebviewWindowBuilder::new(
+            app_handle,
+            "main",
+            WebviewUrl::App("index.html".into())
+        )
+        .title(&state.title)
+        .inner_size(state.width, state.height)
+        .min_inner_size(800.0, 600.0)
+        .resizable(state.resizable)
+        .always_on_top(state.always_on_top)
+        .visible(state.visible)
+        .decorations(true)
+        .user_agent("TunnelForge-Desktop/1.0 (Tauri)")
+        .center()
+        .build()
+        .map_err(|e| format!("Failed to create main window: {}", e))?;
+        
+        // Open devtools in debug mode for debugging
+        #[cfg(debug_assertions)]
+        {
+            webview_window.open_devtools();
+        }
 
-        let built_window = window_builder.build()
-            .map_err(|e| format!("Failed to create main window: {}", e))?;
-
-        *window = Some(built_window);
+        *window = Some(webview_window);
         Ok(())
     }
 
@@ -97,7 +114,7 @@ impl MainWindow {
         }
     }
 
-    pub fn get_window(&self) -> Option<Window> {
+    pub fn get_window(&self) -> Option<WebviewWindow> {
         self.window.lock().unwrap().as_ref().cloned()
     }
 

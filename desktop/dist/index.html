@@ -3,99 +3,255 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>TunnelForge - Terminal Sharing</title>
+    <title>TunnelForge Desktop Settings</title>
     <link rel="stylesheet" href="style.css">
-    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/xterm@5.3.0/css/xterm.css" />
 </head>
 <body>
     <div id="app">
         <!-- Header -->
         <header class="header">
             <div class="header-content">
-                <h1 class="logo">TunnelForge</h1>
-                <div class="header-actions">
+                <h1 class="logo">
+                    <span class="logo-icon">⚡</span>
+                    TunnelForge Desktop
+                </h1>
+                <div class="header-status">
                     <div class="server-status" id="serverStatus">
                         <span class="status-indicator" id="statusIndicator"></span>
-                        <span id="statusText">Connecting...</span>
+                        <span id="statusText">Checking server...</span>
                     </div>
-                    <button class="btn btn-primary" id="newSessionBtn">New Session</button>
                 </div>
             </div>
         </header>
 
         <!-- Main Content -->
         <main class="main-content">
-            <!-- Sidebar -->
-            <aside class="sidebar">
-                <div class="sessions-header">
-                    <h3>Active Sessions</h3>
-                    <button class="btn btn-sm" id="refreshSessionsBtn">⟳</button>
+            <!-- Navigation -->
+            <nav class="sidebar">
+                <div class="nav-section">
+                    <h3>Settings</h3>
+                    <ul class="nav-list">
+                        <li><a href="#general" class="nav-link active" data-tab="general">
+                            <span class="nav-icon">⚙️</span> General
+                        </a></li>
+                        <li><a href="#notifications" class="nav-link" data-tab="notifications">
+                            <span class="nav-icon">🔔</span> Notifications
+                        </a></li>
+                        <li><a href="#power" class="nav-link" data-tab="power">
+                            <span class="nav-icon">🔋</span> Power Management
+                        </a></li>
+                        <li><a href="#integrations" class="nav-link" data-tab="integrations">
+                            <span class="nav-icon">🔗</span> Integrations
+                        </a></li>
+                        <li><a href="#server" class="nav-link" data-tab="server">
+                            <span class="nav-icon">🖥️</span> Server
+                        </a></li>
+                    </ul>
                 </div>
-                <div class="sessions-list" id="sessionsList">
-                    <div class="session-item placeholder">
-                        <div class="session-info">
-                            <div class="session-title">No active sessions</div>
-                            <div class="session-meta">Create a new session to get started</div>
+                
+                <div class="nav-section">
+                    <h3>Actions</h3>
+                    <ul class="nav-list">
+                        <li><a href="#" id="openWebUI" class="nav-link">
+                            <span class="nav-icon">🌐</span> Open Web Interface
+                        </a></li>
+                        <li><a href="#" id="viewLogs" class="nav-link">
+                            <span class="nav-icon">📝</span> View Logs
+                        </a></li>
+                    </ul>
+                </div>
+            </nav>
+
+            <!-- Content Area -->
+            <section class="content-area">
+                <!-- General Settings -->
+                <div id="general" class="settings-panel active">
+                    <h2>General Settings</h2>
+                    <div class="form-group">
+                        <label class="form-label">
+                            <input type="checkbox" id="autoStart"> 
+                            Start TunnelForge automatically on system startup
+                        </label>
+                    </div>
+                    <div class="form-group">
+                        <label class="form-label">
+                            <input type="checkbox" id="showInDock"> 
+                            Show TunnelForge icon in dock/taskbar
+                        </label>
+                    </div>
+                    <div class="form-group">
+                        <label for="serverPort" class="form-label">Server Port</label>
+                        <input type="number" id="serverPort" class="form-input" min="1024" max="65535" value="4021">
+                        <small class="form-help">Port for the TunnelForge server (requires restart)</small>
+                    </div>
+                    <div class="form-group">
+                        <label for="accessMode" class="form-label">Access Mode</label>
+                        <select id="accessMode" class="form-select">
+                            <option value="localhost">Localhost only</option>
+                            <option value="network">Network accessible</option>
+                            <option value="public">Public (with tunneling)</option>
+                        </select>
+                        <small class="form-help">Controls who can access your terminal sessions</small>
+                    </div>
+                </div>
+
+                <!-- Notifications Settings -->
+                <div id="notifications" class="settings-panel">
+                    <h2>Notification Settings</h2>
+                    <div class="form-group">
+                        <label class="form-label">
+                            <input type="checkbox" id="notificationsEnabled"> 
+                            Enable desktop notifications
+                        </label>
+                    </div>
+                    <div class="notifications-options" id="notificationOptions">
+                        <div class="form-group">
+                            <label class="form-label">
+                                <input type="checkbox" id="notificationSound"> 
+                                Play sound with notifications
+                            </label>
+                        </div>
+                        <div class="form-group">
+                            <label class="form-label">
+                                <input type="checkbox" id="sessionStartNotification"> 
+                                Notify when new session starts
+                            </label>
+                        </div>
+                        <div class="form-group">
+                            <label class="form-label">
+                                <input type="checkbox" id="sessionEndNotification"> 
+                                Notify when session ends
+                            </label>
+                        </div>
+                        <div class="form-group">
+                            <label class="form-label">
+                                <input type="checkbox" id="errorNotification"> 
+                                Notify on command errors
+                            </label>
+                        </div>
+                        <div class="form-actions">
+                            <button class="btn btn-secondary" id="testNotification">Test Notification</button>
                         </div>
                     </div>
                 </div>
-            </aside>
 
-            <!-- Terminal Area -->
-            <section class="terminal-area">
-                <div class="terminal-header" id="terminalHeader">
-                    <div class="terminal-title">
-                        <span id="currentSessionTitle">Welcome to TunnelForge</span>
+                <!-- Power Management -->
+                <div id="power" class="settings-panel">
+                    <h2>Power Management</h2>
+                    <div class="form-group">
+                        <label class="form-label">
+                            <input type="checkbox" id="preventSleep"> 
+                            Prevent system sleep while sessions are active
+                        </label>
+                        <small class="form-help">Keeps your computer awake during active terminal sessions</small>
                     </div>
-                    <div class="terminal-actions">
-                        <button class="btn btn-sm" id="shareSessionBtn" style="display:none;">Share</button>
-                        <button class="btn btn-sm btn-danger" id="closeSessionBtn" style="display:none;">Close</button>
+                    <div class="form-group">
+                        <label class="form-label">
+                            <input type="checkbox" id="powerMonitoring"> 
+                            Monitor power events
+                        </label>
+                        <small class="form-help">Track system sleep/wake events for better session management</small>
                     </div>
                 </div>
-                <div class="terminal-container">
-                    <div id="terminal" class="terminal"></div>
-                    <div id="welcomeScreen" class="welcome-screen">
-                        <div class="welcome-content">
-                            <h2>Welcome to TunnelForge</h2>
-                            <p>Share terminal sessions instantly through any web browser.</p>
-                            <div class="welcome-actions">
-                                <button class="btn btn-lg btn-primary" id="createFirstSession">Create Your First Session</button>
+
+                <!-- Integrations -->
+                <div id="integrations" class="settings-panel">
+                    <h2>Service Integrations</h2>
+                    
+                    <div class="integration-section">
+                        <h3>🌐 Tailscale</h3>
+                        <div class="form-group">
+                            <label class="form-label">
+                                <input type="checkbox" id="tailscaleEnabled"> 
+                                Enable Tailscale integration
+                            </label>
+                            <small class="form-help">Access your terminal through your Tailscale network</small>
+                        </div>
+                    </div>
+
+                    <div class="integration-section">
+                        <h3>☁️ Cloudflare</h3>
+                        <div class="form-group">
+                            <label class="form-label">
+                                <input type="checkbox" id="cloudflareEnabled"> 
+                                Enable Cloudflare tunnels
+                            </label>
+                            <small class="form-help">Expose your terminal through Cloudflare's network</small>
+                        </div>
+                    </div>
+
+                    <div class="integration-section">
+                        <h3>🔗 ngrok</h3>
+                        <div class="form-group">
+                            <label class="form-label">
+                                <input type="checkbox" id="ngrokEnabled"> 
+                                Enable ngrok integration
+                            </label>
+                        </div>
+                        <div class="form-group" id="ngrokTokenGroup" style="display: none;">
+                            <label for="ngrokAuthToken" class="form-label">ngrok Auth Token</label>
+                            <input type="password" id="ngrokAuthToken" class="form-input" placeholder="Enter your ngrok auth token">
+                            <small class="form-help">Get your token from <a href="#" id="ngrokTokenLink">ngrok dashboard</a></small>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Server Settings -->
+                <div id="server" class="settings-panel">
+                    <h2>Server Management</h2>
+                    <div class="server-info">
+                        <div class="info-card">
+                            <h4>Server Status</h4>
+                            <div class="status-row">
+                                <span>Status:</span>
+                                <span id="serverStatusText" class="status-value">Unknown</span>
+                            </div>
+                            <div class="status-row">
+                                <span>Port:</span>
+                                <span id="serverPortDisplay" class="status-value">4021</span>
+                            </div>
+                            <div class="status-row">
+                                <span>PID:</span>
+                                <span id="serverPID" class="status-value">-</span>
                             </div>
                         </div>
+                    </div>
+                    <div class="server-actions">
+                        <button class="btn btn-primary" id="startServer" style="display: none;">Start Server</button>
+                        <button class="btn btn-secondary" id="stopServer">Stop Server</button>
+                        <button class="btn btn-secondary" id="restartServer">Restart Server</button>
                     </div>
                 </div>
             </section>
         </main>
 
-        <!-- Create Session Modal -->
-        <div id="createSessionModal" class="modal" style="display:none;">
-            <div class="modal-content">
-                <div class="modal-header">
-                    <h3>Create New Session</h3>
-                    <button class="modal-close" id="closeModalBtn">&times;</button>
+        <!-- Footer -->
+        <footer class="footer">
+            <div class="footer-content">
+                <div class="app-info">
+                    <span>TunnelForge Desktop v1.0.0</span>
                 </div>
-                <div class="modal-body">
-                    <div class="form-group">
-                        <label for="sessionTitle">Session Title</label>
-                        <input type="text" id="sessionTitle" placeholder="My Terminal Session" />
-                    </div>
-                    <div class="form-group">
-                        <label for="sessionCommand">Initial Command (optional)</label>
-                        <input type="text" id="sessionCommand" placeholder="bash, zsh, etc." />
-                    </div>
-                </div>
-                <div class="modal-footer">
-                    <button class="btn" id="cancelSessionBtn">Cancel</button>
-                    <button class="btn btn-primary" id="confirmCreateSession">Create Session</button>
+                <div class="footer-actions">
+                    <button class="btn btn-sm" id="saveSettings">Save Settings</button>
                 </div>
             </div>
+        </footer>
+    </div>
+
+    <!-- Loading Overlay -->
+    <div id="loadingOverlay" class="loading-overlay" style="display: none;">
+        <div class="loading-spinner"></div>
+        <div class="loading-text">Saving settings...</div>
+    </div>
+
+    <!-- Notification -->
+    <div id="notification" class="notification" style="display: none;">
+        <div class="notification-content">
+            <span class="notification-icon"></span>
+            <span class="notification-message"></span>
         </div>
     </div>
 
-    <!-- Scripts -->
-    <script src="https://cdn.jsdelivr.net/npm/xterm@5.3.0/lib/xterm.js"></script>
-    <script src="https://cdn.jsdelivr.net/npm/xterm-addon-fit@0.8.0/lib/xterm-addon-fit.js"></script>
-    <script src="https://cdn.jsdelivr.net/npm/xterm-addon-web-links@0.9.0/lib/xterm-addon-web-links.js"></script>
     <script src="app.js"></script>
 </body>
 </html>

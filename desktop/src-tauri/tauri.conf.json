@@ -1,15 +1,23 @@
 {
   "$schema": "../gen/schemas/desktop-schema.json",
   "build": {
-    "beforeBuildCommand": "echo 'Building TunnelForge Native Desktop App'"
+    "beforeBuildCommand": "echo 'Building TunnelForge Native Desktop App'",
+    "frontendDist": "../dist"
   },
   "productName": "TunnelForge",
   "version": "1.0.0",
   "identifier": "dev.tunnelforge.desktop",
   "plugins": {
-    "opener": {},
+    "opener": {
+      "scope": ["*"],
+      "validate": true
+    },
     "shell": {
-      "open": true
+      "open": true,
+      "scope": {
+        "allow": ["^https?://"],
+        "deny": ["^file://"]
+      }
     }
   },
   "bundle": {
@@ -30,26 +38,52 @@
     "longDescription": "TunnelForge allows you to share terminal sessions through any web browser with a beautiful, fast native desktop interface."
   },
   "app": {
-    "withGlobalTauri": true,
+    "withGlobalTauri": false,
     "security": {
-      "csp": null
+      "csp": "default-src 'self'; connect-src 'self' https://*.tunnelforge.dev wss://*.tunnelforge.dev; img-src 'self' data: https:; style-src 'self' 'unsafe-inline'; script-src 'self'",
+      "dangerousDisableAssetCspModification": false,
+      "freezePrototype": true,
+      "pattern": {
+        "use_regex": true
+      },
+      "capabilities": [
+        {
+          "identifier": "main-capability",
+          "description": "Capability for the main window",
+          "windows": ["main"],
+          "permissions": [
+            "core:default",
+            "core:webview:default",
+            "core:window:default",
+            "core:window:allow-show",
+            "core:window:allow-hide",
+            "core:window:allow-close",
+            "core:window:allow-center",
+            "core:window:allow-set-focus",
+            "shell:default",
+            "shell:allow-open",
+            "opener:default"
+          ],
+          "platforms": ["linux", "windows", "macos"],
+          "scope": {
+            "url": {
+              "main": ["https://*.tunnelforge.dev"],
+              "asset": ["asset://localhost"]
+            },
+            "fs": {
+              "allow": ["$APP/*", "$CONFIG/*"],
+              "deny": ["**"]
+            },
+            "window": {
+              "create": false,
+              "center": true,
+              "requestUserAttention": true
+            }
+          }
+        }
+      ]
     },
-    "windows": [
-      {
-        "fullscreen": false,
-        "resizable": true,
-        "title": "TunnelForge",
-        "width": 1200,
-        "height": 800,
-        "minWidth": 800,
-        "minHeight": 600,
-        "visible": true,
-        "decorations": true,
-        "alwaysOnTop": false,
-        "skipTaskbar": false,
-        "devtools": true
-      }
-    ],
+    "windows": [],
     "trayIcon": {
       "iconPath": "icons/tray.png",
       "iconAsTemplate": true,

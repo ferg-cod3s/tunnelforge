@@ -3,14 +3,21 @@
 
 #![cfg_attr(not(debug_assertions), windows_subsystem = "windows")]
 
+use std::sync::Arc;
 use tauri::Manager;
 use tauri_plugin_log::{Target, TargetKind};
+use futures::future::join_all;
 
 // Import the library modules
 use tunnelforge_desktop::{
     init_app_state, setup_app, config, notifications, power, system, ui,
-    access_mode_service, ngrok_service, cloudflare_service, server, sessions
+    access_mode_service, ngrok_service, cloudflare_service, server, sessions,
+    metrics::{StartupTimer, StartupMetrics}
 };
+
+// Feature flags for startup optimizations
+const ENABLE_PARALLEL_UI_INIT: bool = true;
+const ENABLE_STARTUP_METRICS: bool = true;
 
 // Additional CLI-specific Tauri commands
 #[tauri::command]
@@ -180,13 +187,27 @@ async fn open_external_url(url: String) -> Result<(), String> {
     }
 }
 
+#[tauri::command]
+async fn get_startup_metrics() -> Result<StartupMetrics, String> {
+    if !ENABLE_STARTUP_METRICS {
+        return Err("Startup metrics are disabled".to_string());
+    }
+
+    let startup_timer = STARTUP_TIMER.get().ok_or("Startup timer not initialized")?;
+    Ok(startup_timer.get_metrics())
+}
+
+// Global startup timer
+static STARTUP_TIMER: once_cell::sync::OnceCell<Arc<StartupTimer>> = once_cell::sync::OnceCell::new();
+
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
-    tauri::Builder::default()
+    // Initialize startup timer
+    let startup_timer = Arc::new(StartupTimer::new());
+    let _ = STARTUP_TIMER.set(startup_timer.clone());
+
+    let app = tauri::Builder::default()
         .manage(init_app_state())
-        .manage(ui::MainWindow::new())
-        .manage(ui::SettingsWindow::new())
-        .manage(ui::SessionWindow::new())
         .plugin(tauri_plugin_log::Builder::new()
             .targets([
                 Target::new(TargetKind::Stdout),
@@ -197,7 +218,6 @@ pub fn run() {
             .build())
         .plugin(tauri_plugin_opener::init())
         .plugin(tauri_plugin_shell::init())
-        .plugin(tauri_plugin_notification::init())
         .invoke_handler(tauri::generate_handler![
             // Configuration commands
             config::get_config,
@@ -205,14 +225,6 @@ pub fn run() {
             config::update_server_port,
             config::toggle_auto_start,
             config::set_theme,
-
-            // Notification commands
-            notifications::show_notification,
-            notifications::show_server_notification,
-            notifications::get_notification_settings,
-            notifications::update_notification_settings,
-            notifications::test_notification,
-            notifications::open_notification_settings,
 
             // Power management commands
             power::start_power_monitoring,
@@ -229,8 +241,9 @@ pub fn run() {
             check_cli_installation,
             install_cli_tool,
             open_external_url,
+            get_startup_metrics,
 
-            // Server management commands (core VibeTunnel functionality)
+            // Server management commands
             server::start_server,
             server::stop_server,
             server::get_server_status,
@@ -278,19 +291,67 @@ pub fn run() {
             access_mode_service::set_access_mode,
             access_mode_service::get_current_binding,
             access_mode_service::test_network_connectivity,
-        ])
-        .setup(|app| {
-            // Create services that need AppHandle during setup
+        ]);
+
+    // Parallel UI initialization if enabled
+    if ENABLE_PARALLEL_UI_INIT {
+        let app = app.setup(move |app| {
             let app_handle = app.handle();
+            
+            // Create services that need AppHandle during setup
+            let futures = vec![
+                Box::pin(async move {
+                    app.manage(access_mode_service::AccessModeService::new(app_handle.clone()));
+                }),
+                Box::pin(async move {
+                    app.manage(ngrok_service::NgrokService::new(app_handle.clone()));
+                }),
+                Box::pin(async move {
+                    app.manage(cloudflare_service::CloudflareService::new(app_handle.clone()));
+                }),
+                Box::pin(async move {
+                    app.manage(ui::MainWindow::new());
+                }),
+                Box::pin(async move {
+                    app.manage(ui::SettingsWindow::new());
+                }),
+                Box::pin(async move {
+                    app.manage(ui::SessionWindow::new());
+                }),
+            ];
+
+            // Run all initialization futures in parallel
+            tokio::runtime::Runtime::new()
+                .unwrap()
+                .block_on(async {
+                    join_all(futures).await;
+                });
+
+            startup_timer.record_ui_init();
+            setup_app(app)
+        });
+
+        app.run(tauri::generate_context!())
+            .expect("error while running tauri application");
+    } else {
+        // Sequential initialization (original behavior)
+        let app = app.setup(|app| {
+            let app_handle = app.handle();
+            
             app.manage(access_mode_service::AccessModeService::new(app_handle.clone()));
             app.manage(ngrok_service::NgrokService::new(app_handle.clone()));
             app.manage(cloudflare_service::CloudflareService::new(app_handle.clone()));
+            app.manage(ui::MainWindow::new());
+            app.manage(ui::SettingsWindow::new());
+            app.manage(ui::SessionWindow::new());
 
-            setup_app(app)?;
-            Ok(())
-        })
-        .run(tauri::generate_context!())
-        .expect("error while running tauri application");
+            startup_timer.record_ui_init();
+            setup_app(app)
+        });
+
+        app.run(tauri::generate_context!())
+            .expect("error while running tauri application");
+    }
 }
 
 fn main() {

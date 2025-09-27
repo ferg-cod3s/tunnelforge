@@ -36,6 +36,12 @@ type Config struct {
 	EnableIPWhitelist bool
 	AllowedIPs        []string // CIDR notation allowed
 	EnableRequestLog  bool
+
+	// Cloudflare tunnel configuration
+	EnableCloudflareTunnels bool   // Whether to enable Cloudflare tunnel support
+	CloudflareAPIToken      string // Cloudflare API token for tunnel management
+	CloudflareAccountID     string // Cloudflare account ID
+	CloudflareConfigDir     string // Directory to store tunnel configurations
 }
 
 // LoadConfig loads configuration from environment variables with defaults
@@ -68,6 +74,12 @@ func LoadConfig() *Config {
 		EnableIPWhitelist: getEnvBool("ENABLE_IP_WHITELIST", false),                             // Disabled by default
 		AllowedIPs:        getEnvStringSlice("ALLOWED_IPS", []string{"127.0.0.1/8", "::1/128"}), // Localhost by default
 		EnableRequestLog:  getEnvBool("ENABLE_REQUEST_LOG", true),
+
+		// Cloudflare tunnel defaults
+		EnableCloudflareTunnels: getEnvBool("ENABLE_CLOUDFLARE_TUNNELS", false),                                    // Disabled by default
+		CloudflareAPIToken:      getEnv("CLOUDFLARE_API_TOKEN", ""),                                               // Must be set to enable
+		CloudflareAccountID:     getEnv("CLOUDFLARE_ACCOUNT_ID", ""),                                              // Must be set to enable
+		CloudflareConfigDir:     getEnv("CLOUDFLARE_CONFIG_DIR", os.Getenv("HOME")+"/.tunnelforge/cloudflare"),     // Default config directory
 	}
 
 	return cfg
@@ -113,15 +125,3 @@ func getEnvDuration(key string, defaultValue time.Duration) time.Duration {
 	}
 	return defaultValue
 }
-
-	// Cloudflare tunnel configuration
-	EnableCloudflareTunnels bool   // Whether to enable Cloudflare tunnel support
-	CloudflareAPIToken      string // Cloudflare API token for tunnel management
-	CloudflareAccountID     string // Cloudflare account ID
-	CloudflareConfigDir     string // Directory to store tunnel configurations
-
-		// Cloudflare tunnel defaults
-		EnableCloudflareTunnels: getEnvBool("ENABLE_CLOUDFLARE_TUNNELS", false),                                    // Disabled by default
-		CloudflareAPIToken:      getEnv("CLOUDFLARE_API_TOKEN", ""),                                               // Must be set to enable
-		CloudflareAccountID:     getEnv("CLOUDFLARE_ACCOUNT_ID", ""),                                              // Must be set to enable
-		CloudflareConfigDir:     getEnv("CLOUDFLARE_CONFIG_DIR", os.Getenv("HOME")+"/.tunnelforge/cloudflare"),     // Default config directory

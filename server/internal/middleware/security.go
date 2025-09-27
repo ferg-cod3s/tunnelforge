@@ -141,11 +141,22 @@ func (rl *RateLimiter) cleanupExpiredBuckets() {
 func SecurityHeaders() func(http.Handler) http.Handler {
 	return func(next http.Handler) http.Handler {
 		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			// Check if this is a desktop app request (Tauri webview)
+			userAgent := r.Header.Get("User-Agent")
+			isDesktopApp := strings.Contains(userAgent, "Tauri") || 
+				strings.Contains(userAgent, "tunnelforge-desktop")
+
 			// Prevent MIME sniffing
 			w.Header().Set("X-Content-Type-Options", "nosniff")
 
-			// Prevent clickjacking
-			w.Header().Set("X-Frame-Options", "DENY")
+			// For desktop app, allow framing; otherwise deny
+			if isDesktopApp {
+				// Allow the desktop app to embed content
+				w.Header().Set("X-Frame-Options", "SAMEORIGIN")
+			} else {
+				// Prevent clickjacking for web browsers
+				w.Header().Set("X-Frame-Options", "DENY")
+			}
 
 			// XSS protection (though deprecated, still used by older browsers)
 			w.Header().Set("X-XSS-Protection", "1; mode=block")
@@ -158,19 +169,31 @@ func SecurityHeaders() func(http.Handler) http.Handler {
 				w.Header().Set("Strict-Transport-Security", "max-age=31536000; includeSubDomains")
 			}
 
-			// Content Security Policy
-			csp := "default-src 'self'; " +
-				"script-src 'self' 'unsafe-inline' 'unsafe-eval'; " +
-				"style-src 'self' 'unsafe-inline'; " +
-				"img-src 'self' data: https:; " +
-				"font-src 'self'; " +
-				"connect-src 'self' ws: wss:; " +
-				"frame-ancestors 'none'"
+			// Content Security Policy - relax for desktop app
+			var csp string
+			if isDesktopApp {
+				// More permissive CSP for desktop app
+				csp = "default-src * 'unsafe-inline' 'unsafe-eval' data: blob:; " +
+					"script-src * 'unsafe-inline' 'unsafe-eval'; " +
+					"connect-src *; " +
+					"frame-ancestors *"
+			} else {
+				// Strict CSP for web browsers
+				csp = "default-src 'self'; " +
+					"script-src 'self' 'unsafe-inline' 'unsafe-eval'; " +
+					"style-src 'self' 'unsafe-inline'; " +
+					"img-src 'self' data: https:; " +
+					"font-src 'self'; " +
+					"connect-src 'self' ws: wss:; " +
+					"frame-ancestors 'none'"
+			}
 			w.Header().Set("Content-Security-Policy", csp)
 
-			// Cross-Origin policies
-			w.Header().Set("Cross-Origin-Embedder-Policy", "require-corp")
-			w.Header().Set("Cross-Origin-Opener-Policy", "same-origin")
+			// Cross-Origin policies - relax for desktop app
+			if !isDesktopApp {
+				w.Header().Set("Cross-Origin-Embedder-Policy", "require-corp")
+				w.Header().Set("Cross-Origin-Opener-Policy", "same-origin")
+			}
 
 			next.ServeHTTP(w, r)
 		})

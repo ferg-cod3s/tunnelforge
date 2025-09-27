@@ -20,6 +20,8 @@ import (
 	"github.com/ferg-cod3s/tunnelforge/go-server/internal/middleware"
 
 	"github.com/ferg-cod3s/tunnelforge/go-server/internal/auth"
+	"github.com/ferg-cod3s/tunnelforge/go-server/internal/analytics"
+	"github.com/ferg-cod3s/tunnelforge/go-server/internal/registry"
 	"github.com/ferg-cod3s/tunnelforge/go-server/internal/buffer"
 	"github.com/ferg-cod3s/tunnelforge/go-server/internal/config"
 	"github.com/ferg-cod3s/tunnelforge/go-server/internal/control"
@@ -33,6 +35,8 @@ import (
 	"github.com/ferg-cod3s/tunnelforge/go-server/internal/static"
 	"github.com/ferg-cod3s/tunnelforge/go-server/internal/tmux"
 	"github.com/ferg-cod3s/tunnelforge/go-server/internal/websocket"
+	"github.com/ferg-cod3s/tunnelforge/go-server/internal/power"
+	"github.com/ferg-cod3s/tunnelforge/go-server/internal/tunnels"
 	"github.com/ferg-cod3s/tunnelforge/go-server/pkg/types"
 )
 
@@ -57,7 +61,11 @@ type Server struct {
 	pushService        *push.PushService
 	pushHandler        *push.PushHandler
 	persistenceService *persistence.Service
+	powerService       *power.Service
+	tunnelService      *tunnels.Service
 	startTime          time.Time
+	analyticsService *analytics.Service
+	registryService *registry.Service
 	mu                 sync.RWMutex
 }
 
@@ -108,8 +116,21 @@ func New(cfg *Config) (*Server, error) {
 	fileSystemService := filesystem.NewFileSystemService(basePath)
 
 	// Initialize authentication services
-	jwtAuth := auth.NewJWTAuth("tunnelforge-jwt-secret-change-in-production")
+	// Initialize JWT revocation store
+	revocationStore := auth.NewInMemoryRevocationStore()
+	jwtAuth := auth.NewJWTAuth("tunnelforge-jwt-secret-change-in-production", revocationStore)
 	passwordAuth := auth.NewPasswordAuth()
+	// Initialize power management service
+	powerService, err := power.NewService()
+	if err != nil {
+		log.Printf("Warning: Failed to initialize power management service: %v", err)
+		powerService = nil
+	}
+	// Initialize tunnel services
+	tunnelService := tunnels.NewService()
+	if err := tunnelService.InitializeServices(); err != nil {
+		log.Printf("Warning: Failed to initialize tunnel services: %v", err)
+	}
 
 	// Initialize event broadcaster
 	eventBroadcaster := events.NewEventBroadcaster()
@@ -127,8 +148,13 @@ func New(cfg *Config) (*Server, error) {
 	// Initialize log service
 	logService := logs.NewLogService()
 
+	// Initialize analytics service
+	analyticsService := analytics.NewService(nil)
+
 	// Initialize control service
-	controlService := control.NewControlService()
+	controlService := control.NewControlService(analyticsService)
+	// Initialize registry service
+	registryService := registry.NewService(nil)
 
 	// Initialize tmux service
 	tmuxService := tmux.NewTmuxService(sessionManager)
@@ -159,13 +185,17 @@ func New(cfg *Config) (*Server, error) {
 		sessionManager:     sessionManager,
 		wsHandler:          wsHandler,
 		bufferAggregator:   bufferAggregator,
+		jwtAuth:            jwtAuth,
 		fileSystem:         fileSystemService,
 		gitService:         gitService,
 		logService:         logService,
-		controlService:     controlService,
 		tmuxService:        tmuxService,
-		jwtAuth:            jwtAuth,
+		controlService:     controlService,
+		registryService:     registryService,
+				analyticsService:    analyticsService,
 		passwordAuth:       passwordAuth,
+		powerService:       powerService,
+		tunnelService:      tunnelService,
 		pushService:        pushService,
 		pushHandler:        pushHandler,
 		persistenceService: persistenceService,
@@ -187,6 +217,7 @@ func (s *Server) setupRoutes() {
 
 	// Health check
 	r.HandleFunc("/health", s.handleHealth).Methods("GET")
+	r.HandleFunc("/api/health", s.handleHealth).Methods("GET")
 
 	// WebSocket endpoint
 	r.HandleFunc("/ws", s.wsHandler.HandleWebSocket)
@@ -276,6 +307,7 @@ func (s *Server) setupRoutes() {
 		protectedAuth := auth.NewRoute().Subrouter()
 		protectedAuth.Use(authMiddleware)
 		protectedAuth.HandleFunc("/current-user", s.handleCurrentUser).Methods("GET")
+		protectedAuth.HandleFunc("/logout", s.handleLogout).Methods("POST")
 	} else {
 		// When auth is not required, provide current-user endpoint without protection
 		auth.HandleFunc("/current-user", s.handleCurrentUser).Methods("GET")
@@ -297,6 +329,33 @@ func (s *Server) setupRoutes() {
 	sessionRouter.HandleFunc("/sessions/{id}/input", s.handleSessionInput).Methods("POST")
 	sessionRouter.HandleFunc("/sessions/{id}/stream", s.handleSessionStream).Methods("GET")
 	sessionRouter.HandleFunc("/cleanup-exited", s.handleCleanupExited).Methods("POST")
+	sessionRouter.HandleFunc("/sessions/bulk", s.handleBulkCreateSessions).Methods("POST")
+	sessionRouter.HandleFunc("/sessions/bulk/delete", s.handleBulkDeleteSessions).Methods("POST")
+	sessionRouter.HandleFunc("/sessions/bulk/resize", s.handleBulkResizeSessions).Methods("POST")
+	sessionRouter.HandleFunc("/sessions/groups", s.handleListSessionGroups).Methods("GET")
+	sessionRouter.HandleFunc("/sessions/groups", s.handleCreateSessionGroup).Methods("POST")
+	sessionRouter.HandleFunc("/sessions/groups/{groupId}", s.handleGetSessionGroup).Methods("GET")
+	sessionRouter.HandleFunc("/sessions/groups/{groupId}", s.handleDeleteSessionGroup).Methods("DELETE")
+	sessionRouter.HandleFunc("/sessions/groups/{groupId}/sessions", s.handleAddSessionToGroup).Methods("POST")
+	sessionRouter.HandleFunc("/sessions/groups/{groupId}/sessions/{sessionId}", s.handleRemoveSessionFromGroup).Methods("DELETE")
+	sessionRouter.HandleFunc("/sessions/{id}/groups", s.handleGetSessionGroups).Methods("GET")
+	sessionRouter.HandleFunc("/sessions/{id}/hierarchy", s.handleGetSessionHierarchy).Methods("GET")
+	sessionRouter.HandleFunc("/sessions/{id}/dependencies", s.handleGetSessionDependencies).Methods("GET")
+	sessionRouter.HandleFunc("/sessions/tags", s.handleListSessionTags).Methods("GET")
+	sessionRouter.HandleFunc("/sessions/tags", s.handleCreateSessionTag).Methods("POST")
+	sessionRouter.HandleFunc("/sessions/tags/{tagName}", s.handleDeleteSessionTag).Methods("DELETE")
+	sessionRouter.HandleFunc("/sessions/by-tag/{tagName}", s.handleGetSessionsByTag).Methods("GET")
+	sessionRouter.HandleFunc("/registry/instances", s.handleListRegistryInstances).Methods("GET")
+	sessionRouter.HandleFunc("/registry/instances", s.handleRegisterRegistryInstance).Methods("POST")
+	sessionRouter.HandleFunc("/registry/instances/{instanceId}", s.handleGetRegistryInstance).Methods("GET")
+	sessionRouter.HandleFunc("/analytics/metrics", s.handleGetAnalyticsMetrics).Methods("GET")
+	sessionRouter.HandleFunc("/analytics/events", s.handleGetAnalyticsEvents).Methods("GET")
+	sessionRouter.HandleFunc("/analytics/users/{userId}/activity", s.handleGetUserActivity).Methods("GET")
+	sessionRouter.HandleFunc("/analytics/export", s.handleExportAnalytics).Methods("POST")
+	sessionRouter.HandleFunc("/registry/instances/{instanceId}", s.handleUnregisterRegistryInstance).Methods("DELETE")
+	sessionRouter.HandleFunc("/registry/sessions", s.handleDiscoverRemoteSessions).Methods("GET")
+	sessionRouter.HandleFunc("/registry/sessions/{instanceId}/{sessionId}", s.handleGetRemoteSession).Methods("GET")
+	sessionRouter.HandleFunc("/registry/stats", s.handleGetRegistryStats).Methods("GET")
 
 	// Filesystem routes
 	s.fileSystem.RegisterRoutes(r)
@@ -310,6 +369,14 @@ func (s *Server) setupRoutes() {
 	// Control routes
 	s.controlService.RegisterRoutes(r)
 
+	// Power management routes
+	if s.powerService != nil {
+		s.registerPowerRoutes(r)
+	}
+	// Tunnel routes
+	if s.tunnelService != nil {
+		s.registerTunnelRoutes(r)
+	}
 	// Tmux routes
 	s.tmuxService.RegisterRoutes(r)
 
@@ -457,6 +524,10 @@ func (s *Server) Start() error {
 	s.eventBroadcaster.Start()
 
 	// Start buffer aggregator
+	// Start analytics service
+	if err := s.analyticsService.Start(); err != nil {
+		log.Printf("Failed to start analytics service: %v", err)
+	}
 	go s.bufferAggregator.Start()
 
 	// Start push notification service
@@ -464,6 +535,10 @@ func (s *Server) Start() error {
 		if err := s.pushService.Start(); err != nil {
 			log.Printf("Failed to start push service: %v", err)
 		}
+	}
+	// Start registry service
+	if err := s.registryService.Start(); err != nil {
+		log.Printf("Failed to start registry service: %v", err)
 	}
 
 	// Broadcast server start event
@@ -476,8 +551,12 @@ func (s *Server) Start() error {
 
 func (s *Server) Shutdown(ctx context.Context) error {
 	// Broadcast server shutdown event
-	shutdownEvent := types.NewServerEvent(types.EventServerShutdown).
-		WithMessage("TunnelForge Go server shutting down")
+shutdownEvent := types.NewServerEvent(types.EventServerShutdown)
+shutdownEvent = shutdownEvent.WithMessage("TunnelForge Go server shutting down")
+	// Stop analytics service
+	if err := s.analyticsService.Stop(); err != nil {
+		log.Printf("Failed to stop analytics service: %v", err)
+	}
 	s.broadcastEvent(shutdownEvent)
 
 	// Stop buffer aggregator
@@ -488,6 +567,10 @@ func (s *Server) Shutdown(ctx context.Context) error {
 		if err := s.pushService.Stop(); err != nil {
 			log.Printf("Failed to stop push service: %v", err)
 		}
+	}
+	// Stop registry service
+	if err := s.registryService.Stop(); err != nil {
+		log.Printf("Failed to stop registry service: %v", err)
 	}
 
 	// Stop event broadcaster
@@ -565,6 +648,8 @@ func (s *Server) handleCreateSession(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Broadcast session start event
+	// Record analytics event
+	s.analyticsService.RecordSessionActivity("system", session.ID, "created", nil)
 	startEvent := types.NewServerEvent(types.EventSessionStart).
 		WithSessionID(session.ID).
 		WithSessionName(session.Title).
@@ -907,6 +992,43 @@ func (s *Server) handleLogin(w http.ResponseWriter, r *http.Request) {
 		},
 	}); err != nil {
 		log.Printf("Failed to encode login response: %v", err)
+	}
+}
+// handleLogout handles user logout by revoking the JWT token
+func (s *Server) handleLogout(w http.ResponseWriter, r *http.Request) {
+	// Get the Authorization header
+	authHeader := r.Header.Get("Authorization")
+	if authHeader == "" {
+		s.writeJSONError(w, "missing authorization header", http.StatusUnauthorized)
+		return
+	}
+
+	// Check if it's a Bearer token
+	parts := strings.SplitN(authHeader, " ", 2)
+	if len(parts) != 2 || parts[0] != "Bearer" {
+		s.writeJSONError(w, "invalid authorization header format", http.StatusUnauthorized)
+		return
+	}
+
+	tokenString := strings.TrimSpace(parts[1])
+	if tokenString == "" {
+		s.writeJSONError(w, "missing token", http.StatusBadRequest)
+		return
+	}
+
+	// Revoke the token
+	if err := s.jwtAuth.RevokeToken(tokenString); err != nil {
+		log.Printf("Failed to revoke token: %v", err)
+		s.writeJSONError(w, "Failed to logout", http.StatusInternalServerError)
+		return
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	if err := json.NewEncoder(w).Encode(map[string]interface{}{
+		"success": true,
+		"message": "Successfully logged out",
+	}); err != nil {
+		log.Printf("Failed to encode logout response: %v", err)
 	}
 }
 
@@ -1299,49 +1421,10 @@ func (s *Server) handleControlStream(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 }
-	"github.com/ferg-cod3s/tunnelforge/go-server/internal/cloudflare"
-	"github.com/ferg-cod3s/tunnelforge/go-server/internal/domain"
-	cloudflareService  *cloudflare.TunnelService
-	domainManager      *domain.DomainManager
-	dnsManager         *domain.DNSManager
--e 
-	cloudflareService  *cloudflare.TunnelService
-	domainManager      *domain.DomainManager
-	dnsManager         *domain.DNSManager
-
-	// Initialize Cloudflare tunnel service if enabled
-	var cloudflareService *cloudflare.TunnelService
-	var domainManager *domain.DomainManager
-	var dnsManager *domain.DNSManager
-
-	if fullConfig.EnableCloudflareTunnels && fullConfig.CloudflareAPIToken != "" && fullConfig.CloudflareAccountID != "" {
-		// Create Cloudflare API client
-		apiClient := cloudflare.NewAPIClient(fullConfig.CloudflareAPIToken, fullConfig.CloudflareAccountID)
-		
-		// Initialize tunnel service
-		cloudflareService = cloudflare.NewTunnelService(apiClient)
-		
-		// Initialize domain manager
-		domainManager = domain.NewDomainManager(apiClient)
-		
-		// Initialize DNS manager
-		dnsManager = domain.NewDNSManager(apiClient)
-		
-		log.Printf("Cloudflare tunnel services initialized")
-	} else {
-		log.Printf("Cloudflare tunnels disabled or not configured (ENABLE_CLOUDFLARE_TUNNELS=%v, API_TOKEN=%v, ACCOUNT_ID=%v)", 
-			fullConfig.EnableCloudflareTunnels, fullConfig.CloudflareAPIToken != "", fullConfig.CloudflareAccountID != "")
-	}
-		cloudflareService:  cloudflareService,
-		domainManager:      domainManager,
-		dnsManager:         dnsManager,
-
-	// Cloudflare tunnel routes
-	if s.cloudflareService != nil {
-		s.registerCloudflareRoutes(sessionRouter)
-	}
 
 // registerCloudflareRoutes registers Cloudflare tunnel and domain management routes
+// TODO: Re-enable when cloudflare service is properly integrated
+/*
 func (s *Server) registerCloudflareRoutes(router *mux.Router) {
 	// Tunnel management routes
 	router.HandleFunc("/tunnels/cloudflare", s.handleListCloudflareTunnels).Methods("GET")
@@ -1358,8 +1441,11 @@ func (s *Server) registerCloudflareRoutes(router *mux.Router) {
 	
 	log.Printf("Cloudflare tunnel routes registered")
 }
+*/
 
 // handleListCloudflareTunnels lists all Cloudflare tunnels
+// TODO: Re-enable when cloudflare service is added to Server struct
+/*
 func (s *Server) handleListCloudflareTunnels(w http.ResponseWriter, r *http.Request) {
 	if s.cloudflareService == nil {
 		s.writeJSONError(w, "Cloudflare tunnels not configured", http.StatusServiceUnavailable)
@@ -1378,7 +1464,10 @@ func (s *Server) handleListCloudflareTunnels(w http.ResponseWriter, r *http.Requ
 		"tunnels": tunnels,
 	})
 }
+*/
 
+// Cloudflare functions - commented out until cloudflare service is properly integrated
+/*
 // handleCreateCloudflareTunnel creates a new Cloudflare tunnel
 func (s *Server) handleCreateCloudflareTunnel(w http.ResponseWriter, r *http.Request) {
 	if s.cloudflareService == nil {
@@ -1605,65 +1694,11 @@ func (s *Server) handleCheckDomainStatus(w http.ResponseWriter, r *http.Request)
 		"status": status,
 	})
 }
-	secureConfigManager *config.SecureConfigManager
-
-	// Initialize secure configuration manager
-	secureConfigManager, err := config.NewSecureConfigManager(fullConfig.CloudflareConfigDir)
-	if err != nil {
-		log.Printf("Warning: Failed to initialize secure config manager: %v", err)
-		secureConfigManager = nil
-	}
-		secureConfigManager: secureConfigManager,
-
-	if fullConfig.EnableCloudflareTunnels {
-		// Try to get credentials from secure storage first
-		var apiToken, accountID string
-		
-		if secureConfigManager != nil {
-			credentials, err := secureConfigManager.GetCloudflareCredentials()
-			if err != nil {
-				log.Printf("Warning: Failed to get Cloudflare credentials from secure storage: %v", err)
-			} else {
-				apiToken = credentials.APIToken
-				accountID = credentials.AccountID
-			}
-		}
-		
-		// Fall back to environment variables if secure storage is empty
-		if apiToken == "" {
-			apiToken = fullConfig.CloudflareAPIToken
-		}
-		if accountID == "" {
-			accountID = fullConfig.CloudflareAccountID
-		}
-		
-		if apiToken != "" && accountID != "" {
-			// Create Cloudflare API client
-			apiClient := cloudflare.NewAPIClient(apiToken, accountID)
-			
-			// Initialize tunnel service
-			cloudflareService = cloudflare.NewTunnelService(apiClient)
-			
-			// Initialize domain manager
-			domainManager = domain.NewDomainManager(apiClient)
-			
-			// Initialize DNS manager
-			dnsManager = domain.NewDNSManager(apiClient)
-			
-			log.Printf("Cloudflare tunnel services initialized with secure credentials")
-		} else {
-			log.Printf("Cloudflare tunnels enabled but credentials not configured")
-		}
-	} else {
-		log.Printf("Cloudflare tunnels disabled")
-	}
-
-	// Secure configuration routes
-	if s.secureConfigManager != nil {
-		s.registerSecureConfigRoutes(sessionRouter)
-	}
+*/
 
 // registerSecureConfigRoutes registers secure configuration management routes
+// TODO: Re-enable when secure config manager is properly integrated
+/*
 func (s *Server) registerSecureConfigRoutes(router *mux.Router) {
 	router.HandleFunc("/config/cloudflare/credentials", s.handleStoreCloudflareCredentials).Methods("POST")
 	router.HandleFunc("/config/cloudflare/credentials", s.handleGetCloudflareCredentials).Methods("GET")
@@ -1764,8 +1799,11 @@ func (s *Server) handleGetCloudflareStatus(w http.ResponseWriter, r *http.Reques
 	w.Header().Set("Content-Type", "application/json")
 	json.NewEncoder(w).Encode(status)
 }
+*/
 
 // handleAssignDomain assigns a domain to a tunnel and optionally associates with a session
+// TODO: Remove duplicate - this is already defined above
+/*
 func (s *Server) handleAssignDomain(w http.ResponseWriter, r *http.Request) {
 	if s.domainManager == nil {
 		s.writeJSONError(w, "Domain management not configured", http.StatusServiceUnavailable)
@@ -1822,4 +1860,766 @@ func (s *Server) associateTunnelWithSession(tunnelID, domain string) error {
 	
 	log.Printf("No active session found to associate with tunnel %s", tunnelID)
 	return fmt.Errorf("no active session available for tunnel association")
+}
+*/
+// registerPowerRoutes registers power management API routes
+func (s *Server) registerPowerRoutes(router *mux.Router) {
+	api := router.PathPrefix("/api").Subrouter()
+	
+	// Power management endpoints
+	api.HandleFunc("/power/prevent-sleep", s.handlePreventSleep).Methods("POST")
+	api.HandleFunc("/power/allow-sleep", s.handleAllowSleep).Methods("POST")
+	api.HandleFunc("/power/status", s.handlePowerStatus).Methods("GET")
+}
+
+// handlePreventSleep prevents system sleep
+func (s *Server) handlePreventSleep(w http.ResponseWriter, r *http.Request) {
+	if s.powerService == nil {
+		s.writeJSONError(w, "Power management not available on this platform", http.StatusServiceUnavailable)
+		return
+	}
+
+	var req struct {
+		Reason string `json:"reason,omitempty"`
+	}
+
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		req.Reason = "TunnelForge session active"
+	}
+
+	if req.Reason == "" {
+		req.Reason = "TunnelForge session active"
+	}
+
+	if err := s.powerService.PreventSleep(req.Reason); err != nil {
+		log.Printf("Failed to prevent sleep: %v", err)
+		s.writeJSONError(w, fmt.Sprintf("Failed to prevent sleep: %v", err), http.StatusInternalServerError)
+		return
+	}
+
+	// Broadcast power management event
+	event := types.NewServerEvent(types.EventPowerSleepPrevented).
+		WithMessage("System sleep prevention enabled").
+		WithData(map[string]interface{}{
+			"reason": req.Reason,
+		})
+	s.broadcastEvent(event)
+
+	w.Header().Set("Content-Type", "application/json")
+	json.NewEncoder(w).Encode(map[string]interface{}{
+		"success": true,
+		"message": "Sleep prevention enabled",
+		"reason":  req.Reason,
+	})
+}
+
+// handleAllowSleep allows system sleep
+func (s *Server) handleAllowSleep(w http.ResponseWriter, r *http.Request) {
+	if s.powerService == nil {
+		s.writeJSONError(w, "Power management not available on this platform", http.StatusServiceUnavailable)
+		return
+	}
+
+	if err := s.powerService.AllowSleep(); err != nil {
+		log.Printf("Failed to allow sleep: %v", err)
+		s.writeJSONError(w, fmt.Sprintf("Failed to allow sleep: %v", err), http.StatusInternalServerError)
+		return
+	}
+
+	// Broadcast power management event
+	event := types.NewServerEvent(types.EventPowerSleepAllowed).
+		WithMessage("System sleep prevention disabled")
+	s.broadcastEvent(event)
+
+	w.Header().Set("Content-Type", "application/json")
+	json.NewEncoder(w).Encode(map[string]interface{}{
+		"success": true,
+		"message": "Sleep prevention disabled",
+	})
+}
+
+// handlePowerStatus returns current power management status
+func (s *Server) handlePowerStatus(w http.ResponseWriter, r *http.Request) {
+	if s.powerService == nil {
+		w.Header().Set("Content-Type", "application/json")
+		json.NewEncoder(w).Encode(map[string]interface{}{
+			"available": false,
+			"message":   "Power management not available on this platform",
+		})
+		return
+	}
+
+	status := s.powerService.GetStatus()
+	status["available"] = true
+
+	w.Header().Set("Content-Type", "application/json")
+	json.NewEncoder(w).Encode(status)
+}
+// registerTunnelRoutes registers tunnel management API routes
+func (s *Server) registerTunnelRoutes(router *mux.Router) {
+	api := router.PathPrefix("/api").Subrouter()
+	
+	// Tunnel management endpoints
+	api.HandleFunc("/tunnels", s.handleListTunnels).Methods("GET")
+	api.HandleFunc("/tunnels/{type}/start", s.handleStartTunnel).Methods("POST")
+	api.HandleFunc("/tunnels/{type}/stop", s.handleStopTunnel).Methods("POST")
+	api.HandleFunc("/tunnels/{type}/status", s.handleTunnelStatus).Methods("GET")
+	api.HandleFunc("/tunnels/{type}/url", s.handleTunnelURL).Methods("GET")
+}
+
+// handleListTunnels returns all available tunnel services
+func (s *Server) handleListTunnels(w http.ResponseWriter, r *http.Request) {
+	if s.tunnelService == nil {
+		s.writeJSONError(w, "Tunnel services not available", http.StatusServiceUnavailable)
+		return
+	}
+
+	tunnels := s.tunnelService.ListServices()
+	
+	w.Header().Set("Content-Type", "application/json")
+	json.NewEncoder(w).Encode(map[string]interface{}{
+		"tunnels": tunnels,
+	})
+}
+
+// handleStartTunnel starts a tunnel of the specified type
+func (s *Server) handleStartTunnel(w http.ResponseWriter, r *http.Request) {
+	if s.tunnelService == nil {
+		s.writeJSONError(w, "Tunnel services not available", http.StatusServiceUnavailable)
+		return
+	}
+
+	vars := mux.Vars(r)
+	tunnelTypeStr := vars["type"]
+	
+	var tunnelType tunnels.TunnelType
+	switch tunnelTypeStr {
+	case "cloudflare":
+		tunnelType = tunnels.TunnelTypeCloudflare
+	case "ngrok":
+		tunnelType = tunnels.TunnelTypeNgrok
+	case "tailscale":
+		tunnelType = tunnels.TunnelTypeTailscale
+	default:
+		s.writeJSONError(w, "Invalid tunnel type", http.StatusBadRequest)
+		return
+	}
+
+	service, err := s.tunnelService.GetService(tunnelType)
+	if err != nil {
+		s.writeJSONError(w, err.Error(), http.StatusNotFound)
+		return
+	}
+
+	var req struct {
+		Port int `json:"port"`
+	}
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		s.writeJSONError(w, "Invalid JSON request", http.StatusBadRequest)
+		return
+	}
+
+	if req.Port <= 0 || req.Port > 65535 {
+		s.writeJSONError(w, "Invalid port number", http.StatusBadRequest)
+		return
+	}
+
+	if err := service.Start(req.Port); err != nil {
+		log.Printf("Failed to start %s tunnel: %v", tunnelType, err)
+		s.writeJSONError(w, fmt.Sprintf("Failed to start tunnel: %v", err), http.StatusInternalServerError)
+		return
+	}
+
+	// Broadcast tunnel event
+	event := types.NewServerEvent(types.EventTunnelStarted).
+		WithMessage(fmt.Sprintf("%s tunnel started", tunnelType)).
+		WithData(map[string]interface{}{
+			"type": tunnelType,
+			"port": req.Port,
+		})
+	s.broadcastEvent(event)
+
+	w.Header().Set("Content-Type", "application/json")
+	json.NewEncoder(w).Encode(map[string]interface{}{
+		"success": true,
+		"message": fmt.Sprintf("%s tunnel started", tunnelType),
+		"type":    tunnelType,
+		"port":    req.Port,
+	})
+}
+
+// handleStopTunnel stops a tunnel of the specified type
+func (s *Server) handleStopTunnel(w http.ResponseWriter, r *http.Request) {
+	if s.tunnelService == nil {
+		s.writeJSONError(w, "Tunnel services not available", http.StatusServiceUnavailable)
+		return
+	}
+
+	vars := mux.Vars(r)
+	tunnelTypeStr := vars["type"]
+	
+	var tunnelType tunnels.TunnelType
+	switch tunnelTypeStr {
+	case "cloudflare":
+		tunnelType = tunnels.TunnelTypeCloudflare
+	case "ngrok":
+		tunnelType = tunnels.TunnelTypeNgrok
+	case "tailscale":
+		tunnelType = tunnels.TunnelTypeTailscale
+	default:
+		s.writeJSONError(w, "Invalid tunnel type", http.StatusBadRequest)
+		return
+	}
+
+	service, err := s.tunnelService.GetService(tunnelType)
+	if err != nil {
+		s.writeJSONError(w, err.Error(), http.StatusNotFound)
+		return
+	}
+
+	if err := service.Stop(); err != nil {
+		log.Printf("Failed to stop %s tunnel: %v", tunnelType, err)
+		s.writeJSONError(w, fmt.Sprintf("Failed to stop tunnel: %v", err), http.StatusInternalServerError)
+		return
+	}
+
+	// Broadcast tunnel event
+	event := types.NewServerEvent(types.EventTunnelStopped).
+		WithMessage(fmt.Sprintf("%s tunnel stopped", tunnelType)).
+		WithData(map[string]interface{}{
+			"type": tunnelType,
+		})
+	s.broadcastEvent(event)
+
+	w.Header().Set("Content-Type", "application/json")
+	json.NewEncoder(w).Encode(map[string]interface{}{
+		"success": true,
+		"message": fmt.Sprintf("%s tunnel stopped", tunnelType),
+		"type":    tunnelType,
+	})
+}
+
+// handleTunnelStatus returns the status of a specific tunnel
+func (s *Server) handleTunnelStatus(w http.ResponseWriter, r *http.Request) {
+	if s.tunnelService == nil {
+		s.writeJSONError(w, "Tunnel services not available", http.StatusServiceUnavailable)
+		return
+	}
+
+	vars := mux.Vars(r)
+	tunnelTypeStr := vars["type"]
+	
+	var tunnelType tunnels.TunnelType
+	switch tunnelTypeStr {
+	case "cloudflare":
+		tunnelType = tunnels.TunnelTypeCloudflare
+	case "ngrok":
+		tunnelType = tunnels.TunnelTypeNgrok
+	case "tailscale":
+		tunnelType = tunnels.TunnelTypeTailscale
+	default:
+		s.writeJSONError(w, "Invalid tunnel type", http.StatusBadRequest)
+		return
+	}
+
+	service, err := s.tunnelService.GetService(tunnelType)
+	if err != nil {
+		s.writeJSONError(w, err.Error(), http.StatusNotFound)
+		return
+	}
+
+	status, err := service.GetStatus()
+	if err != nil {
+		s.writeJSONError(w, fmt.Sprintf("Failed to get tunnel status: %v", err), http.StatusInternalServerError)
+		return
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	json.NewEncoder(w).Encode(status)
+}
+
+// handleTunnelURL returns the public URL of a specific tunnel
+func (s *Server) handleTunnelURL(w http.ResponseWriter, r *http.Request) {
+	if s.tunnelService == nil {
+		s.writeJSONError(w, "Tunnel services not available", http.StatusServiceUnavailable)
+		return
+	}
+
+	vars := mux.Vars(r)
+	tunnelTypeStr := vars["type"]
+	
+	var tunnelType tunnels.TunnelType
+	switch tunnelTypeStr {
+	case "cloudflare":
+		tunnelType = tunnels.TunnelTypeCloudflare
+	case "ngrok":
+		tunnelType = tunnels.TunnelTypeNgrok
+	case "tailscale":
+		tunnelType = tunnels.TunnelTypeTailscale
+	default:
+		s.writeJSONError(w, "Invalid tunnel type", http.StatusBadRequest)
+		return
+	}
+
+	service, err := s.tunnelService.GetService(tunnelType)
+	if err != nil {
+		s.writeJSONError(w, err.Error(), http.StatusNotFound)
+		return
+	}
+
+	url, err := service.GetPublicURL()
+	if err != nil {
+		s.writeJSONError(w, err.Error(), http.StatusServiceUnavailable)
+		return
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	json.NewEncoder(w).Encode(map[string]interface{}{
+		"url":   url,
+		"type":  tunnelType,
+	})
+}
+
+// Session Multiplexing Handlers
+
+// handleBulkCreateSessions creates multiple sessions at once
+func (s *Server) handleBulkCreateSessions(w http.ResponseWriter, r *http.Request) {
+	var reqs []*types.SessionCreateRequest
+	
+	if err := json.NewDecoder(r.Body).Decode(&reqs); err != nil {
+		s.writeJSONError(w, "Invalid JSON request", http.StatusBadRequest)
+		return
+	}
+
+	sessions, err := s.sessionManager.BulkCreateSessions(reqs)
+	if err != nil {
+		s.writeJSONError(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	json.NewEncoder(w).Encode(sessions)
+}
+
+// handleBulkDeleteSessions deletes multiple sessions at once
+func (s *Server) handleBulkDeleteSessions(w http.ResponseWriter, r *http.Request) {
+	var req struct {
+		SessionIDs []string `json:"sessionIds"`
+	}
+	
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		s.writeJSONError(w, "Invalid JSON request", http.StatusBadRequest)
+		return
+	}
+
+	errors := s.sessionManager.BulkDeleteSessions(req.SessionIDs)
+	
+	response := map[string]interface{}{
+		"deleted": len(req.SessionIDs) - len(errors),
+	}
+	
+	if len(errors) > 0 {
+		response["errors"] = errors
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	json.NewEncoder(w).Encode(response)
+}
+
+// handleBulkResizeSessions resizes multiple sessions at once
+func (s *Server) handleBulkResizeSessions(w http.ResponseWriter, r *http.Request) {
+	var req struct {
+		SessionIDs []string `json:"sessionIds"`
+		Cols       int      `json:"cols"`
+		Rows       int      `json:"rows"`
+	}
+	
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		s.writeJSONError(w, "Invalid JSON request", http.StatusBadRequest)
+		return
+	}
+
+	if req.Cols <= 0 || req.Rows <= 0 {
+		s.writeJSONError(w, "Invalid terminal dimensions", http.StatusBadRequest)
+		return
+	}
+
+	errors := s.sessionManager.BulkResizeSessions(req.SessionIDs, req.Cols, req.Rows)
+	
+	response := map[string]interface{}{
+		"resized": len(req.SessionIDs) - len(errors),
+	}
+	
+	if len(errors) > 0 {
+		response["errors"] = errors
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	json.NewEncoder(w).Encode(response)
+}
+
+// handleListSessionGroups lists all session groups
+func (s *Server) handleListSessionGroups(w http.ResponseWriter, r *http.Request) {
+	groups := s.sessionManager.ListSessionGroups()
+	
+	w.Header().Set("Content-Type", "application/json")
+	json.NewEncoder(w).Encode(groups)
+}
+
+// handleCreateSessionGroup creates a new session group
+func (s *Server) handleCreateSessionGroup(w http.ResponseWriter, r *http.Request) {
+	var req struct {
+		Name        string   `json:"name"`
+		Description string   `json:"description,omitempty"`
+		Tags        []string `json:"tags,omitempty"`
+	}
+	
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		s.writeJSONError(w, "Invalid JSON request", http.StatusBadRequest)
+		return
+	}
+
+	if req.Name == "" {
+		s.writeJSONError(w, "Group name is required", http.StatusBadRequest)
+		return
+	}
+
+	group, err := s.sessionManager.CreateSessionGroup(req.Name, req.Description, req.Tags)
+	if err != nil {
+		s.writeJSONError(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	json.NewEncoder(w).Encode(group)
+}
+
+// handleGetSessionGroup gets a specific session group
+func (s *Server) handleGetSessionGroup(w http.ResponseWriter, r *http.Request) {
+	vars := mux.Vars(r)
+	groupID := vars["groupId"]
+
+	group, err := s.sessionManager.GetSessionGroup(groupID)
+	if err != nil {
+		s.writeJSONError(w, err.Error(), http.StatusNotFound)
+		return
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	json.NewEncoder(w).Encode(group)
+}
+
+// handleDeleteSessionGroup deletes a session group
+func (s *Server) handleDeleteSessionGroup(w http.ResponseWriter, r *http.Request) {
+	vars := mux.Vars(r)
+	groupID := vars["groupId"]
+
+	if err := s.sessionManager.DeleteSessionGroup(groupID); err != nil {
+		s.writeJSONError(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+
+	w.WriteHeader(http.StatusNoContent)
+}
+
+// handleAddSessionToGroup adds a session to a group
+func (s *Server) handleAddSessionToGroup(w http.ResponseWriter, r *http.Request) {
+	vars := mux.Vars(r)
+	groupID := vars["groupId"]
+	
+	var req struct {
+		SessionID string `json:"sessionId"`
+	}
+	
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		s.writeJSONError(w, "Invalid JSON request", http.StatusBadRequest)
+		return
+	}
+
+	if err := s.sessionManager.AddSessionToGroup(groupID, req.SessionID); err != nil {
+		s.writeJSONError(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+
+	w.WriteHeader(http.StatusOK)
+}
+
+// handleRemoveSessionFromGroup removes a session from a group
+func (s *Server) handleRemoveSessionFromGroup(w http.ResponseWriter, r *http.Request) {
+	vars := mux.Vars(r)
+	groupID := vars["groupId"]
+	sessionID := vars["sessionId"]
+
+	if err := s.sessionManager.RemoveSessionFromGroup(groupID, sessionID); err != nil {
+		s.writeJSONError(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+
+	w.WriteHeader(http.StatusOK)
+}
+
+// handleGetSessionGroups gets all groups containing a session
+func (s *Server) handleGetSessionGroups(w http.ResponseWriter, r *http.Request) {
+	vars := mux.Vars(r)
+	sessionID := vars["id"]
+
+	groups := s.sessionManager.GetSessionGroups(sessionID)
+
+	w.Header().Set("Content-Type", "application/json")
+	json.NewEncoder(w).Encode(groups)
+}
+
+// handleGetSessionHierarchy gets hierarchy information for a session
+func (s *Server) handleGetSessionHierarchy(w http.ResponseWriter, r *http.Request) {
+	vars := mux.Vars(r)
+	sessionID := vars["id"]
+
+	hierarchy, err := s.sessionManager.GetSessionHierarchy(sessionID)
+	if err != nil {
+		s.writeJSONError(w, err.Error(), http.StatusNotFound)
+		return
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	json.NewEncoder(w).Encode(hierarchy)
+}
+
+// handleGetSessionDependencies gets dependencies for a session
+func (s *Server) handleGetSessionDependencies(w http.ResponseWriter, r *http.Request) {
+	vars := mux.Vars(r)
+	sessionID := vars["id"]
+
+	dependencies := s.sessionManager.GetSessionDependencies(sessionID)
+
+	w.Header().Set("Content-Type", "application/json")
+	json.NewEncoder(w).Encode(dependencies)
+}
+
+// handleListSessionTags lists all session tags
+func (s *Server) handleListSessionTags(w http.ResponseWriter, r *http.Request) {
+	tags := s.sessionManager.ListSessionTags()
+
+	w.Header().Set("Content-Type", "application/json")
+	json.NewEncoder(w).Encode(tags)
+}
+
+// handleCreateSessionTag creates a new session tag
+func (s *Server) handleCreateSessionTag(w http.ResponseWriter, r *http.Request) {
+	var req struct {
+		Name        string `json:"name"`
+		Color       string `json:"color,omitempty"`
+		Description string `json:"description,omitempty"`
+	}
+	
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		s.writeJSONError(w, "Invalid JSON request", http.StatusBadRequest)
+		return
+	}
+
+	if req.Name == "" {
+		s.writeJSONError(w, "Tag name is required", http.StatusBadRequest)
+		return
+	}
+
+	tag, err := s.sessionManager.CreateSessionTag(req.Name, req.Color, req.Description)
+	if err != nil {
+		s.writeJSONError(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	json.NewEncoder(w).Encode(tag)
+}
+
+// handleDeleteSessionTag deletes a session tag
+func (s *Server) handleDeleteSessionTag(w http.ResponseWriter, r *http.Request) {
+	vars := mux.Vars(r)
+	tagName := vars["tagName"]
+
+	if err := s.sessionManager.DeleteSessionTag(tagName); err != nil {
+		s.writeJSONError(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+
+	w.WriteHeader(http.StatusNoContent)
+}
+
+// handleGetSessionsByTag gets all sessions with a specific tag
+func (s *Server) handleGetSessionsByTag(w http.ResponseWriter, r *http.Request) {
+	vars := mux.Vars(r)
+	tagName := vars["tagName"]
+
+	sessions := s.sessionManager.GetSessionsByTag(tagName)
+
+	w.Header().Set("Content-Type", "application/json")
+	json.NewEncoder(w).Encode(sessions)
+}
+
+// Remote Registry Handlers
+
+// handleListRegistryInstances lists all registered remote instances
+func (s *Server) handleListRegistryInstances(w http.ResponseWriter, r *http.Request) {
+	instances := s.registryService.ListInstances()
+
+	w.Header().Set("Content-Type", "application/json")
+	json.NewEncoder(w).Encode(instances)
+}
+
+// handleRegisterRegistryInstance registers a new remote instance
+func (s *Server) handleRegisterRegistryInstance(w http.ResponseWriter, r *http.Request) {
+	var instance types.RemoteInstance
+	
+	if err := json.NewDecoder(r.Body).Decode(&instance); err != nil {
+		s.writeJSONError(w, "Invalid JSON request", http.StatusBadRequest)
+		return
+	}
+
+	if instance.ID == "" || instance.Name == "" || instance.URL == "" {
+		s.writeJSONError(w, "ID, name, and URL are required", http.StatusBadRequest)
+		return
+	}
+
+	if err := s.registryService.RegisterInstance(&instance); err != nil {
+		s.writeJSONError(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	json.NewEncoder(w).Encode(instance)
+}
+
+// handleGetRegistryInstance gets a specific remote instance
+func (s *Server) handleGetRegistryInstance(w http.ResponseWriter, r *http.Request) {
+	vars := mux.Vars(r)
+	instanceID := vars["instanceId"]
+
+	instance, err := s.registryService.GetInstance(instanceID)
+	if err != nil {
+		s.writeJSONError(w, err.Error(), http.StatusNotFound)
+		return
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	json.NewEncoder(w).Encode(instance)
+}
+
+// handleUnregisterRegistryInstance unregisters a remote instance
+func (s *Server) handleUnregisterRegistryInstance(w http.ResponseWriter, r *http.Request) {
+	vars := mux.Vars(r)
+	instanceID := vars["instanceId"]
+
+	if err := s.registryService.UnregisterInstance(instanceID); err != nil {
+		s.writeJSONError(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+
+	w.WriteHeader(http.StatusNoContent)
+}
+
+// handleDiscoverRemoteSessions discovers sessions from all remote instances
+func (s *Server) handleDiscoverRemoteSessions(w http.ResponseWriter, r *http.Request) {
+	sessions, err := s.registryService.DiscoverSessions()
+	if err != nil {
+		s.writeJSONError(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	json.NewEncoder(w).Encode(sessions)
+}
+
+// handleGetRemoteSession gets a specific session from a remote instance
+func (s *Server) handleGetRemoteSession(w http.ResponseWriter, r *http.Request) {
+	vars := mux.Vars(r)
+	instanceID := vars["instanceId"]
+	sessionID := vars["sessionId"]
+
+	session, err := s.registryService.GetSession(instanceID, sessionID)
+	if err != nil {
+		if err.Error() == "session not found" {
+			s.writeJSONError(w, err.Error(), http.StatusNotFound)
+		} else {
+			s.writeJSONError(w, err.Error(), http.StatusInternalServerError)
+		}
+		return
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	json.NewEncoder(w).Encode(session)
+}
+
+// handleGetRegistryStats gets registry statistics
+func (s *Server) handleGetRegistryStats(w http.ResponseWriter, r *http.Request) {
+	stats := s.registryService.GetStats()
+
+	w.Header().Set("Content-Type", "application/json")
+	json.NewEncoder(w).Encode(stats)
+}
+
+// Analytics Handlers
+
+// handleGetAnalyticsMetrics gets current analytics metrics
+func (s *Server) handleGetAnalyticsMetrics(w http.ResponseWriter, r *http.Request) {
+	metrics := s.analyticsService.GetMetrics()
+
+	w.Header().Set("Content-Type", "application/json")
+	json.NewEncoder(w).Encode(metrics)
+}
+
+// handleGetAnalyticsEvents gets recent analytics events
+func (s *Server) handleGetAnalyticsEvents(w http.ResponseWriter, r *http.Request) {
+	limit := 100 // Default limit
+	if limitStr := r.URL.Query().Get("limit"); limitStr != "" {
+		if parsedLimit, err := parseInt(limitStr); err == nil && parsedLimit > 0 {
+			limit = parsedLimit
+		}
+	}
+
+	events := s.analyticsService.GetRecentEvents(limit)
+
+	w.Header().Set("Content-Type", "application/json")
+	json.NewEncoder(w).Encode(events)
+}
+
+// handleGetUserActivity gets activity data for a specific user
+func (s *Server) handleGetUserActivity(w http.ResponseWriter, r *http.Request) {
+	vars := mux.Vars(r)
+	userID := vars["userId"]
+
+	activity, err := s.analyticsService.GetUserActivity(userID)
+	if err != nil {
+		s.writeJSONError(w, err.Error(), http.StatusNotFound)
+		return
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	json.NewEncoder(w).Encode(activity)
+}
+
+// handleExportAnalytics exports analytics data
+func (s *Server) handleExportAnalytics(w http.ResponseWriter, r *http.Request) {
+	filename := fmt.Sprintf("analytics_export_%d.json", time.Now().Unix())
+	
+	if err := s.analyticsService.ExportData(filename); err != nil {
+		s.writeJSONError(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	json.NewEncoder(w).Encode(map[string]string{
+		"filename": filename,
+		"status":   "exported",
+	})
+}
+
+// Helper function to parse int (since we don't have strconv.Atoi in this context)
+func parseInt(s string) (int, error) {
+	result := 0
+	for _, c := range s {
+		if c < '0' || c > '9' {
+			return 0, fmt.Errorf("invalid integer")
+		}
+		result = result*10 + int(c-'0')
+	}
+	return result, nil
 }

@@ -154,3 +154,55 @@ MIT License - see [LICENSE](LICENSE) for details.
 ---
 
 **Ready to tunnel?** [Download TunnelForge](https://github.com/ferg-cod3s/tunnelforge/releases/latest) and turn any browser into your terminal!
+
+
+## Codeflow Workflow
+
+This project supports multiple AI workflow integrations.
+
+### Claude Code Integration
+
+This project is set up for Claude Code with native slash commands.
+
+#### Available Commands
+
+- `/research` - Comprehensive codebase and documentation analysis
+- `/plan` - Create detailed implementation plans
+- `/execute` - Implement plans with verification
+- `/test` - Generate comprehensive test suites
+- `/document` - Create user guides and API documentation
+- `/commit` - Create structured git commits
+- `/review` - Validate implementations against plans
+
+Commands are located in `.claude/commands/`.
+
+### OpenCode Integration
+
+This project is set up with OpenCode agents and commands for AI-assisted development.
+
+#### Getting Started
+
+1. Install OpenCode from [opencode.ai](https://opencode.ai)
+2. Navigate to this project directory
+3. Run `opencode` to start the AI assistant
+4. Use `/init` to analyze the project and create `AGENTS.md`
+
+#### Available Commands
+
+- `/research` - Comprehensive codebase and documentation analysis
+- `/plan` - Create detailed implementation plans
+- `/execute` - Implement plans with verification
+- `/test` - Generate comprehensive test suites
+- `/document` - Create user guides and API documentation
+- `/commit` - Create structured git commits
+- `/review` - Validate implementations against plans
+
+#### OpenCode Features
+
+- Use `@` key to fuzzy search project files
+- Drag and drop images for visual references
+- Use Tab key to switch between "Plan mode" and "Build mode"
+- Use `/share` to create shareable conversation links
+
+Agents are located in `.opencode/agent/` and commands in `.opencode/command/`.
+

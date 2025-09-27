@@ -11,58 +11,89 @@ edition = "2021"
 tauri-build = { version = "2.3", features = [] }
 
 [dependencies]
-tauri = { version = "2.3", features = ["tray-icon", "image-ico", "image-png", "unstable"] }
-tauri-plugin-opener = "2.3"
-tauri-plugin-fs = "2.3"
-tauri-plugin-shell = "2.3"
+# Core Tauri dependencies with minimal features
+tauri = { version = "2.3", features = ["tray-icon", "image-ico", "image-png"] }
+tauri-plugin-opener = { version = "2.3", features = ["security-scope"] }
+tauri-plugin-fs = { version = "2.3", features = ["scope"] }
+tauri-plugin-shell = { version = "2.3", features = ["scope"] }
 tauri-plugin-notification = "2.3"
-tauri-plugin-process = "2.3"
-tauri-plugin-log = { version = "2.3", features = ["colored"] }
+tauri-plugin-process = { version = "2.3", features = ["scope"] }
+tauri-plugin-log = { version = "2.3", features = ["colored", "secure"] }
+
+# Serialization with secure defaults
 serde = { version = "1.0", features = ["derive"] }
-serde_json = "1.0"
-tokio = { version = "1", features = ["full"] }
-log = "0.4"
-env_logger = "0.10"
+serde_json = { version = "1.0", features = ["preserve_order"] }
+
+# Async runtime and utilities
+tokio = { version = "1", features = ["rt-multi-thread", "macros", "io-util", "net"] }
+log = { version = "0.4", features = ["release_max_level_info"] }
+env_logger = { version = "0.10", features = ["humantime"] }
+
+# Error handling and utilities
 anyhow = "1.0"
-dirs = "5.0"
-chrono = { version = "0.4", features = ["serde"] }
-reqwest = { version = "0.11", features = ["json"] }
-tungstenite = "0.20"
-tokio-tungstenite = "0.20"
+dirs = { version = "5.0", features = ["secure"] }
+chrono = { version = "0.4", features = ["serde", "std"] }
+
+# Network security focused dependencies
+reqwest = { version = "0.11", features = ["json", "rustls-tls"], default-features = false }
+tungstenite = { version = "0.20", features = ["rustls-tls-native-roots"], default-features = false }
+tokio-tungstenite = { version = "0.20", features = ["rustls-tls-native-roots"], default-features = false }
 futures-util = "0.3"
 
-# Windows-specific dependencies
+# Security-focused dependencies
+ring = "0.17"  # Cryptographic operations
+data-encoding = "2.4"  # Safe data encoding
+zeroize = "1.6"  # Secure memory wiping
+secrecy = "0.8"  # Secret value handling
+rustls = "0.21"  # TLS implementation
+webpki-roots = "0.25"  # TLS root certificates
+
+# Windows-specific dependencies with security features
 [target.'cfg(windows)'.dependencies]
-winreg = "0.50"
+winreg = { version = "0.50", features = ["secure"] }
 windows = { version = "0.52", features = [
     "Win32_Foundation",
     "Win32_System_Services", 
     "Win32_UI_Shell",
     "Win32_UI_WindowsAndMessaging"
-] }
+], default-features = false }
 
-# Linux-specific dependencies  
+# Linux-specific dependencies
 [target.'cfg(target_os = "linux")'.dependencies]
 freedesktop-desktop-entry = "0.5"
 
 [features]
-# This feature is used for production builds or when a dev server is not specified, DO NOT REMOVE!!
 custom-protocol = ["tauri/custom-protocol"]
+security = ["ring/std", "zeroize/zeroize-derive"]
 
 [[bin]]
 name = "tunnelforge"
 path = "src/main.rs"
 
 [dev-dependencies]
-# Testing framework
 tokio-test = "0.4"
-# Mocking
 mockito = "1.2"
-# Async testing utilities
 futures = "0.3"
-# Property-based testing
 quickcheck = "1.0"
-# Test utilities
 tempfile = "3.8"
-# HTTP mocking for integration tests
 wiremock = "0.6"
+
+# Security-related dependencies with enhanced features
+[dependencies.keyring]
+version = "2.0"
+features = ["linux-no-secret-service", "secret-service-security"]
+
+[dependencies.html-escape]
+version = "0.2"
+features = ["secure"]
+
+[dependencies.regex]
+version = "1.9"
+features = ["unicode-perl"]
+
+[dependencies.thiserror]
+version = "1.0"
+
+[dependencies.url]
+version = "2.4"
+features = ["serde"]
