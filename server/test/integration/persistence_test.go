@@ -35,7 +35,7 @@ func TestSessionPersistenceIntegration(t *testing.T) {
 
 	// Create a test session
 	req := &types.SessionCreateRequest{
-		Command: "bash",
+		Command: []string{"bash"},
 		Title:   "Integration Test Session",
 		Cwd:     "/tmp",
 		Cols:    80,
@@ -133,7 +133,7 @@ func TestPersistenceServiceStats(t *testing.T) {
 	// Create test sessions
 	for i := 0; i < 3; i++ {
 		req := &types.SessionCreateRequest{
-			Command: "echo 'test'",
+			Command: []string{"echo", "test"},
 			Title:   fmt.Sprintf("Test Session %d", i+1),
 			Cols:    80,
 			Rows:    24,

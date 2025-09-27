@@ -1,0 +1,132 @@
+name: 'Build Linux Server'
+
+on:
+  workflow_call:
+    inputs:
+      build_type:
+        required: true
+        type: string
+        default: 'test'
+  push:
+    branches: [ main, develop ]
+    paths:
+      - 'server/**'
+      - '.github/workflows/build-server-linux.yml'
+  pull_request:
+    branches: [ main, develop ]
+    paths:
+      - 'server/**'
+      - '.github/workflows/build-server-linux.yml'
+
+jobs:
+  build-server:
+    name: Build Linux Server
+    runs-on: ubuntu-22.04
+    strategy:
+      fail-fast: false
+      matrix:
+        target:
+          - x86_64-unknown-linux-gnu
+          - aarch64-unknown-linux-gnu
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Go
+        uses: actions/setup-go@v4
+        with:
+          go-version: '1.21'
+
+      - name: Install dependencies
+        working-directory: server
+        run: go mod download
+
+      - name: Build server binary
+        working-directory: server
+        run: |
+          make build-server
+          ls -la bin/
+
+      - name: Build DEB package
+        working-directory: server
+        run: |
+          mkdir -p deb-package/DEBIAN deb-package/usr/bin deb-package/usr/share/applications deb-package/usr/share/icons/hicolor/256x256/apps
+          cp bin/tunnelforge-server deb-package/usr/bin/
+          cat > deb-package/usr/share/applications/tunnelforge-server.desktop << 'DESKTOP_EOF'
+[Desktop Entry]
+Name=TunnelForge Server
+Exec=tunnelforge-server
+Icon=tunnelforge
+Type=Application
+Categories=Network;Utility;
+DESKTOP_EOF
+          cp ../desktop/src-tauri/icons/icon.ico deb-package/usr/share/icons/hicolor/256x256/apps/tunnelforge.ico
+          cat > deb-package/DEBIAN/control << 'CONTROL_EOF'
+Package: tunnelforge-server
+Version: 1.0.0
+Architecture: amd64
+Maintainer: TunnelForge Team
+Description: TunnelForge Server - Cross-platform tunneling server
+CONTROL_EOF
+          dpkg-deb --build deb-package tunnelforge-server_1.0.0_amd64.deb
+
+      - name: Build AppImage
+        working-directory: server
+        run: |
+          mkdir -p AppDir/usr/bin AppDir/usr/share/applications AppDir/usr/share/icons/hicolor/256x256/apps
+          cp bin/tunnelforge-server AppDir/usr/bin/
+          cp deb-package/usr/share/applications/tunnelforge-server.desktop AppDir/usr/share/applications/
+          cp deb-package/usr/share/icons/hicolor/256x256/apps/tunnelforge.ico AppDir/usr/share/icons/hicolor/256x256/apps/
+          cat > AppDir/AppRun << 'APPRUN_EOF'
+#!/bin/bash
+exec "$APPDIR/usr/bin/tunnelforge-server" "$@"
+APPRUN_EOF
+          chmod +x AppDir/AppRun
+          wget -q https://github.com/AppImage/AppImageKit/releases/download/continuous/appimagetool-x86_64.AppImage
+          chmod +x appimagetool-x86_64.AppImage
+          ./appimagetool-x86_64.AppImage AppDir tunnelforge-server.AppImage
+
+      - name: Upload server artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: tunnelforge-server-linux-${{ matrix.target }}
+          path: |
+            server/bin/tunnelforge-server
+            server/tunnelforge-server_1.0.0_amd64.deb
+            server/tunnelforge-server.AppImage
+          retention-days: 7
+
+  test-server:
+    name: Test Server Installation
+    runs-on: ubuntu-22.04
+    needs: build-server
+    if: inputs.build_type == 'test'
+
+    steps:
+      - name: Download artifacts
+        uses: actions/download-artifact@v4
+        with:
+          name: tunnelforge-server-linux-x86_64-unknown-linux-gnu
+          path: artifacts/
+
+      - name: Test binary
+        run: |
+          chmod +x artifacts/tunnelforge-server
+          ./artifacts/tunnelforge-server --help || ./artifacts/tunnelforge-server -h
+
+      - name: Test DEB installation
+        run: |
+          if [ -f "artifacts/tunnelforge-server_1.0.0_amd64.deb" ]; then
+            sudo dpkg -i artifacts/tunnelforge-server_1.0.0_amd64.deb
+            sudo apt-get install -f -y
+            dpkg -l | grep tunnelforge-server
+            sudo dpkg -r tunnelforge-server
+          fi
+
+      - name: Test AppImage
+        run: |
+          if [ -f "artifacts/tunnelforge-server.AppImage" ]; then
+            chmod +x artifacts/tunnelforge-server.AppImage
+            ./artifacts/tunnelforge-server.AppImage --version || true
+          fi
