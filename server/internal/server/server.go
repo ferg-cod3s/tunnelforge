@@ -434,6 +434,7 @@ func (s *Server) setupRoutes() {
 	handler = http.HandlerFunc(func(w http.ResponseWriter, req *http.Request) {
 		// Skip compression and security headers for WebSocket and SSE endpoints
 		if req.URL.Path == "/ws" || 
+			   strings.HasPrefix(req.URL.Path, "/api/fs/") || 
 		   req.URL.Path == "/buffers" || 
 		   req.URL.Path == "/api/events" ||
 		   req.URL.Path == "/api/control/stream" ||
@@ -458,6 +459,7 @@ func (s *Server) setupRoutes() {
 		handler = http.HandlerFunc(func(w http.ResponseWriter, req *http.Request) {
 			// Skip rate limiting for WebSocket and SSE endpoints to avoid hijacking interference
 			if req.URL.Path == "/ws" || 
+			   strings.HasPrefix(req.URL.Path, "/api/fs/") || 
 			   req.URL.Path == "/buffers" ||
 			   req.URL.Path == "/api/events" ||
 			   req.URL.Path == "/api/control/stream" ||
@@ -476,6 +478,7 @@ func (s *Server) setupRoutes() {
 		handler = http.HandlerFunc(func(w http.ResponseWriter, req *http.Request) {
 			// Skip request logging for WebSocket and SSE endpoints to avoid hijacking interference
 			if req.URL.Path == "/ws" || 
+			   strings.HasPrefix(req.URL.Path, "/api/fs/") || 
 			   req.URL.Path == "/buffers" ||
 			   req.URL.Path == "/api/events" ||
 			   req.URL.Path == "/api/control/stream" ||

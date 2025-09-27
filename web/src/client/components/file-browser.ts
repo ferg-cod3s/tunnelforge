@@ -156,6 +156,10 @@ export class FileBrowser extends LitElement {
   }
 
   private async loadDirectory(dirPath: string) {
+    await this.loadDirectoryWithRetry(dirPath);
+  }
+
+  private async loadDirectoryWithRetry(dirPath: string, attempt = 1, maxRetries = 3) {
     this.loading = true;
     try {
       const params = new URLSearchParams({
@@ -165,7 +169,7 @@ export class FileBrowser extends LitElement {
       });
 
       const url = `/api/fs/browse?${params}`;
-      logger.debug(`loading directory: ${dirPath}`);
+      logger.debug(`loading directory: ${dirPath} (attempt ${attempt})`);
       logger.debug(`fetching URL: ${url}`);
 
       const headers = this.noAuthMode ? {} : { ...authClient.getAuthHeader() };
@@ -181,53 +185,48 @@ export class FileBrowser extends LitElement {
         this.files = data.files || [];
         this.gitStatus = data.gitStatus;
         // Clear any previous error message on successful load
-        this.errorMessage = '';
+        this.errorMessage = "";
       } else {
-        let errorMessage = 'Failed to load directory';
+        let errorMessage = "Failed to load directory";
         try {
           const errorData = await response.json();
           errorMessage = errorData.error || errorMessage;
         } catch {
-          // If response isn't JSON, use default message
+          // If response isn"t JSON, use default message
           errorMessage = `Failed to load directory (${response.status})`;
         }
 
         logger.error(`failed to load directory: ${response.status}`, new Error(errorMessage));
+        
+        // Retry on rate limit (429) or server errors
+        if ((response.status === 429 || response.status >= 500) && attempt < maxRetries) {
+          if (response.status === 429) {
+            this.showErrorMessage(`Rate limited, retrying in ${delay/1000}s...`);
+          } else {
+            this.showErrorMessage(`Server error, retrying in ${delay/1000}s...`);
+          }
+          const delay = Math.min(1000 * Math.pow(2, attempt - 1), 10000); // Exponential backoff, max 10s
+          logger.debug(`Retrying in ${delay}ms...`);
+          await new Promise(resolve => setTimeout(resolve, delay));
+          return this.loadDirectoryWithRetry(dirPath, attempt + 1, maxRetries);
+        }
+        
         this.showErrorMessage(errorMessage);
       }
     } catch (error) {
-      logger.error('error loading directory:', error);
-      this.showErrorMessage('Network error loading directory');
+      logger.error("error loading directory:", error);
+      
+      // Retry on network errors
+      if (attempt < maxRetries) {
+        const delay = Math.min(1000 * Math.pow(2, attempt - 1), 10000); // Exponential backoff, max 10s
+        logger.debug(`Retrying in ${delay}ms...`);
+        await new Promise(resolve => setTimeout(resolve, delay));
+        return this.loadDirectoryWithRetry(dirPath, attempt + 1, maxRetries);
+      }
+      
+      this.showErrorMessage("Network error loading directory");
     } finally {
       this.loading = false;
-    }
-  }
-
-  private async loadPreview(file: FileInfo) {
-    if (file.type === 'directory') return;
-
-    this.previewLoading = true;
-    this.selectedFile = file;
-    this.showDiff = false;
-
-    try {
-      logger.debug(`loading preview for file: ${file.name}`);
-      logger.debug(`file path: ${file.path}`);
-
-      const headers = this.noAuthMode ? {} : { ...authClient.getAuthHeader() };
-      const response = await fetch(`/api/fs/preview?path=${encodeURIComponent(file.path)}`, {
-        headers,
-      });
-      if (response.ok) {
-        this.preview = await response.json();
-        this.requestUpdate(); // Trigger re-render to initialize Monaco if needed
-      } else {
-        logger.error(`preview failed: ${response.status}`, new Error(await response.text()));
-      }
-    } catch (error) {
-      logger.error('error loading preview:', error);
-    } finally {
-      this.previewLoading = false;
     }
   }
 
