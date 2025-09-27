@@ -108,7 +108,7 @@ export default defineConfig({
 
   /* Run your local dev server before starting the tests */
   webServer: {
-    command: `node scripts/test-server.js --no-auth --port ${testConfig.port}`, // Use test server script
+    command: `node ../scripts/test-server.js --no-auth --port ${testConfig.port}`, // Use test server script
     port: testConfig.port,
     reuseExistingServer: !process.env.CI, // Reuse server locally for faster test runs
     stdout: process.env.CI ? 'inherit' : 'ignore', // Reduce noise locally

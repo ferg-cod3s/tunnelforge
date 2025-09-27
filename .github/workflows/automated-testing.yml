@@ -17,6 +17,63 @@ on:
         default: 100
 
 jobs:
+  go-server-tests:
+
+    name: Go Server Tests
+
+    runs-on: ubuntu-latest
+
+    steps:
+
+      - name: Checkout
+
+        uses: actions/checkout@v4
+
+
+
+      - name: Setup Go
+
+        uses: actions/setup-go@v4
+
+        with:
+
+          go-version: '1.21'
+
+
+
+      - name: Install dependencies
+
+        working-directory: server
+
+        run: go mod download
+
+
+
+      - name: Run Go tests
+
+        working-directory: server
+
+        run: |
+
+          go test -v -race -coverprofile=coverage.out ./...
+
+          go tool cover -html=coverage.out -o coverage.html
+
+
+
+      - name: Upload coverage
+
+        uses: actions/upload-artifact@v4
+
+        with:
+
+          name: go-server-coverage
+
+          path: server/coverage.html
+
+          retention-days: 7
+
+
   unit-tests:
     name: Unit Tests
     runs-on: ubuntu-latest
@@ -254,7 +311,7 @@ jobs:
   test-summary:
     name: Test Summary
     runs-on: ubuntu-latest
-    needs: [unit-tests, integration-tests, performance-tests, security-tests, coverage-analysis]
+  needs: [unit-tests, integration-tests, go-server-tests, performance-tests, security-tests, coverage-analysis]
     if: always()
 
     steps:
@@ -292,6 +349,19 @@ jobs:
           fi
           
           # Coverage analysis
+           # Go server tests
+
+           if [ "${{ needs.go-server-tests.result }}" == "success" ]; then
+
+             echo "✅ Go Server Tests: PASSED" >> test-summary.md
+
+           else
+
+             echo "❌ Go Server Tests: FAILED" >> test-summary.md
+
+           fi
+
+
           if [ "${{ needs.coverage-analysis.result }}" == "success" ]; then
             echo "✅ Coverage Analysis: PASSED" >> test-summary.md
           else

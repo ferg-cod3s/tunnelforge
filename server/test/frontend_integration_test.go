@@ -16,6 +16,7 @@ import (
 	"github.com/stretchr/testify/require"
 
 	"github.com/ferg-cod3s/tunnelforge/go-server/internal/server"
+	"github.com/ferg-cod3s/tunnelforge/go-server/pkg/types"
 )
 
 // TestTunnelForgeFrontendCompatibility tests compatibility with the TunnelForge frontend
@@ -52,16 +53,15 @@ func TestTunnelForgeFrontendCompatibility(t *testing.T) {
 			assert.Contains(t, health, "sessions")
 			assert.Equal(t, "ok", health["status"])
 		})
-
 		t.Run("Session_API_Response_Format", func(t *testing.T) {
 			// Test session creation format
-			sessionPayload := map[string]interface{}{
-				"command": "echo test",
-				"title":   "Frontend Test Session",
-				"cols":    80,
-				"rows":    24,
+			sessionReq := &types.SessionCreateRequest{
+				Command: []string{"echo", "test"},
+				Title:   "Frontend Test Session",
+				Cols:    80,
+				Rows:    24,
 			}
-			jsonPayload, _ := json.Marshal(sessionPayload)
+			jsonPayload, _ := json.Marshal(sessionReq)
 
 			resp, err := http.Post(baseURL+"/api/sessions", "application/json", bytes.NewBuffer(jsonPayload))
 			require.NoError(t, err)
@@ -146,14 +146,13 @@ func TestTunnelForgeFrontendCompatibility(t *testing.T) {
 			}
 		})
 	})
-
 	t.Run("WebSocket_Frontend_Compatibility", func(t *testing.T) {
 		// Create a session for WebSocket testing
-		sessionPayload := map[string]interface{}{
-			"command": "echo websocket_test",
-			"title":   "WebSocket Test",
+		sessionReq := &types.SessionCreateRequest{
+			Command: []string{"echo", "websocket_test"},
+			Title:   "WebSocket Test",
 		}
-		jsonPayload, _ := json.Marshal(sessionPayload)
+		jsonPayload, _ := json.Marshal(sessionReq)
 
 		resp, err := http.Post(baseURL+"/api/sessions", "application/json", bytes.NewBuffer(jsonPayload))
 		require.NoError(t, err)
@@ -378,7 +377,7 @@ func TestFrontendPerformanceCompatibility(t *testing.T) {
 		const numConcurrent = 10
 
 		sessionPayload := map[string]interface{}{
-			"command": "echo test",
+			"command": []string{"echo", "test"},
 			"title":   "Concurrent Test",
 		}
 		jsonPayload, _ := json.Marshal(sessionPayload)
