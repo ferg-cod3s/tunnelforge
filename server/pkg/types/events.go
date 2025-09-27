@@ -29,6 +29,12 @@ const (
 	// Server events
 	EventHeartbeat      ServerEventType = "heartbeat"
 	EventServerShutdown ServerEventType = "server-shutdown"
+	// Power management events
+	EventPowerSleepPrevented ServerEventType = "power-sleep-prevented"
+	EventPowerSleepAllowed   ServerEventType = "power-sleep-allowed"
+	// Tunnel events
+	EventTunnelStarted ServerEventType = "tunnel-started"
+	EventTunnelStopped ServerEventType = "tunnel-stopped"
 )
 
 // ServerEvent represents an event that can be broadcast via Server-Sent Events
@@ -52,7 +58,9 @@ type ServerEvent struct {
 	// Test notification specific fields
 	Title *string `json:"title,omitempty"`
 	Body  *string `json:"body,omitempty"`
+	Data        map[string]interface{} `json:"data,omitempty"`
 }
+	
 
 // GitEvent represents a Git repository event
 type GitEvent struct {
@@ -117,5 +125,11 @@ func (e *ServerEvent) WithProcessInfo(processInfo string) *ServerEvent {
 func (e *ServerEvent) WithTestNotification(title, body string) *ServerEvent {
 	e.Title = &title
 	e.Body = &body
+	return e
+}
+
+// WithData adds arbitrary data to the event
+func (e *ServerEvent) WithData(data map[string]interface{}) *ServerEvent {
+	e.Data = data
 	return e
 }

@@ -1,0 +1,140 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Tab Test</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            margin: 20px;
+            background: #1a1a1a;
+            color: white;
+        }
+        .nav-link {
+            display: inline-block;
+            padding: 10px 20px;
+            margin: 5px;
+            background: #333;
+            color: white;
+            text-decoration: none;
+            border-radius: 5px;
+            cursor: pointer;
+        }
+        .nav-link.active {
+            background: #007ACC;
+        }
+        .settings-panel {
+            display: none;
+            margin-top: 20px;
+            padding: 20px;
+            background: #2a2a2a;
+            border-radius: 5px;
+        }
+        .settings-panel.active {
+            display: block;
+        }
+        .status {
+            margin: 20px 0;
+            padding: 10px;
+            background: #2a4a2a;
+            border-radius: 5px;
+        }
+    </style>
+</head>
+<body>
+    <h1>TunnelForge Tab Test</h1>
+    
+    <div class="status" id="status">
+        Loading...
+    </div>
+    
+    <nav>
+        <a href="#general" class="nav-link active" data-tab="general">General</a>
+        <a href="#notifications" class="nav-link" data-tab="notifications">Notifications</a>
+        <a href="#power" class="nav-link" data-tab="power">Power</a>
+        <a href="#integrations" class="nav-link" data-tab="integrations">Integrations</a>
+        <a href="#server" class="nav-link" data-tab="server">Server</a>
+    </nav>
+
+    <div id="general" class="settings-panel active">
+        <h2>General Settings</h2>
+        <p>General settings would be here.</p>
+    </div>
+
+    <div id="notifications" class="settings-panel">
+        <h2>Notification Settings</h2>
+        <p>Notification settings would be here.</p>
+        <button onclick="testNotification()">Test Notification</button>
+    </div>
+
+    <div id="power" class="settings-panel">
+        <h2>Power Management</h2>
+        <p>Power management settings would be here.</p>
+    </div>
+
+    <div id="integrations" class="settings-panel">
+        <h2>Integrations</h2>
+        <p>Integration settings would be here.</p>
+    </div>
+
+    <div id="server" class="settings-panel">
+        <h2>Server Management</h2>
+        <p>Server management options would be here.</p>
+    </div>
+
+    <script>
+        console.log('JavaScript loaded successfully!');
+        
+        function updateStatus(message) {
+            document.getElementById('status').textContent = message;
+        }
+        
+        function testNotification() {
+            updateStatus('Test notification clicked!');
+            console.log('Test notification called');
+        }
+
+        // Tab switching logic
+        document.addEventListener('DOMContentLoaded', function() {
+            console.log('DOM Content Loaded');
+            updateStatus('JavaScript initialized successfully!');
+            
+            // Tab navigation
+            const navLinks = document.querySelectorAll('.nav-link[data-tab]');
+            const settingsPanels = document.querySelectorAll('.settings-panel');
+
+            console.log('Found nav links:', navLinks.length);
+            console.log('Found panels:', settingsPanels.length);
+
+            navLinks.forEach(link => {
+                link.addEventListener('click', (e) => {
+                    e.preventDefault();
+                    console.log('Tab clicked:', link.dataset.tab);
+                    
+                    const tabId = link.dataset.tab;
+                    
+                    // Update active nav link
+                    navLinks.forEach(nl => nl.classList.remove('active'));
+                    link.classList.add('active');
+                    
+                    // Update active settings panel
+                    settingsPanels.forEach(panel => {
+                        panel.classList.remove('active');
+                    });
+                    
+                    const targetPanel = document.getElementById(tabId);
+                    if (targetPanel) {
+                        targetPanel.classList.add('active');
+                        updateStatus(`Switched to ${tabId} tab`);
+                    } else {
+                        updateStatus(`Error: Could not find panel for ${tabId}`);
+                    }
+                });
+            });
+            
+            updateStatus('Tab switching ready! Click tabs above to test.');
+        });
+    </script>
+</body>
+</html>

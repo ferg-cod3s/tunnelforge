@@ -1,8 +1,11 @@
-// Native Settings Window Implementation
+// Native Settings Window Implementation with secure credential storage
 // This provides the settings window functionality for TunnelForge
 
-use tauri::{AppHandle, Manager, Window, WindowBuilder};
+use tauri::{AppHandle, Manager, WebviewWindow, WebviewWindowBuilder, WebviewUrl};
 use serde::{Serialize, Deserialize};
+use log::{info, error};
+
+use crate::security::{CredentialStore, InputValidator, SecurityError};
 
 #[derive(Serialize, Deserialize, Clone, Debug)]
 pub struct SettingsConfig {
@@ -23,7 +26,7 @@ pub struct SettingsConfig {
     pub tailscale_enabled: bool,
     pub cloudflare_enabled: bool,
     pub ngrok_enabled: bool,
-    pub ngrok_auth_token: String,
+    // Note: Sensitive fields like auth tokens are not stored in this struct
 }
 
 impl Default for SettingsConfig {
@@ -46,30 +49,42 @@ impl Default for SettingsConfig {
             tailscale_enabled: false,
             cloudflare_enabled: false,
             ngrok_enabled: false,
-            ngrok_auth_token: "".to_string(),
         }
     }
 }
 
 #[derive(Clone)]
 pub struct SettingsWindow {
-    window: Option<Window>,
+    window: Option<WebviewWindow>,
+    credential_store: CredentialStore,
+    validator: InputValidator,
 }
 
 impl SettingsWindow {
     pub fn new() -> Self {
-        Self { window: None }
+        Self {
+            window: None,
+            credential_store: CredentialStore::new("tunnelforge"),
+            validator: InputValidator::new(),
+        }
     }
 
     pub fn create_window(&mut self, app_handle: &AppHandle) -> Result<(), String> {
-        let window = WindowBuilder::new(
+        // Check if window already exists
+        if self.window.is_some() {
+            return Ok(());
+        }
+        
+        let window = WebviewWindowBuilder::new(
             app_handle,
             "settings",
-            
+            WebviewUrl::External("http://localhost:4021/settings".parse().unwrap())
         )
         .title("TunnelForge Settings")
         .inner_size(600.0, 700.0)
         .min_inner_size(500.0, 600.0)
+        .resizable(true)
+        .user_agent("TunnelForge-Desktop/1.0 (Tauri)")
         .center()
         .build()
         .map_err(|e| format!("Failed to create settings window: {}", e))?;
@@ -111,6 +126,21 @@ impl SettingsWindow {
         } else {
             false
         }
+    }
+
+    // Secure credential management
+    fn store_credential(&self, key: &str, value: &str) -> Result<(), SecurityError> {
+        // Validate input before storage
+        self.validator.validate_token(value)?;
+        self.credential_store.store_credential(key, value)
+    }
+
+    fn get_credential(&self, key: &str) -> Result<String, SecurityError> {
+        self.credential_store.get_credential(key)
+    }
+
+    fn delete_credential(&self, key: &str) -> Result<(), SecurityError> {
+        self.credential_store.delete_credential(key)
     }
 }
 
@@ -173,35 +203,103 @@ pub async fn get_settings_config(_app_handle: AppHandle) -> Result<SettingsConfi
 #[tauri::command]
 pub async fn save_settings_config(_app_handle: AppHandle, config: SettingsConfig) -> Result<(), String> {
     // TODO: Save to persistent storage
-    println!("Saving settings config: {:?}", config);
+    info!("Saving settings config: {:?}", config);
     Ok(())
 }
 
-// Service integration commands
+// Service integration commands with secure credential storage
 #[tauri::command]
-pub async fn toggle_tailscale_integration(_app_handle: AppHandle, enabled: bool) -> Result<(), String> {
-    // TODO: Enable/disable Tailscale integration
-    println!("Setting Tailscale integration to: {}", enabled);
-    Ok(())
-}
+pub async fn toggle_tailscale_integration(app_handle: AppHandle, enabled: bool) -> Result<(), String> {
+    let settings_window = app_handle.state::<SettingsWindow>();
+    let settings_window = settings_window.inner();
 
-#[tauri::command]
-pub async fn toggle_cloudflare_integration(_app_handle: AppHandle, enabled: bool) -> Result<(), String> {
-    // TODO: Enable/disable Cloudflare integration
-    println!("Setting Cloudflare integration to: {}", enabled);
-    Ok(())
-}
+    if !enabled {
+        // Remove stored credentials when disabling
+        if let Err(e) = settings_window.delete_credential("tailscale_key") {
+            error!("Failed to delete Tailscale credentials: {}", e);
+        }
+    }
 
-#[tauri::command]
-pub async fn toggle_ngrok_integration(_app_handle: AppHandle, enabled: bool) -> Result<(), String> {
-    // TODO: Enable/disable ngrok integration
-    println!("Setting ngrok integration to: {}", enabled);
+    info!("Setting Tailscale integration to: {}", enabled);
     Ok(())
 }
 
 #[tauri::command]
-pub async fn set_ngrok_auth_token(_app_handle: AppHandle, _token: String) -> Result<(), String> {
-    // TODO: Save ngrok auth token securely
-    println!("Setting ngrok auth token");
+pub async fn toggle_cloudflare_integration(app_handle: AppHandle, enabled: bool) -> Result<(), String> {
+    let settings_window = app_handle.state::<SettingsWindow>();
+    let settings_window = settings_window.inner();
+
+    if !enabled {
+        // Remove stored credentials when disabling
+        if let Err(e) = settings_window.delete_credential("cloudflare_token") {
+            error!("Failed to delete Cloudflare credentials: {}", e);
+        }
+    }
+
+    info!("Setting Cloudflare integration to: {}", enabled);
     Ok(())
+}
+
+#[tauri::command]
+pub async fn toggle_ngrok_integration(app_handle: AppHandle, enabled: bool) -> Result<(), String> {
+    let settings_window = app_handle.state::<SettingsWindow>();
+    let settings_window = settings_window.inner();
+
+    if !enabled {
+        // Remove stored credentials when disabling
+        if let Err(e) = settings_window.delete_credential("ngrok_token") {
+            error!("Failed to delete ngrok credentials: {}", e);
+        }
+    }
+
+    info!("Setting ngrok integration to: {}", enabled);
+    Ok(())
+}
+
+#[tauri::command]
+pub async fn set_ngrok_auth_token(app_handle: AppHandle, token: String) -> Result<(), String> {
+    let settings_window = app_handle.state::<SettingsWindow>();
+    let settings_window = settings_window.inner();
+
+    // Store token securely
+    settings_window.store_credential("ngrok_token", &token)
+        .map_err(|e| format!("Failed to store ngrok token: {}", e))?;
+
+    info!("Ngrok auth token stored securely");
+    Ok(())
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_credential_storage() {
+        let settings = SettingsWindow::new();
+
+        // Test storing valid token
+        assert!(settings.store_credential("test_key", "valid-token-12345678901234567890").is_ok());
+
+        // Test retrieving stored token
+        let retrieved = settings.get_credential("test_key");
+        assert!(retrieved.is_ok());
+        assert_eq!(retrieved.unwrap(), "valid-token-12345678901234567890");
+
+        // Test deleting token
+        assert!(settings.delete_credential("test_key").is_ok());
+
+        // Test storing invalid token
+        assert!(settings.store_credential("test_key", "invalid!@#$").is_err());
+    }
+
+    #[test]
+    fn test_settings_config() {
+        let config = SettingsConfig::default();
+
+        // Verify default values
+        assert!(!config.autostart);
+        assert!(config.show_in_dock);
+        assert_eq!(config.server_port, "4020");
+        assert_eq!(config.access_mode, "localhost");
+    }
 }

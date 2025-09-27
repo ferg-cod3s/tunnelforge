@@ -1,9 +1,8 @@
 // Native Tauri Session Window Implementation
 // This provides a native interface for managing terminal sessions
 
-use tauri::{AppHandle, Manager, Window, WindowBuilder};
+use tauri::{AppHandle, Manager, WebviewWindow, WebviewWindowBuilder, WebviewUrl};
 use serde::{Deserialize, Serialize};
-use crate::sessions::Session;
 use std::sync::Mutex;
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -32,7 +31,7 @@ impl Default for SessionWindowState {
 }
 
 pub struct SessionWindow {
-    window: Mutex<Option<Window>>,
+    window: Mutex<Option<WebviewWindow>>,
     state: Mutex<SessionWindowState>,
 }
 
@@ -46,18 +45,30 @@ impl SessionWindow {
 
     pub fn create_window(&self, app_handle: &AppHandle) -> Result<(), String> {
         let mut window_guard = self.window.lock().unwrap();
+        
+        // Check if window already exists
+        if window_guard.is_some() {
+            return Ok(());
+        }
+        
         let state = self.state.lock().unwrap();
 
-        let window = WindowBuilder::new(app_handle, "sessions")
-            .title(&state.title)
-            .inner_size(state.width, state.height)
-            .resizable(state.resizable)
-            .always_on_top(state.always_on_top)
-            .visible(state.visible)
-            .decorations(true)
-            .skip_taskbar(false)
-            .build()
-            .map_err(|e| format!("Failed to create session window: {}", e))?;
+        let window = WebviewWindowBuilder::new(
+            app_handle,
+            "sessions",
+            WebviewUrl::External("http://localhost:4021/sessions".parse().unwrap())
+        )
+        .title(&state.title)
+        .inner_size(state.width, state.height)
+        .min_inner_size(800.0, 600.0)
+        .resizable(state.resizable)
+        .always_on_top(state.always_on_top)
+        .visible(state.visible)
+        .decorations(true)
+        .user_agent("TunnelForge-Desktop/1.0 (Tauri)")
+        .center()
+        .build()
+        .map_err(|e| format!("Failed to create session window: {}", e))?;
 
         *window_guard = Some(window);
         Ok(())
@@ -98,7 +109,7 @@ impl SessionWindow {
         }
     }
 
-    pub fn get_window(&self) -> Option<Window> {
+    pub fn get_window(&self) -> Option<WebviewWindow> {
         self.window.lock().unwrap().as_ref().cloned()
     }
 

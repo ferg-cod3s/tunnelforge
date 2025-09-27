@@ -1,0 +1,27 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>TunnelForge Test</title>
+    <link href="/bundle/styles.css" rel="stylesheet" />
+</head>
+<body>
+    <div id="app">Loading TunnelForge...</div>
+    <script type="module">
+        console.log('Testing TunnelForge...');
+        import('/bundle/client-bundle.js')
+            .then(() => console.log('Bundle loaded successfully'))
+            .catch(err => console.error('Bundle load error:', err));
+        
+        // Check for app initialization after a delay
+        setTimeout(() => {
+            const app = document.querySelector('tunnelforge-app');
+            if (app) {
+                console.log('TunnelForge app element found!');
+            } else {
+                console.error('TunnelForge app element not found');
+                console.log('Document body:', document.body.innerHTML);
+            }
+        }, 2000);
+    </script>
+</body>
+</html>

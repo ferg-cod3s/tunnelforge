@@ -10,7 +10,6 @@ import (
 	"sort"
 	"strconv"
 	"strings"
-	"syscall"
 	"time"
 
 	"github.com/gorilla/mux"
@@ -134,12 +133,8 @@ func (fs *FileSystemService) getFileInfo(path string, info os.FileInfo) FileInfo
 			fileInfo.SymlinkTarget = target
 		}
 	}
-
 	// Try to get owner/group information (Unix-specific)
-	if stat, ok := info.Sys().(*syscall.Stat_t); ok {
-		fileInfo.Owner = strconv.Itoa(int(stat.Uid))
-		fileInfo.Group = strconv.Itoa(int(stat.Gid))
-	}
+	getUnixOwnerGroup(info, &fileInfo)
 
 	return fileInfo
 }

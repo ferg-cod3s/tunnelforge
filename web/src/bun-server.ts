@@ -343,12 +343,14 @@ const server = Bun.serve({
         }
 
         // Regular HTTP proxy
-        const proxyUrl = `${GO_SERVER_URL}${url.pathname}${url.search}`;
+        const proxyPath = url.pathname;
+        const proxyUrl = `${GO_SERVER_URL}${proxyPath}${url.search}`;
 
         // Create clean headers - don't copy Host, Connection, etc.
         const cleanHeaders: Record<string, string> = {};
         const skipHeaders = [
           'host',
+           'accept-encoding',
           'connection',
           'upgrade',
           'sec-websocket-key',
@@ -381,8 +383,8 @@ const server = Bun.serve({
               // Transform frontend format to Go server format
               const goServerPayload = {
                 command: Array.isArray(frontendPayload.command)
-                  ? frontendPayload.command.join(' ')
-                  : frontendPayload.command,
+                  ? frontendPayload.command
+                  : frontendPayload.command.split(/\s+/),
                 cwd: frontendPayload.workingDir || frontendPayload.cwd || process.cwd(),
                 title: frontendPayload.name || frontendPayload.title || 'Terminal',
                 cols: frontendPayload.cols || 80,
@@ -408,32 +410,44 @@ const server = Bun.serve({
           }
         }
 
+        console.log(`🔗 Making request to: ${proxyUrl}`);
         const response = await fetch(proxyUrl, proxyOptions);
+        console.log(`🔗 Response status: ${response.status}`);
 
         // Create new response with CORS headers and proper decompression handling
         let responseBody: BodyInit;
         const originalHeaders = new Headers(response.headers);
-        const headers = new Headers();
-
-        // Copy headers except problematic ones
-        const skipResponseHeaders = ['content-encoding', 'content-length', 'transfer-encoding'];
-        for (const [key, value] of originalHeaders.entries()) {
-          if (!skipResponseHeaders.includes(key.toLowerCase())) {
-            headers.set(key, value);
-          }
+        const contentEncoding = originalHeaders.get("content-encoding");
+        
+        // Get response body
+        const rawBody = await response.arrayBuffer();
+        // Try to gunzip if it looks like gzip
+        try {
+          responseBody = Bun.gunzipSync(new Uint8Array(rawBody));
+          console.log(`🔓 Decompressed gzipped response`);
+        } catch {
+          responseBody = rawBody;
+          console.log(`📄 Using raw response body`);
         }
+        
+        const headers = new Headers();
 
         // Add CORS headers
         headers.set('Access-Control-Allow-Origin', '*');
         headers.set('Access-Control-Allow-Methods', 'GET, POST, PUT, DELETE, OPTIONS');
         headers.set('Access-Control-Allow-Headers', 'Content-Type, Authorization');
 
-        // Handle response body - let fetch automatically decompress
+        // Handle response body
         if (response.headers.get('content-type')?.includes('application/json')) {
           // For JSON responses, parse and re-stringify to ensure proper encoding
           try {
-            const jsonData = await response.json();
-
+            let jsonData;
+            if (contentEncoding === "gzip") {
+              const decompressedText = new TextDecoder().decode(responseBody as Uint8Array);
+              jsonData = JSON.parse(decompressedText);
+            } else {
+              jsonData = await response.json();
+            }
             // Special handling for session creation response format translation
             if (
               req.method === 'POST' &&
@@ -487,11 +501,12 @@ const server = Bun.serve({
             headers.set('Content-Type', 'application/json');
           } catch (error) {
             console.error('Failed to parse JSON response:', error);
-            responseBody = await response.text();
+            // Use the raw body if JSON parsing fails
+            responseBody = new TextDecoder().decode(responseBody);
           }
         } else {
-          // For other responses, get as text/buffer
-          responseBody = await response.arrayBuffer();
+          // For other responses, use the already fetched body
+          // responseBody is already set above
         }
 
         console.log(`✅ Go server responded: ${response.status} ${response.statusText}`);

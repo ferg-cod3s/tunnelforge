@@ -9,7 +9,9 @@ import (
 	"time"
 
 	"github.com/gorilla/mux"
+	"github.com/ferg-cod3s/tunnelforge/go-server/pkg/types"
 )
+
 
 // ControlEvent represents a control event that can be sent over SSE
 type ControlEvent struct {
@@ -20,9 +22,15 @@ type ControlEvent struct {
 
 // ControlService handles control event streaming
 type ControlService struct {
-	clients    map[string]*Client
-	clientsMux sync.RWMutex
-	events     chan ControlEvent
+	clients          map[string]*Client
+	clientsMux       sync.RWMutex
+	events           chan ControlEvent
+	commandManager   *Manager
+	eventBroadcaster EventBroadcaster
+	analyticsService interface {
+		RecordCommandActivity(userID, sessionID, commandID, command string, success bool, duration time.Duration)
+		RecordSessionActivity(userID, sessionID, activityType string, duration *time.Duration)
+	}
 }
 
 // Client represents a connected SSE client
@@ -35,11 +43,17 @@ type Client struct {
 }
 
 // NewControlService creates a new control service
-func NewControlService() *ControlService {
+func NewControlService(analyticsService interface {
+	RecordCommandActivity(userID, sessionID, commandID, command string, success bool, duration time.Duration)
+	RecordSessionActivity(userID, sessionID, activityType string, duration *time.Duration)
+}) *ControlService {
 	cs := &ControlService{
-		clients: make(map[string]*Client),
-		events:  make(chan ControlEvent, 100), // Buffered channel
+		clients:          make(map[string]*Client),
+		events:           make(chan ControlEvent, 100), // Buffered channel
+		analyticsService: analyticsService,
 	}
+	cs.commandManager = NewManager(cs, analyticsService)
+	cs.eventBroadcaster = cs
 
 	// Start the event broadcaster goroutine
 	go cs.broadcastEvents()
@@ -54,6 +68,13 @@ func NewControlService() *ControlService {
 func (cs *ControlService) RegisterRoutes(router *mux.Router) {
 	router.HandleFunc("/api/control/stream", cs.handleControlStream).Methods("GET")
 	router.HandleFunc("/api/control/event", cs.handleSendEvent).Methods("POST") // For testing
+	router.HandleFunc("/api/control/commands", cs.handleExecuteCommand).Methods("POST")
+	router.HandleFunc("/api/control/commands/{executionId}", cs.handleGetCommandExecution).Methods("GET")
+	router.HandleFunc("/api/control/commands/{executionId}/cancel", cs.handleCancelCommand).Methods("POST")
+	router.HandleFunc("/api/sessions/{sessionId}/commands", cs.handleListSessionCommands).Methods("GET")
+	router.HandleFunc("/api/control/status", cs.handleGetSystemStatus).Methods("GET")
+	router.HandleFunc("/api/control/status/session/{sessionId}", cs.handleGetSessionStatus).Methods("GET")
+	router.HandleFunc("/api/control/status/command/{command}", cs.handleGetCommandStatus).Methods("GET")
 }
 
 // BroadcastEvent sends an event to all connected clients
@@ -221,6 +242,135 @@ func (cs *ControlService) handleSendEvent(w http.ResponseWriter, r *http.Request
 
 	w.Header().Set("Content-Type", "application/json")
 	json.NewEncoder(w).Encode(map[string]string{"status": "event sent"})
+}
+
+// handleExecuteCommand handles command execution requests
+func (cs *ControlService) handleExecuteCommand(w http.ResponseWriter, r *http.Request) {
+	var req types.CommandExecutionRequest
+	
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		http.Error(w, "Invalid JSON", http.StatusBadRequest)
+		return
+	}
+
+	// Get session ID from query parameter
+	sessionID := r.URL.Query().Get("sessionId")
+	if sessionID == "" {
+		http.Error(w, "Missing sessionId parameter", http.StatusBadRequest)
+		return
+	}
+
+	// Execute command
+	execution, err := cs.commandManager.ExecuteCommand(sessionID, &req)
+	if err != nil {
+		http.Error(w, fmt.Sprintf("Failed to execute command: %v", err), http.StatusInternalServerError)
+		return
+	}
+
+	// Broadcast command started event
+	cs.BroadcastEvent(ControlEvent{
+		Category: "command",
+		Action:   "started",
+		Data: map[string]interface{}{
+			"executionId": execution.ID,
+			"sessionId":   execution.SessionID,
+			"command":     execution.Command,
+		},
+	})
+
+	w.Header().Set("Content-Type", "application/json")
+	json.NewEncoder(w).Encode(types.CommandExecutionResponse{
+		ExecutionID: execution.ID,
+		Status:      "started",
+		Message:     "Command execution started",
+	})
+}
+
+// handleGetCommandExecution handles getting command execution details
+func (cs *ControlService) handleGetCommandExecution(w http.ResponseWriter, r *http.Request) {
+	vars := mux.Vars(r)
+	executionID := vars["executionId"]
+
+	execution, err := cs.commandManager.GetExecution(executionID)
+	if err != nil {
+		http.Error(w, "Execution not found", http.StatusNotFound)
+		return
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	json.NewEncoder(w).Encode(execution)
+}
+
+// handleCancelCommand handles command cancellation requests
+func (cs *ControlService) handleCancelCommand(w http.ResponseWriter, r *http.Request) {
+	vars := mux.Vars(r)
+	executionID := vars["executionId"]
+
+	if err := cs.commandManager.CancelExecution(executionID); err != nil {
+		http.Error(w, fmt.Sprintf("Failed to cancel execution: %v", err), http.StatusInternalServerError)
+		return
+	}
+
+	// Broadcast command cancelled event
+	cs.BroadcastEvent(ControlEvent{
+		Category: "command",
+		Action:   "cancelled",
+		Data: map[string]interface{}{
+			"executionId": executionID,
+		},
+	})
+
+	w.Header().Set("Content-Type", "application/json")
+	json.NewEncoder(w).Encode(map[string]string{"status": "cancelled"})
+}
+
+// handleListSessionCommands handles listing commands for a session
+func (cs *ControlService) handleListSessionCommands(w http.ResponseWriter, r *http.Request) {
+	vars := mux.Vars(r)
+	sessionID := vars["sessionId"]
+
+	executions := cs.commandManager.ListExecutions(sessionID)
+
+	w.Header().Set("Content-Type", "application/json")
+	json.NewEncoder(w).Encode(executions)
+}
+
+// handleGetSystemStatus handles system status requests
+func (cs *ControlService) handleGetSystemStatus(w http.ResponseWriter, r *http.Request) {
+	status := cs.commandManager.GetSystemStatus()
+
+	w.Header().Set("Content-Type", "application/json")
+	json.NewEncoder(w).Encode(status)
+}
+
+// handleGetSessionStatus handles session status requests
+func (cs *ControlService) handleGetSessionStatus(w http.ResponseWriter, r *http.Request) {
+	vars := mux.Vars(r)
+	sessionID := vars["sessionId"]
+
+	stats, exists := cs.commandManager.GetSessionStatus(sessionID)
+	if !exists {
+		http.Error(w, "Session not found", http.StatusNotFound)
+		return
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	json.NewEncoder(w).Encode(stats)
+}
+
+// handleGetCommandStatus handles command status requests
+func (cs *ControlService) handleGetCommandStatus(w http.ResponseWriter, r *http.Request) {
+	vars := mux.Vars(r)
+	command := vars["command"]
+
+	stats, exists := cs.commandManager.GetCommandStatus(command)
+	if !exists {
+		http.Error(w, "Command not found", http.StatusNotFound)
+		return
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	json.NewEncoder(w).Encode(stats)
 }
 
 // GetClientCount returns the number of connected clients

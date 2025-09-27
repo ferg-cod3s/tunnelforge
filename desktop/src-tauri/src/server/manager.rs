@@ -1,26 +1,33 @@
-// Server Manager
-// Port of ServerManager.swift with Go server lifecycle management
-
 use std::process::{Child, Command};
 use std::sync::{Arc, Mutex};
-use std::time::Duration;
+use std::time::{Duration, Instant};
 use tokio::time::sleep;
 use log::{info, error, debug};
+use futures::future::join_all;
 
 use crate::add_log_entry;
+use crate::metrics::{StartupTimer, ServerDirectoryCache};
+use super::health::HealthChecker;
+
+const MAX_HEALTH_CHECK_ATTEMPTS: u32 = 10;
+const HEALTH_CHECK_INTERVAL_MS: u64 = 200;
 
 pub struct ServerManager {
     process: Arc<Mutex<Option<Child>>>,
     port: u16,
     host: String,
+    startup_timer: Arc<StartupTimer>,
+    server_dir_cache: Arc<Mutex<ServerDirectoryCache>>,
 }
 
 impl ServerManager {
-    pub fn new(port: u16, host: String) -> Self {
+    pub fn new(port: u16, host: String, startup_timer: Arc<StartupTimer>) -> Self {
         Self {
             process: Arc::new(Mutex::new(None)),
             port,
             host,
+            startup_timer,
+            server_dir_cache: Arc::new(Mutex::new(ServerDirectoryCache::new())),
         }
     }
 
@@ -30,6 +37,9 @@ impl ServerManager {
         if process.is_some() {
             return Err("Server is already running".to_string());
         }
+
+        // Cache server directory
+        self.server_dir_cache.lock().unwrap().set_path(server_dir.to_path_buf());
 
         // Check if server binary exists
         let server_binary = server_dir.join("tunnelforge-server");
@@ -57,17 +67,17 @@ impl ServerManager {
                 add_log_entry("info", &format!("Server started with PID: {}", pid));
                 *process = Some(child);
 
-                // Wait for server to initialize
-                sleep(Duration::from_millis(2000)).await;
+                self.startup_timer.record_server_start();
 
-                // Verify server is responding
-                if super::is_server_running(self.port) {
-                    add_log_entry("info", "Server is responding to health checks");
-                    Ok(pid)
-                } else {
-                    add_log_entry("warning", "Server started but not responding on expected port");
-                    Ok(pid)
+                // Wait for server to be ready using health check polling
+                if let Err(e) = self.wait_for_server_ready().await {
+                    error!("Server failed to become ready: {}", e);
+                    add_log_entry("error", &format!("Server failed to become ready: {}", e));
+                    return Err(e);
                 }
+
+                self.startup_timer.record_server_ready();
+                Ok(pid)
             }
             Err(e) => {
                 let error_msg = format!("Failed to start server: {}", e);
@@ -76,6 +86,32 @@ impl ServerManager {
                 Err(error_msg)
             }
         }
+    }
+
+    async fn wait_for_server_ready(&self) -> Result<(), String> {
+        let health_checker = HealthChecker::new(self.port, self.host.clone());
+        let start_time = Instant::now();
+
+        for attempt in 1..=MAX_HEALTH_CHECK_ATTEMPTS {
+            self.startup_timer.record_health_check();
+
+            // Try TCP check first (faster)
+            if health_checker.check_tcp_connection() {
+                // If TCP succeeds, do a full health check
+                if health_checker.check_health().await.healthy {
+                    let elapsed = start_time.elapsed().as_millis();
+                    info!("Server ready after {}ms ({} attempts)", elapsed, attempt);
+                    add_log_entry("info", &format!("Server ready after {}ms", elapsed));
+                    return Ok(());
+                }
+            }
+
+            if attempt < MAX_HEALTH_CHECK_ATTEMPTS {
+                sleep(Duration::from_millis(HEALTH_CHECK_INTERVAL_MS)).await;
+            }
+        }
+
+        Err("Server failed to respond to health checks".to_string())
     }
 
     pub fn stop(&self) -> Result<(), String> {
@@ -122,5 +158,9 @@ impl ServerManager {
 
     pub fn get_host(&self) -> &str {
         &self.host
+    }
+
+    pub fn get_cached_server_dir(&self) -> Option<std::path::PathBuf> {
+        self.server_dir_cache.lock().unwrap().get_path().cloned()
     }
 }

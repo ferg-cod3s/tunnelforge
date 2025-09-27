@@ -1,0 +1,6 @@
+[Desktop Entry]
+Name=TunnelForge Server
+Exec=tunnelforge-server
+Icon=tunnelforge
+Type=Application
+Categories=Network;Utility;

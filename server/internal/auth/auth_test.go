@@ -13,7 +13,8 @@ import (
 )
 
 func TestJWTAuth_GenerateToken(t *testing.T) {
-	auth := NewJWTAuth("test-secret")
+	store := NewInMemoryRevocationStore()
+auth := NewJWTAuth("test-secret", store)
 
 	claims := UserClaims{
 		UserID:   "user123",
@@ -31,7 +32,8 @@ func TestJWTAuth_GenerateToken(t *testing.T) {
 }
 
 func TestJWTAuth_ValidateToken(t *testing.T) {
-	auth := NewJWTAuth("test-secret")
+	store := NewInMemoryRevocationStore()
+auth := NewJWTAuth("test-secret", store)
 
 	claims := UserClaims{
 		UserID:   "user123",
@@ -51,7 +53,8 @@ func TestJWTAuth_ValidateToken(t *testing.T) {
 }
 
 func TestJWTAuth_ValidateToken_Invalid(t *testing.T) {
-	auth := NewJWTAuth("test-secret")
+	store := NewInMemoryRevocationStore()
+auth := NewJWTAuth("test-secret", store)
 
 	// Invalid token should fail validation
 	_, err := auth.ValidateToken("invalid.token.here")
@@ -63,7 +66,8 @@ func TestJWTAuth_ValidateToken_Invalid(t *testing.T) {
 }
 
 func TestJWTAuth_ValidateToken_Expired(t *testing.T) {
-	auth := NewJWTAuth("test-secret")
+	store := NewInMemoryRevocationStore()
+auth := NewJWTAuth("test-secret", store)
 
 	claims := UserClaims{
 		UserID:   "user123",
@@ -85,8 +89,10 @@ func TestJWTAuth_ValidateToken_Expired(t *testing.T) {
 }
 
 func TestJWTAuth_ValidateToken_WrongSecret(t *testing.T) {
-	auth1 := NewJWTAuth("secret1")
-	auth2 := NewJWTAuth("secret2")
+	store1 := NewInMemoryRevocationStore()
+auth1 := NewJWTAuth("secret1", store1)
+	store2 := NewInMemoryRevocationStore()
+auth2 := NewJWTAuth("secret2", store2)
 
 	claims := UserClaims{
 		UserID:   "user123",
@@ -104,7 +110,8 @@ func TestJWTAuth_ValidateToken_WrongSecret(t *testing.T) {
 }
 
 func TestJWTMiddleware_ValidToken(t *testing.T) {
-	auth := NewJWTAuth("test-secret")
+	store := NewInMemoryRevocationStore()
+auth := NewJWTAuth("test-secret", store)
 
 	claims := UserClaims{
 		UserID:   "user123",
@@ -139,7 +146,8 @@ func TestJWTMiddleware_ValidToken(t *testing.T) {
 }
 
 func TestJWTMiddleware_MissingToken(t *testing.T) {
-	auth := NewJWTAuth("test-secret")
+	store := NewInMemoryRevocationStore()
+auth := NewJWTAuth("test-secret", store)
 
 	testHandler := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		t.Fatal("Handler should not be called")
@@ -163,7 +171,8 @@ func TestJWTMiddleware_MissingToken(t *testing.T) {
 }
 
 func TestJWTMiddleware_InvalidToken(t *testing.T) {
-	auth := NewJWTAuth("test-secret")
+	store := NewInMemoryRevocationStore()
+auth := NewJWTAuth("test-secret", store)
 
 	testHandler := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		t.Fatal("Handler should not be called")
@@ -188,7 +197,8 @@ func TestJWTMiddleware_InvalidToken(t *testing.T) {
 }
 
 func TestJWTMiddleware_MalformedAuthHeader(t *testing.T) {
-	auth := NewJWTAuth("test-secret")
+	store := NewInMemoryRevocationStore()
+auth := NewJWTAuth("test-secret", store)
 
 	testHandler := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		t.Fatal("Handler should not be called")
@@ -297,7 +307,8 @@ func TestUserClaims_HasAnyRole(t *testing.T) {
 }
 
 func TestRequireRole_ValidRole(t *testing.T) {
-	auth := NewJWTAuth("test-secret")
+	store := NewInMemoryRevocationStore()
+auth := NewJWTAuth("test-secret", store)
 
 	claims := UserClaims{
 		UserID:   "user123",
@@ -327,7 +338,8 @@ func TestRequireRole_ValidRole(t *testing.T) {
 }
 
 func TestRequireRole_InvalidRole(t *testing.T) {
-	auth := NewJWTAuth("test-secret")
+	store := NewInMemoryRevocationStore()
+auth := NewJWTAuth("test-secret", store)
 
 	claims := UserClaims{
 		UserID:   "user123",
@@ -357,7 +369,8 @@ func TestRequireRole_InvalidRole(t *testing.T) {
 }
 
 func TestRequireAnyRole_ValidRole(t *testing.T) {
-	auth := NewJWTAuth("test-secret")
+	store := NewInMemoryRevocationStore()
+auth := NewJWTAuth("test-secret", store)
 
 	claims := UserClaims{
 		UserID:   "user123",
@@ -387,7 +400,8 @@ func TestRequireAnyRole_ValidRole(t *testing.T) {
 }
 
 func TestRequireAnyRole_NoValidRole(t *testing.T) {
-	auth := NewJWTAuth("test-secret")
+	store := NewInMemoryRevocationStore()
+auth := NewJWTAuth("test-secret", store)
 
 	claims := UserClaims{
 		UserID:   "user123",
@@ -423,7 +437,8 @@ func TestGetUserFromContext_NoUser(t *testing.T) {
 }
 
 func TestRefreshToken(t *testing.T) {
-	auth := NewJWTAuth("test-secret")
+	store := NewInMemoryRevocationStore()
+auth := NewJWTAuth("test-secret", store)
 
 	originalClaims := UserClaims{
 		UserID:   "user123",
@@ -450,7 +465,8 @@ func TestRefreshToken(t *testing.T) {
 }
 
 func TestRefreshToken_InvalidToken(t *testing.T) {
-	auth := NewJWTAuth("test-secret")
+	store := NewInMemoryRevocationStore()
+auth := NewJWTAuth("test-secret", store)
 
 	// Try to refresh invalid token
 	_, err := auth.RefreshToken("invalid-token", time.Hour)
@@ -459,7 +475,8 @@ func TestRefreshToken_InvalidToken(t *testing.T) {
 
 func TestJWTAuth_ValidateToken_UnexpectedSigningMethod(t *testing.T) {
 	// Test token with different signing method (RS256 instead of HS256)
-	auth := NewJWTAuth("test-secret")
+	store := NewInMemoryRevocationStore()
+auth := NewJWTAuth("test-secret", store)
 
 	// Create a valid JWT token with RS256 signing method
 	// Header: {"alg":"RS256","typ":"JWT"}
@@ -483,7 +500,8 @@ func TestPasswordAuth_HashPassword_EmptyPassword(t *testing.T) {
 }
 
 func TestRefreshToken_ExpiredToken(t *testing.T) {
-	auth := NewJWTAuth("test-secret")
+	store := NewInMemoryRevocationStore()
+auth := NewJWTAuth("test-secret", store)
 
 	claims := UserClaims{
 		UserID:   "user123",
@@ -510,7 +528,8 @@ func TestRefreshToken_ExpiredToken(t *testing.T) {
 }
 
 func TestRefreshToken_WrongSigningMethod(t *testing.T) {
-	auth := NewJWTAuth("test-secret")
+	store := NewInMemoryRevocationStore()
+auth := NewJWTAuth("test-secret", store)
 
 	// Token with wrong signing method should fail refresh
 	invalidToken := "eyJhbGciOiJSUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiIxMjM0NTY3ODkwIiwibmFtZSI6IkpvaG4gRG9lIiwiYWRtaW4iOnRydWV9.invalid"
@@ -565,7 +584,8 @@ func TestRequireAnyRole_NoUserInContext(t *testing.T) {
 }
 
 func TestJWTAuth_ValidateToken_MalformedToken(t *testing.T) {
-	auth := NewJWTAuth("test-secret")
+	store := NewInMemoryRevocationStore()
+auth := NewJWTAuth("test-secret", store)
 
 	testCases := []string{
 		"not.a.jwt",                      // Invalid format
@@ -600,7 +620,8 @@ func TestUserClaims_HasRole_EdgeCases(t *testing.T) {
 }
 
 func TestJWTAuth_TokenWithCustomClaims(t *testing.T) {
-	auth := NewJWTAuth("test-secret")
+	store := NewInMemoryRevocationStore()
+auth := NewJWTAuth("test-secret", store)
 
 	// Test token generation and validation with custom issuer, audience
 	claims := UserClaims{
@@ -624,7 +645,8 @@ func TestJWTAuth_TokenWithCustomClaims(t *testing.T) {
 }
 
 func TestJWTAuth_GenerateToken_ZeroDuration(t *testing.T) {
-	auth := NewJWTAuth("test-secret")
+	store := NewInMemoryRevocationStore()
+auth := NewJWTAuth("test-secret", store)
 
 	claims := UserClaims{
 		UserID:   "user123",
@@ -644,7 +666,8 @@ func TestJWTAuth_GenerateToken_ZeroDuration(t *testing.T) {
 }
 
 func TestRefreshToken_InvalidClaims(t *testing.T) {
-	auth := NewJWTAuth("test-secret")
+	store := NewInMemoryRevocationStore()
+auth := NewJWTAuth("test-secret", store)
 
 	claims := UserClaims{
 		UserID:   "user123",
@@ -668,7 +691,8 @@ func TestRefreshToken_InvalidClaims(t *testing.T) {
 
 func TestJWTAuth_TokenSigningAndValidationFlow(t *testing.T) {
 	// Test comprehensive flow: generate -> validate -> refresh -> validate
-	auth := NewJWTAuth("comprehensive-test-secret")
+	store := NewInMemoryRevocationStore()
+auth := NewJWTAuth("comprehensive-test-secret", store)
 
 	originalClaims := UserClaims{
 		UserID:   "test-user-456",
@@ -707,4 +731,72 @@ func TestJWTAuth_TokenSigningAndValidationFlow(t *testing.T) {
 	assert.False(t, refreshedClaims.HasRole("superuser"))
 	assert.True(t, refreshedClaims.HasAnyRole([]string{"moderator", "admin"}))
 	assert.False(t, refreshedClaims.HasAnyRole([]string{"guest", "visitor"}))
+}
+
+func TestJWTAuth_RevokeToken(t *testing.T) {
+	store := NewInMemoryRevocationStore()
+	auth := NewJWTAuth("test-secret", store)
+
+	claims := UserClaims{
+		UserID:   "user123",
+		Username: "testuser",
+		Roles:    []string{"user"},
+	}
+
+	// Generate a token
+	token, err := auth.GenerateToken(claims, time.Hour)
+	require.NoError(t, err)
+	assert.NotEmpty(t, token)
+
+	// Validate token before revocation
+	parsedClaims, err := auth.ValidateToken(token)
+	require.NoError(t, err)
+	assert.Equal(t, claims.UserID, parsedClaims.UserID)
+	assert.NotEmpty(t, parsedClaims.JTI) // Should have JTI
+
+	// Revoke the token
+	err = auth.RevokeToken(token)
+	require.NoError(t, err)
+
+	// Validate token after revocation should fail
+	_, err = auth.ValidateToken(token)
+	assert.Error(t, err)
+	assert.Contains(t, err.Error(), "revoked")
+}
+
+func TestJWTAuth_RevokeToken_InvalidToken(t *testing.T) {
+	store := NewInMemoryRevocationStore()
+	auth := NewJWTAuth("test-secret", store)
+
+	// Try to revoke an invalid token
+	err := auth.RevokeToken("invalid.token.here")
+	assert.Error(t, err)
+	assert.Contains(t, err.Error(), "cannot revoke invalid token")
+}
+
+func TestJWTAuth_RevokeToken_NoJTI(t *testing.T) {
+	store := NewInMemoryRevocationStore()
+	auth := NewJWTAuth("test-secret", store)
+
+	// Create a token without JTI (simulate old token)
+	oldClaims := UserClaims{
+		UserID:   "user123",
+		Username: "testuser",
+		Roles:    []string{"user"},
+		// JTI is empty
+	}
+
+	token, err := auth.GenerateToken(oldClaims, time.Hour)
+	require.NoError(t, err)
+
+	// Manually modify the token to remove JTI from claims
+	// This is a bit hacky but tests the edge case
+	parsed, err := auth.ValidateToken(token)
+	require.NoError(t, err)
+	parsed.JTI = "" // Simulate token without JTI
+
+	// Try to revoke - should fail
+	err = auth.RevokeToken(token)
+	assert.Error(t, err)
+	assert.Contains(t, err.Error(), "no JTI")
 }

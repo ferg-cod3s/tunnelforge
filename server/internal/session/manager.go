@@ -35,16 +35,17 @@ type Manager struct {
 	sseStreams         map[string][]chan []byte
 	sseStreamsMu       sync.RWMutex
 	persistenceService *persistence.Service
+	multiplexer *Multiplexer
 	persistenceEnabled bool
 }
-
 func NewManager() *Manager {
 	m := &Manager{
 		ptyManager:         terminal.NewPTYManager(),
 		optPtyManager:      terminal.NewOptimizedPTYManager(),
-		useOptimized:       true, // Enable optimizations by default
+		useOptimized:       true,
 		sseStreams:         make(map[string][]chan []byte),
-		persistenceEnabled: false, // Disabled by default
+		multiplexer:        NewMultiplexer(),
+		persistenceEnabled: false,
 	}
 
 	// Set up SSE broadcasting - the manager implements the interface
@@ -545,4 +546,136 @@ func (m *Manager) DisassociateTunnelFromSession(sessionID string) error {
 	
 	log.Printf("Disassociated tunnel from session %s", sessionID)
 	return nil
+}
+
+// BulkCreateSessions creates multiple sessions at once
+func (m *Manager) BulkCreateSessions(reqs []*types.SessionCreateRequest) ([]*types.Session, error) {
+	sessions := make([]*types.Session, 0, len(reqs))
+	
+	for _, req := range reqs {
+		session, err := m.Create(req)
+		if err != nil {
+			return sessions, fmt.Errorf("failed to create session: %v", err)
+		}
+		sessions = append(sessions, session)
+	}
+	
+	return sessions, nil
+}
+
+// BulkDeleteSessions deletes multiple sessions at once
+func (m *Manager) BulkDeleteSessions(sessionIDs []string) []error {
+	errors := make([]error, 0)
+	
+	for _, sessionID := range sessionIDs {
+		if err := m.Close(sessionID); err != nil {
+			errors = append(errors, fmt.Errorf("failed to delete session %s: %v", sessionID, err))
+		}
+	}
+	
+	return errors
+}
+
+// BulkResizeSessions resizes multiple sessions at once
+func (m *Manager) BulkResizeSessions(sessionIDs []string, cols, rows int) []error {
+	errors := make([]error, 0)
+	
+	for _, sessionID := range sessionIDs {
+		if err := m.Resize(sessionID, cols, rows); err != nil {
+			errors = append(errors, fmt.Errorf("failed to resize session %s: %v", sessionID, err))
+		}
+	}
+	
+	return errors
+}
+
+// GetSessionsByGroup gets all sessions in a group
+func (m *Manager) GetSessionsByGroup(groupID string) ([]*types.Session, error) {
+	group, err := m.multiplexer.GetGroup(groupID)
+	if err != nil {
+		return nil, err
+	}
+	
+	sessions := make([]*types.Session, 0, len(group.SessionIDs))
+	for _, sessionID := range group.SessionIDs {
+		if session := m.Get(sessionID); session != nil {
+			sessions = append(sessions, session)
+		}
+	}
+	
+	return sessions, nil
+}
+
+// GetSessionsByTag gets all sessions with a specific tag
+func (m *Manager) GetSessionsByTag(tagName string) []*types.Session {
+	sessionIDs := m.multiplexer.FindSessionsByTag(tagName)
+	sessions := make([]*types.Session, 0, len(sessionIDs))
+	
+	for _, sessionID := range sessionIDs {
+		if session := m.Get(sessionID); session != nil {
+			sessions = append(sessions, session)
+		}
+	}
+	
+	return sessions
+}
+
+// GetSessionHierarchy gets the hierarchy information for a session
+func (m *Manager) GetSessionHierarchy(sessionID string) (*types.SessionHierarchy, error) {
+	return m.multiplexer.GetHierarchy(sessionID)
+}
+
+// GetSessionDependencies gets all dependencies for a session
+func (m *Manager) GetSessionDependencies(sessionID string) []*types.SessionDependency {
+	return m.multiplexer.GetDependencies(sessionID)
+}
+
+// GetSessionGroups gets all groups containing a session
+func (m *Manager) GetSessionGroups(sessionID string) []*types.SessionGroup {
+	return m.multiplexer.GetSessionGroups(sessionID)
+}
+
+// CreateSessionGroup creates a new session group
+func (m *Manager) CreateSessionGroup(name, description string, tags []string) (*types.SessionGroup, error) {
+	return m.multiplexer.CreateGroup(name, description, tags)
+}
+
+// AddSessionToGroup adds a session to a group
+func (m *Manager) AddSessionToGroup(groupID, sessionID string) error {
+	return m.multiplexer.AddSessionToGroup(groupID, sessionID)
+}
+
+// RemoveSessionFromGroup removes a session from a group
+func (m *Manager) RemoveSessionFromGroup(groupID, sessionID string) error {
+	return m.multiplexer.RemoveSessionFromGroup(groupID, sessionID)
+}
+
+// ListSessionGroups lists all session groups
+func (m *Manager) ListSessionGroups() []*types.SessionGroup {
+	return m.multiplexer.ListGroups()
+}
+
+// GetSessionGroup gets a session group by ID
+func (m *Manager) GetSessionGroup(groupID string) (*types.SessionGroup, error) {
+	return m.multiplexer.GetGroup(groupID)
+}
+
+// DeleteSessionGroup deletes a session group
+func (m *Manager) DeleteSessionGroup(groupID string) error {
+	return m.multiplexer.DeleteGroup(groupID)
+}
+
+// CreateSessionTag creates a new session tag
+func (m *Manager) CreateSessionTag(name, color, description string) (*types.SessionTag, error) {
+	return m.multiplexer.CreateTag(name, color, description)
+}
+
+// ListSessionTags lists all session tags
+func (m *Manager) ListSessionTags() []*types.SessionTag {
+	return m.multiplexer.ListTags()
+}
+
+// DeleteSessionTag deletes a session tag
+func (m *Manager) DeleteSessionTag(name string) error {
+	return m.multiplexer.DeleteTag(name)
 }
