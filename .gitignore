@@ -192,3 +192,11 @@ cypress/screenshots/
 temp/
 tmp/
 windows/src-tauri/bin/
+
+# Go toolchain and module cache downloads
+server/go/pkg/mod/cache/download/
+server/go/pkg/mod/cache/sumdb/
+server/go*.tar.gz
+server/go*.zip
+server/go/pkg/mod/cache/download/**/*.zip
+server/go/pkg/mod/cache/download/**/*.tar.gz
