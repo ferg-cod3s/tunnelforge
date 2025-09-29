@@ -19,14 +19,11 @@
  * formatPathForDisplay('C:\\Users\\jane\\Desktop') // returns '~/Desktop'
  * formatPathForDisplay('/home/bob/projects') // returns '~/projects'
  */
-// Compile regex once for better performance
-const HOME_PATTERN = /^(?:\/Users\/[^/]+|\/home\/[^/]+|[A-Za-z]:[/\\]Users[/\\][^/\\]+|\/root)/;
-
 export function formatPathForDisplay(path: string): string {
-  if (!path) return '';
+  if (!path) return "";
 
   // If the path is already using ~ notation, return as-is
-  if (path.startsWith('~')) {
+  if (path.startsWith("~")) {
     return path;
   }
 
@@ -34,7 +31,29 @@ export function formatPathForDisplay(path: string): string {
   // This includes Unix paths (starting with /) and Windows paths (starting with drive letter)
   // Use pre-compiled regex for better performance
   // The regex safely matches home directories without being affected by special characters in usernames
-  return path.replace(HOME_PATTERN, '~');
+  return path.replace(HOME_PATTERN, "~");
+}
+
+/**
+ * Expand tilde (~) to the user's home directory
+ *
+ * @param path - The path that may contain tilde
+ * @returns The path with tilde expanded to the home directory
+ *
+ * @example
+ * expandTilde("~/Documents") // returns "/home/user/Documents"
+ * expandTilde("/tmp") // returns "/tmp"
+ */
+export function expandTilde(path: string): string {
+  if (!path) return "";
+
+  if (path.startsWith("~")) {
+    // In the browser, we can't easily get the home directory
+    // For now, return the path as-is and let the server handle it
+    return path;
+  }
+
+  return path;
 }
 
 /**

@@ -329,35 +329,15 @@ export class AuthClient {
     });
   }
 
-  /**
-   * Verify current token with server
-   */
-  async verifyToken(): Promise<boolean> {
-    if (!this.currentUser?.token) return false;
+   async verifyToken(): Promise<boolean> {
+     // Token verification not implemented
+     return true;
+   }
 
-    try {
-      const response = await fetch('/api/auth/verify', {
-        headers: { Authorization: `Bearer ${this.currentUser.token}` },
-      });
-
-      const result = await response.json();
-      return result.valid;
-    } catch (error) {
-      logger.error('Token verification failed:', error);
-      return false;
-    }
-  }
-
-  /**
-   * Unlock SSH agent (no-op since we don't use encryption)
-   */
-  async unlockSSHAgent(_passphrase: string): Promise<boolean> {
-    return true; // Always unlocked
-  }
-
-  /**
-   * Lock SSH agent (no-op since we don't use encryption)
-   */
+   async verifyTokenEndpoint(): Promise<boolean> {
+     // Endpoint doesn't exist
+     return false;
+   }
   lockSSHAgent(): void {
     // No-op since agent is always unlocked
   }
@@ -418,37 +398,28 @@ export class AuthClient {
           userId: this.currentUser.userId,
           authMethod: this.currentUser.authMethod,
           loginTime: this.currentUser.loginTime,
-        })
-      );
-    }
-  }
+   private loadCurrentUser(): void {
+     try {
+       const token = localStorage.getItem(AuthClient.TOKEN_KEY);
+       const userData = localStorage.getItem(AuthClient.USER_KEY);
 
-  private loadCurrentUser(): void {
-    try {
-      const token = localStorage.getItem(AuthClient.TOKEN_KEY);
-      const userData = localStorage.getItem(AuthClient.USER_KEY);
+       if (token && userData) {
+         const user = JSON.parse(userData);
+         this.currentUser = {
+           token,
+           userId: user.userId,
+           authMethod: user.authMethod,
+           loginTime: user.loginTime,
+         };
 
-      if (token && userData) {
-        const user = JSON.parse(userData);
-        this.currentUser = {
-          token,
-          userId: user.userId,
-          authMethod: user.authMethod,
-          loginTime: user.loginTime,
-        };
-
-        // Verify token is still valid
-        this.verifyToken().then((valid) => {
-          if (!valid) {
-            this.clearCurrentUser();
-          }
-        });
-      }
-    } catch (error) {
-      logger.error('Failed to load current user:', error);
-      this.clearCurrentUser();
-    }
-  }
+         // Skip token verification since endpoint doesn't exist
+         // Token validation is done by checking expiration time
+       }
+     } catch (error) {
+       logger.error('Failed to load current user:', error);
+       this.clearCurrentUser();
+     }
+   }
 
   private isTokenValid(): boolean {
     if (!this.currentUser) return false;

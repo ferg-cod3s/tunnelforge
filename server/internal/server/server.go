@@ -433,12 +433,13 @@ func (s *Server) setupRoutes() {
 	// Apply compression and security headers, but skip for WebSocket and SSE routes
 	handler = http.HandlerFunc(func(w http.ResponseWriter, req *http.Request) {
 		// Skip compression and security headers for WebSocket and SSE endpoints
-		if req.URL.Path == "/ws" || 
-			   strings.HasPrefix(req.URL.Path, "/api/fs/") || 
-		   req.URL.Path == "/buffers" || 
-		   req.URL.Path == "/api/events" ||
-		   req.URL.Path == "/api/control/stream" ||
-		   strings.Contains(req.URL.Path, "/stream") {
+			if req.URL.Path == "/ws" || 
+				strings.HasPrefix(req.URL.Path, "/api/fs/") || 
+				req.URL.Path == "/buffers" ||
+				req.URL.Path == "/api/events" ||
+				req.URL.Path == "/api/repositories/discover" ||
+				req.URL.Path == "/api/control/stream" ||
+				strings.Contains(req.URL.Path, "/stream") {
 			// SSE and WebSocket endpoints need direct access to the connection
 			corsHandler.ServeHTTP(w, req)
 			return
@@ -458,12 +459,13 @@ func (s *Server) setupRoutes() {
 		prevHandler := handler // Capture current handler before redefining
 		handler = http.HandlerFunc(func(w http.ResponseWriter, req *http.Request) {
 			// Skip rate limiting for WebSocket and SSE endpoints to avoid hijacking interference
-			if req.URL.Path == "/ws" || 
-			   strings.HasPrefix(req.URL.Path, "/api/fs/") || 
-			   req.URL.Path == "/buffers" ||
-			   req.URL.Path == "/api/events" ||
-			   req.URL.Path == "/api/control/stream" ||
-			   strings.Contains(req.URL.Path, "/stream") {
+            if req.URL.Path == "/ws" || 
+               strings.HasPrefix(req.URL.Path, "/api/fs/") || 
+               req.URL.Path == "/buffers" ||
+               req.URL.Path == "/api/events" ||
+               req.URL.Path == "/api/repositories/discover" ||
+               req.URL.Path == "/api/control/stream" ||
+               strings.Contains(req.URL.Path, "/stream") {
 				prevHandler.ServeHTTP(w, req)
 				return
 			}
@@ -477,12 +479,13 @@ func (s *Server) setupRoutes() {
 		prevHandler := handler // Capture current handler before redefining
 		handler = http.HandlerFunc(func(w http.ResponseWriter, req *http.Request) {
 			// Skip request logging for WebSocket and SSE endpoints to avoid hijacking interference
-			if req.URL.Path == "/ws" || 
-			   strings.HasPrefix(req.URL.Path, "/api/fs/") || 
-			   req.URL.Path == "/buffers" ||
-			   req.URL.Path == "/api/events" ||
-			   req.URL.Path == "/api/control/stream" ||
-			   strings.Contains(req.URL.Path, "/stream") {
+            if req.URL.Path == "/ws" || 
+               strings.HasPrefix(req.URL.Path, "/api/fs/") || 
+               req.URL.Path == "/buffers" ||
+               req.URL.Path == "/api/events" ||
+               req.URL.Path == "/api/repositories/discover" ||
+               req.URL.Path == "/api/control/stream" ||
+               strings.Contains(req.URL.Path, "/stream") {
 				prevHandler.ServeHTTP(w, req)
 				return
 			}
@@ -929,7 +932,7 @@ func (s *Server) handleSessionStream(w http.ResponseWriter, r *http.Request) {
 			}
 
 			// Send SSE event
-			if _, err := fmt.Fprintf(w, "data: %s\n\n", string(data)); err != nil {
+			if _, err := fmt.Fprintf(w, "data: %snn", string(data)); err != nil {
 				log.Printf("Failed to write SSE data: %v", err)
 				return
 			}
@@ -1403,7 +1406,7 @@ func (s *Server) handleControlStream(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Send initial connection message
-	w.Write([]byte(":ok\n\n"))
+	w.Write([]byte(":oknn"))
 	flusher.Flush()
 
 	log.Printf("Control event stream connected")
@@ -1416,7 +1419,7 @@ func (s *Server) handleControlStream(w http.ResponseWriter, r *http.Request) {
 	for {
 		select {
 		case <-heartbeatTicker.C:
-			w.Write([]byte(":heartbeat\n\n"))
+			w.Write([]byte(":heartbeatnn"))
 			flusher.Flush()
 		case <-r.Context().Done():
 			log.Printf("Control event stream disconnected")
