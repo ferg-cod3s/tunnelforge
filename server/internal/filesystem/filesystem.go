@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"io"
 	"net/http"
+	"net/url"
 	"os"
 	"path/filepath"
 	"sort"
@@ -37,6 +38,7 @@ type ListRequest struct {
 	ShowHidden bool   `json:"showHidden"`
 	SortBy     string `json:"sortBy"` // "name", "size", "modTime"
 	SortDesc   bool   `json:"sortDesc"`
+	GitFilter  string `json:"gitFilter"` // "all", "changed"
 }
 
 // ListResponse represents directory listing response
@@ -63,17 +65,21 @@ func NewFileSystemService(basePath string) *FileSystemService {
 	}
 }
 
-// validatePath ensures the requested path is within allowed bounds
 func (fs *FileSystemService) validatePath(requestedPath string) (string, error) {
+	// URL-decode the path first
+	decodedPath, err := url.QueryUnescape(requestedPath)
+	if err != nil {
+		decodedPath = requestedPath
+	}
+	
 	// Handle tilde expansion for home directory
-	expandedPath := requestedPath
+	expandedPath := decodedPath
 	if strings.HasPrefix(expandedPath, "~") {
 		homeDir := os.Getenv("HOME")
 		if homeDir != "" {
 			expandedPath = strings.Replace(expandedPath, "~", homeDir, 1)
 		}
 	}
-
 	// Clean the path to prevent directory traversal
 	cleanPath := filepath.Clean(expandedPath)
 
@@ -162,7 +168,6 @@ func (fs *FileSystemService) sortFiles(files []FileInfo, sortBy string, sortDesc
 // ListDirectory handles GET /api/filesystem/ls
 func (fs *FileSystemService) ListDirectory(w http.ResponseWriter, r *http.Request) {
 	var req ListRequest
-
 	// Parse query parameters
 	req.Path = r.URL.Query().Get("path")
 	if req.Path == "" {
@@ -174,6 +179,10 @@ func (fs *FileSystemService) ListDirectory(w http.ResponseWriter, r *http.Reques
 		req.SortBy = "name"
 	}
 	req.SortDesc = r.URL.Query().Get("sortDesc") == "true"
+	req.GitFilter = r.URL.Query().Get("gitFilter")
+	if req.GitFilter == "" {
+		req.GitFilter = "all"
+	}
 
 	// Validate and resolve path
 	fullPath, err := fs.validatePath(req.Path)
@@ -199,10 +208,8 @@ func (fs *FileSystemService) ListDirectory(w http.ResponseWriter, r *http.Reques
 		return
 	}
 
-	var files []FileInfo
-	var directories []FileInfo
-
-	for _, entry := range entries {
+	var files = make([]FileInfo, 0)
+	var directories = make([]FileInfo, 0)
 		// Skip hidden files if not requested
 		if !req.ShowHidden && strings.HasPrefix(entry.Name(), ".") {
 			continue

@@ -222,15 +222,4 @@ export class SessionService {
        }
      }
    }
-           if (error instanceof Error && error.message) {
-             throw error;
-           }
-           // Otherwise wrap it
-           logger.error('Error creating session:', error);
-           throw new Error('Failed to create session');
-         }
-         // Retry on network errors
-       }
-     }
-   }
 }

@@ -42,9 +42,11 @@ interface FileInfo {
 
 interface DirectoryListing {
   path: string;
-  fullPath: string;
-  gitStatus: GitStatus | null;
+  fullPath?: string;
+  gitStatus?: GitStatus | null;
   files: FileInfo[];
+  directories?: FileInfo[];
+  parent?: string;
 }
 
 interface GitStatus {
@@ -175,26 +177,30 @@ export class FileBrowser extends LitElement {
       const headers = this.noAuthMode ? {} : { ...authClient.getAuthHeader() };
       const response = await fetch(url, { headers });
       logger.debug(`response status: ${response.status}`);
-
-      if (response.ok) {
         const data: DirectoryListing = await response.json();
         logger.debug(`received ${data.files?.length || 0} files`);
         // Use the absolute path (fullPath) instead of the potentially relative path
         this.currentPath = data.fullPath || data.path;
-        this.currentFullPath = data.fullPath;
-        this.files = data.files || [];
-        this.gitStatus = data.gitStatus;
+        this.currentFullPath = data.fullPath || data.path;
+        this.files = (data.files || []).concat(data.directories || []);
+        this.gitStatus = data.gitStatus || null;
         // Clear any previous error message on successful load
         this.errorMessage = "";
-      } else {
-        let errorMessage = "Failed to load directory";
-        try {
-          const errorData = await response.json();
-          errorMessage = errorData.error || errorMessage;
-        } catch {
-          // If response isn"t JSON, use default message
-          errorMessage = `Failed to load directory (${response.status})`;
-        }
+        // Clear any previous error message on successful load
+        this.errorMessage = "";
+       } else {
+         let errorMessage = "Failed to load directory";
+         try {
+           const errorData = await response.json();
+           errorMessage = errorData.error || errorMessage;
+           // Add specific handling for 400 errors
+           if (response.status === 400) {
+             errorMessage = `Invalid directory path: ${errorData.details || errorMessage}`;
+           }
+         } catch {
+           // If response isn"t JSON, use default message
+           errorMessage = `Failed to load directory (${response.status})`;
+         }
 
         logger.error(`failed to load directory: ${response.status}`, new Error(errorMessage));
         
