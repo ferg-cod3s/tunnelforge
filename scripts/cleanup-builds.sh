@@ -99,6 +99,28 @@ find . -type d -name ".bun" | while read -r dir; do
     echo -e "${GREEN}Removed${NC} $dir ($(print_size $size))"
 done
 
+# Clean Go build artifacts
+echo -e "\n${YELLOW}Cleaning Go build artifacts...${NC}"
+go_dirs_to_clean=(
+    "server/go/pkg/mod/cache/download"
+    "server/go/pkg/mod/cache/sumdb"
+)
+for dir in "${go_dirs_to_clean[@]}"; do
+    if remove_if_exists "$dir"; then
+        size=$(du -s "$dir" | cut -f1)
+        total_saved=$((total_saved + size))
+    fi
+done
+
+# Clean Go toolchain archives
+echo -e "\n${YELLOW}Cleaning Go toolchain archives...${NC}"
+find server/ -maxdepth 1 -name "go*.tar.gz" -o -name "go*.zip" | while read -r file; do
+    size=$(get_size "$file")
+    rm -f "$file"
+    total_saved=$((total_saved + size))
+    echo -e "${GREEN}Removed${NC} $file ($(print_size $size))"
+done
+
 # Clean other build artifacts
 echo -e "\n${YELLOW}Cleaning other build artifacts...${NC}"
 other_patterns=(
