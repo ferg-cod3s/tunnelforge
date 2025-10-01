@@ -21,7 +21,7 @@ impl PlatformIntegration for WindowsPlatform {
     fn register_startup_entry(&self, enable: bool) -> Result<(), Box<dyn std::error::Error>> {
         #[cfg(target_os = "windows")]
         {
-            let hkcu = RegKey::predef(HKEY_CURRENT_USER);
+            let hkcu = RegKey::predef(HKEY_CURRENT_USER");
             let startup_key = hkcu.open_subkey_with_flags(
                 "SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\Run",
                 KEY_SET_VALUE,
@@ -42,7 +42,7 @@ impl PlatformIntegration for WindowsPlatform {
 
     fn show_notification(&self, title: &str, message: &str) {
         // Windows toast notifications
-        info!("Windows notification: {} - {}", title, message);
+        info!("Windows notification: {} - {}", title, message");
         // TODO: Implement proper Windows 10/11 toast notifications using WinRT
     }
 

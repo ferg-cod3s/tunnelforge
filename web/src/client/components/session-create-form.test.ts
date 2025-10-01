@@ -1,14 +1,5 @@
-
 import { fixture, html } from '@open-wc/testing';
-import {
-  afterEach,
-  beforeAll,
-  beforeEach,
-  describe,
-  expect,
-  it,
-  mock,
-} from 'bun:test';
+import { afterEach, beforeAll, beforeEach, describe, expect, it, mock } from 'bun:test';
 import {
   restoreLocalStorage,
   setupFetchMock,

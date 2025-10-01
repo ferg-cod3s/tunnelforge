@@ -65,7 +65,7 @@ const tryPrebuildInstall = (moduleName, moduleDir) => {
     const prebuildInstallPath = require.resolve('prebuild-install/bin.js');
     console.log(`  Attempting to use prebuild-install for ${moduleName}...`);
     
-    execSync(`node "${prebuildInstallPath}"`, {
+    execSync(`bun run "${prebuildInstallPath}"`, {
       cwd: moduleDir,
       stdio: 'inherit',
       env: { ...process.env, npm_config_build_from_source: 'false' }
@@ -119,7 +119,7 @@ const compileFromSource = (moduleName, moduleDir) => {
       execSync('node-gyp --version', { stdio: 'pipe' });
     } catch (e) {
       console.log('  Installing node-gyp...');
-      execSync('npm install -g node-gyp', { stdio: 'inherit' });
+      execSync('bun add -g node-gyp', { stdio: 'inherit' });
     }
     
     // For node-pty, node-addon-api is included as a dependency in its package.json
@@ -232,19 +232,19 @@ for (const module of modules) {
   }
 }
 
-// Import vt installation functions
-const { detectGlobalInstall, installVtCommand } = require('./install-vt-command');
+// Import tf installation functions
+const { detectGlobalInstall, installTfCommand } = require('./install-tf-command');
 
-// Install vt symlink/wrapper
+// Install tf symlink/wrapper
 if (!hasErrors && !isDevelopment) {
-  console.log('\nSetting up vt command...');
-  
-  const vtSource = path.join(__dirname, '..', 'bin', 'vt');
-  
+  console.log('\nSetting up tf command...');
+
+  const tfSource = path.join(__dirname, '..', 'bin', 'tf');
+
   // Use the improved global install detection
   const isGlobalInstall = detectGlobalInstall();
   console.log(`  Detected ${isGlobalInstall ? 'global' : 'local'} installation`);
-  installVtCommand(vtSource, isGlobalInstall);
+  installTfCommand(tfSource, isGlobalInstall);
 }
 
 if (hasErrors) {

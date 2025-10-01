@@ -12,13 +12,13 @@
 
 ```bash
 # Open a terminal session in your browser
-vt
+tf
 
 # Named session
-vt --name "Project Build"
+tf --name "Project Build"
 
 # Custom command
-vt --command "htop"
+tf --command "htop"
 ```
 
 The browser opens automatically at `http://localhost:4020`
@@ -27,11 +27,11 @@ The browser opens automatically at `http://localhost:4020`
 
 | Command | Purpose |
 |---------|---------|
-| `vt` | Start new terminal session |
-| `vt list` | Show active sessions |
-| `vt kill <id>` | Terminate session |
-| `vt logs` | View server logs |
-| `vt --help` | Show all options |
+| `tf` | Start new terminal session |
+| `tf list` | Show active sessions |
+| `tf kill <id>` | Terminate session |
+| `tf logs` | View server logs |
+| `tf --help` | Show all options |
 
 ## Configuration
 
@@ -78,7 +78,7 @@ Benefits:
 ### Monitor AI Agents
 ```bash
 # Start Claude Code in VibeTunnel
-vt --name "Claude Code"
+tf --name "Claude Code"
 claude
 
 # Access from another device
@@ -88,18 +88,18 @@ http://your-mac-ip:4020
 ### Remote Development
 ```bash
 # With Tailscale
-vt --tailscale
+tf --tailscale
 
 # With ngrok
-vt --ngrok
+tf --ngrok
 ```
 
 ### Multiple Sessions
 ```bash
 # Start multiple named sessions
-vt --name "Frontend" --command "cd ~/frontend && npm run dev"
-vt --name "Backend" --command "cd ~/backend && npm start"
-vt --name "Database" --command "docker-compose up"
+tf --name "Frontend" --command "cd ~/frontend && npm run dev"
+tf --name "Backend" --command "cd ~/backend && npm start"
+tf --name "Database" --command "docker-compose up"
 ```
 
 ## Keyboard Shortcuts
@@ -144,7 +144,7 @@ open -a VibeTunnel
 curl http://localhost:4020/api/health
 
 # View logs
-./scripts/vtlog.sh -e
+./scripts/tflog.sh -e
 ```
 
 ### Permission Issues
@@ -165,5 +165,5 @@ curl http://localhost:4020/api/health
 1. **Auto-start**: Enable "Launch at Login" in preferences
 2. **Custom port**: Set `VT_PORT=8080` environment variable
 3. **Debug mode**: Hold Option while clicking menu bar icon
-4. **Force quit session**: `vt kill --force <id>`
+4. **Force quit session**: `tf kill --force <id>`
 5. **Export recordings**: Sessions saved in `~/.vibetunnel/recordings/`

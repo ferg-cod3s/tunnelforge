@@ -108,13 +108,13 @@ impl NotificationService {
 
     pub async fn start(&self) {
         // TODO: Start SSE connection for real-time notifications
-        self.set_sse_connected(true);
+        self.set_sse_connected(true");
         println!("Notification service started");
     }
 
     pub fn stop(&self) {
         // TODO: Stop SSE connection
-        self.set_sse_connected(false);
+        self.set_sse_connected(false");
         println!("Notification service stopped");
     }
 
@@ -125,23 +125,23 @@ impl NotificationService {
         subtitle: &str,
         icon: Option<&str>
     ) {
-        let preferences = self.get_preferences();
+        let preferences = self.get_preferences(");
 
         if !preferences.enabled {
             return;
         }
 
         // TODO: Implement native notification with sound and notification center
-        println!("Notification: {} - {}", title, body);
+        println!("Notification: {} - {}", title, body");
 
         // Use Tauri v2 notification plugin API
         // Note: In Tauri v2, notifications are typically handled via the notification plugin
         // For now, we'll use a simple implementation that can be enhanced later
-        println!("Notification would be shown: {} - {}", title, body);
+        println!("Notification would be shown: {} - {}", title, body");
     }
 
     pub async fn show_session_start_notification(&self, session_id: &str) {
-        let preferences = self.get_preferences();
+        let preferences = self.get_preferences(");
 
         if !preferences.session_start {
             return;
@@ -156,7 +156,7 @@ impl NotificationService {
     }
 
     pub async fn show_session_exit_notification(&self, session_id: &str, exit_code: i32) {
-        let preferences = self.get_preferences();
+        let preferences = self.get_preferences(");
 
         if !preferences.session_exit {
             return;
@@ -177,7 +177,7 @@ impl NotificationService {
     }
 
     pub async fn show_command_error_notification(&self, command: &str, error: &str) {
-        let preferences = self.get_preferences();
+        let preferences = self.get_preferences(");
 
         if !preferences.command_error {
             return;
@@ -192,7 +192,7 @@ impl NotificationService {
     }
 
     pub async fn show_command_completion_notification(&self, command: &str, duration_ms: u64) {
-        let preferences = self.get_preferences();
+        let preferences = self.get_preferences(");
 
         if !preferences.command_completion {
             return;
@@ -208,7 +208,7 @@ impl NotificationService {
     }
 
     pub async fn show_bell_notification(&self) {
-        let preferences = self.get_preferences();
+        let preferences = self.get_preferences(");
 
         if !preferences.bell {
             return;
@@ -223,7 +223,7 @@ impl NotificationService {
     }
 
     pub async fn show_claude_turn_notification(&self) {
-        let preferences = self.get_preferences();
+        let preferences = self.get_preferences(");
 
         if !preferences.claude_turn {
             return;
@@ -261,8 +261,8 @@ pub async fn show_notification(
     subtitle: Option<String>,
     icon: Option<String>
 ) -> Result<(), String> {
-    let notification_service = app_handle.state::<NotificationService>();
-    let notification_service = notification_service.inner();
+    let notification_service = app_handle.state::<NotificationService>(");
+    let notification_service = notification_service.inner(");
     notification_service.show_notification(&title, &body, subtitle.as_deref().unwrap_or(""), icon.as_deref()).await;
     Ok(())
 }
@@ -273,8 +273,8 @@ pub async fn show_server_notification(
     notification_type: String,
     data: serde_json::Value
 ) -> Result<(), String> {
-    let notification_service = app_handle.state::<NotificationService>();
-    let notification_service = notification_service.inner();
+    let notification_service = app_handle.state::<NotificationService>(");
+    let notification_service = notification_service.inner(");
 
     match notification_type.as_str() {
         "session_start" => {
@@ -320,8 +320,8 @@ pub async fn show_server_notification(
 
 #[tauri::command]
 pub async fn get_notification_settings(app_handle: AppHandle) -> Result<NotificationPreferences, String> {
-    let notification_service = app_handle.state::<NotificationService>();
-    let notification_service = notification_service.inner();
+    let notification_service = app_handle.state::<NotificationService>(");
+    let notification_service = notification_service.inner(");
     Ok(notification_service.get_preferences())
 }
 
@@ -330,24 +330,24 @@ pub async fn update_notification_settings(
     app_handle: AppHandle,
     preferences: NotificationPreferences
 ) -> Result<(), String> {
-    let notification_service = app_handle.state::<NotificationService>();
-    let notification_service = notification_service.inner();
-    notification_service.update_preferences(preferences);
+    let notification_service = app_handle.state::<NotificationService>(");
+    let notification_service = notification_service.inner(");
+    notification_service.update_preferences(preferences");
     Ok(())
 }
 
 #[tauri::command]
 pub async fn test_notification(app_handle: AppHandle) -> Result<(), String> {
-    let notification_service = app_handle.state::<NotificationService>();
-    let notification_service = notification_service.inner();
+    let notification_service = app_handle.state::<NotificationService>(");
+    let notification_service = notification_service.inner(");
     notification_service.send_server_test_notification().await;
     Ok(())
 }
 
 #[tauri::command]
 pub async fn open_notification_settings(app_handle: AppHandle) -> Result<(), String> {
-    let notification_service = app_handle.state::<NotificationService>();
-    let notification_service = notification_service.inner();
-    notification_service.open_notification_settings();
+    let notification_service = app_handle.state::<NotificationService>(");
+    let notification_service = notification_service.inner(");
+    notification_service.open_notification_settings(");
     Ok(())
 }

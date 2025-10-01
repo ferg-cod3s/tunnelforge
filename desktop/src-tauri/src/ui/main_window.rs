@@ -42,14 +42,14 @@ impl MainWindow {
     }
 
     pub fn create_window(&self, app_handle: &AppHandle) -> Result<(), String> {
-        let mut window = self.window.lock().unwrap();
+        let mut window = self.window.lock().unwrap(");
         
         // Check if window already exists
         if window.is_some() {
-            return Ok(());
+            return Ok(()");
         }
         
-        let state = self.state.lock().unwrap();
+        let state = self.state.lock().unwrap(");
         
         // Create a window that loads the local settings HTML
         let webview_window = WebviewWindowBuilder::new(
@@ -72,15 +72,15 @@ impl MainWindow {
         // Open devtools in debug mode for debugging
         #[cfg(debug_assertions)]
         {
-            webview_window.open_devtools();
+            webview_window.open_devtools(");
         }
 
-        *window = Some(webview_window);
+        *window = Some(webview_window");
         Ok(())
     }
 
     pub fn show(&self) -> Result<(), String> {
-        let window = self.window.lock().unwrap();
+        let window = self.window.lock().unwrap(");
         if let Some(window) = window.as_ref() {
             window.show()
                 .map_err(|e| format!("Failed to show main window: {}", e))?;
@@ -93,7 +93,7 @@ impl MainWindow {
     }
 
     pub fn hide(&self) -> Result<(), String> {
-        let window = self.window.lock().unwrap();
+        let window = self.window.lock().unwrap(");
         if let Some(window) = window.as_ref() {
             window.hide()
                 .map_err(|e| format!("Failed to hide main window: {}", e))?;
@@ -104,7 +104,7 @@ impl MainWindow {
     }
 
     pub fn close(&self) -> Result<(), String> {
-        let window = self.window.lock().unwrap();
+        let window = self.window.lock().unwrap(");
         if let Some(window) = window.as_ref() {
             window.close()
                 .map_err(|e| format!("Failed to close main window: {}", e))?;
@@ -119,14 +119,14 @@ impl MainWindow {
     }
 
     pub fn update_state(&self, new_state: WindowState) {
-        let mut state = self.state.lock().unwrap();
-        *state = new_state.clone();
-        let window = self.window.lock().unwrap();
+        let mut state = self.state.lock().unwrap(");
+        *state = new_state.clone(");
+        let window = self.window.lock().unwrap(");
         if let Some(window) = window.as_ref() {
             // Apply state changes to existing window
-            let _ = window.set_title(&new_state.title);
-            let _ = window.set_resizable(new_state.resizable);
-            let _ = window.set_always_on_top(new_state.always_on_top);
+            let _ = window.set_title(&new_state.title");
+            let _ = window.set_resizable(new_state.resizable");
+            let _ = window.set_always_on_top(new_state.always_on_top");
         }
     }
 
@@ -138,29 +138,29 @@ impl MainWindow {
 // Tauri commands for window management
 #[tauri::command]
 pub async fn show_main_window(app_handle: AppHandle) -> Result<(), String> {
-    let window_manager = app_handle.state::<MainWindow>();
-    let window_manager = window_manager.inner();
+    let window_manager = app_handle.state::<MainWindow>(");
+    let window_manager = window_manager.inner(");
     window_manager.show()
 }
 
 #[tauri::command]
 pub async fn hide_main_window(app_handle: AppHandle) -> Result<(), String> {
-    let window_manager = app_handle.state::<MainWindow>();
-    let window_manager = window_manager.inner();
+    let window_manager = app_handle.state::<MainWindow>(");
+    let window_manager = window_manager.inner(");
     window_manager.hide()
 }
 
 #[tauri::command]
 pub async fn close_main_window(app_handle: AppHandle) -> Result<(), String> {
-    let window_manager = app_handle.state::<MainWindow>();
-    let window_manager = window_manager.inner();
+    let window_manager = app_handle.state::<MainWindow>(");
+    let window_manager = window_manager.inner(");
     window_manager.close()
 }
 
 #[tauri::command]
 pub async fn get_window_state(app_handle: AppHandle) -> Result<WindowState, String> {
-    let window_manager = app_handle.state::<MainWindow>();
-    let window_manager = window_manager.inner();
+    let window_manager = app_handle.state::<MainWindow>(");
+    let window_manager = window_manager.inner(");
     Ok(window_manager.get_state())
 }
 
@@ -169,8 +169,8 @@ pub async fn update_window_state(
     app_handle: AppHandle,
     new_state: WindowState
 ) -> Result<(), String> {
-    let window_manager = app_handle.state::<MainWindow>();
-    let window_manager = window_manager.inner();
-    window_manager.update_state(new_state);
+    let window_manager = app_handle.state::<MainWindow>(");
+    let window_manager = window_manager.inner(");
+    window_manager.update_state(new_state");
     Ok(())
 }

@@ -329,15 +329,15 @@ export class AuthClient {
     });
   }
 
-   async verifyToken(): Promise<boolean> {
-     // Token verification not implemented
-     return true;
-   }
+  async verifyToken(): Promise<boolean> {
+    // Token verification not implemented
+    return true;
+  }
 
-   async verifyTokenEndpoint(): Promise<boolean> {
-     // Endpoint doesn't exist
-     return false;
-   }
+  async verifyTokenEndpoint(): Promise<boolean> {
+    // Endpoint doesn't exist
+    return false;
+  }
   lockSSHAgent(): void {
     // No-op since agent is always unlocked
   }
@@ -398,28 +398,33 @@ export class AuthClient {
           userId: this.currentUser.userId,
           authMethod: this.currentUser.authMethod,
           loginTime: this.currentUser.loginTime,
-   private loadCurrentUser(): void {
-     try {
-       const token = localStorage.getItem(AuthClient.TOKEN_KEY);
-       const userData = localStorage.getItem(AuthClient.USER_KEY);
+        })
+      );
+    }
+  }
 
-       if (token && userData) {
-         const user = JSON.parse(userData);
-         this.currentUser = {
-           token,
-           userId: user.userId,
-           authMethod: user.authMethod,
-           loginTime: user.loginTime,
-         };
+  private loadCurrentUser(): void {
+    try {
+      const token = localStorage.getItem(AuthClient.TOKEN_KEY);
+      const userData = localStorage.getItem(AuthClient.USER_KEY);
 
-         // Skip token verification since endpoint doesn't exist
-         // Token validation is done by checking expiration time
-       }
-     } catch (error) {
-       logger.error('Failed to load current user:', error);
-       this.clearCurrentUser();
-     }
-   }
+      if (token && userData) {
+        const user = JSON.parse(userData);
+        this.currentUser = {
+          token,
+          userId: user.userId,
+          authMethod: user.authMethod,
+          loginTime: user.loginTime,
+        };
+
+        // Skip token verification since endpoint doesn't exist
+        // Token validation is done by checking expiration time
+      }
+    } catch (error) {
+      logger.error('Failed to load current user:', error);
+      this.clearCurrentUser();
+    }
+  }
 
   private isTokenValid(): boolean {
     if (!this.currentUser) return false;

@@ -1,0 +1,590 @@
+name: Publish Release to Distribution Channels
+
+on:
+  release:
+    types: [published]
+  workflow_dispatch:
+    inputs:
+      version:
+        description: 'Version to publish (e.g., 1.0.0)'
+        required: true
+        type: string
+
+permissions:
+  contents: write
+  packages: write
+
+jobs:
+  # Publish to Homebrew tap
+  publish-homebrew:
+    name: Publish to Homebrew
+    runs-on: macos-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Get Release Info
+        id: release
+        run: |
+          if [ "${{ github.event_name }}" == "workflow_dispatch" ]; then
+            VERSION="${{ github.event.inputs.version }}"
+          else
+            VERSION="${{ github.event.release.tag_name }}"
+            VERSION="${VERSION#v}"
+          fi
+          echo "version=$VERSION" >> $GITHUB_OUTPUT
+
+      - name: Download macOS artifacts
+        uses: actions/download-artifact@v4
+        with:
+          name: mac-release
+          path: ./artifacts
+
+      - name: Calculate SHA256
+        id: sha
+        run: |
+          DMG_PATH=$(find ./artifacts -name "*.dmg" | head -1)
+          SHA256=$(shasum -a 256 "$DMG_PATH" | cut -d' ' -f1)
+          echo "sha256=$SHA256" >> $GITHUB_OUTPUT
+          echo "SHA256: $SHA256"
+
+      - name: Create Homebrew Formula
+        run: |
+          VERSION="${{ steps.release.outputs.version }}"
+          SHA256="${{ steps.sha.outputs.sha256 }}"
+          
+          mkdir -p Formula
+          cat > Formula/tunnelforge.rb <<EOF
+          class Tunnelforge < Formula
+            desc "Cross-platform terminal multiplexer with real-time sharing"
+            homepage "https://tunnelforge.dev"
+            version "$VERSION"
+            
+            if Hardware::CPU.arm?
+              url "https://github.com/${{ github.repository }}/releases/download/v$VERSION/TunnelForge-arm64.dmg"
+              sha256 "$SHA256"
+            else
+              url "https://github.com/${{ github.repository }}/releases/download/v$VERSION/TunnelForge-x86_64.dmg"
+              sha256 "$SHA256"
+            end
+            
+            depends_on macos: :monterey
+            
+            def install
+              prefix.install Dir["*"]
+            end
+            
+            def caveats
+              <<~EOS
+                TunnelForge has been installed!
+                
+                To start the server:
+                  tunnelforge-server
+                
+                To launch the desktop app:
+                  open /Applications/TunnelForge.app
+                
+                For more information: https://tunnelforge.dev/docs
+              EOS
+            end
+            
+            test do
+              system "#{bin}/tunnelforge-server", "--version"
+            end
+          end
+          EOF
+
+      - name: Push to Homebrew tap
+        env:
+          HOMEBREW_TAP_TOKEN: ${{ secrets.HOMEBREW_TAP_TOKEN }}
+        run: |
+          git config --global user.email "action@github.com"
+          git config --global user.name "GitHub Action"
+          
+          # Clone or update homebrew tap repo
+          if [ -n "$HOMEBREW_TAP_TOKEN" ]; then
+            git clone https://x-access-token:${HOMEBREW_TAP_TOKEN}@github.com/${{ github.repository_owner }}/homebrew-tap.git homebrew-tap || true
+            cd homebrew-tap || exit 1
+            
+            cp ../Formula/tunnelforge.rb Formula/
+            
+            git add Formula/tunnelforge.rb
+            git commit -m "Update tunnelforge formula to ${{ steps.release.outputs.version }}"
+            git push origin main
+          else
+            echo "⚠️ HOMEBREW_TAP_TOKEN not set. Skipping Homebrew publish."
+            echo "To enable: Create a GitHub repo called 'homebrew-tap' and add a PAT as HOMEBREW_TAP_TOKEN secret."
+          fi
+
+  # Publish Linux packages to APT repository
+  publish-apt:
+    name: Publish to APT Repository
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Get Release Info
+        id: release
+        run: |
+          if [ "${{ github.event_name }}" == "workflow_dispatch" ]; then
+            VERSION="${{ github.event.inputs.version }}"
+          else
+            VERSION="${{ github.event.release.tag_name }}"
+            VERSION="${VERSION#v}"
+          fi
+          echo "version=$VERSION" >> $GITHUB_OUTPUT
+
+      - name: Download Linux artifacts
+        uses: actions/download-artifact@v4
+        with:
+          name: tunnelforge-linux
+          path: ./artifacts
+
+      - name: Set up APT repository structure
+        run: |
+          mkdir -p apt-repo/pool/main
+          mkdir -p apt-repo/dists/stable/main/binary-amd64
+          
+          # Copy DEB packages
+          cp artifacts/**/*.deb apt-repo/pool/main/
+
+      - name: Generate APT repository metadata
+        run: |
+          cd apt-repo
+          
+          # Create Packages file
+          dpkg-scanpackages pool/main > dists/stable/main/binary-amd64/Packages
+          gzip -c dists/stable/main/binary-amd64/Packages > dists/stable/main/binary-amd64/Packages.gz
+          
+          # Create Release file
+          cat > dists/stable/Release <<EOF
+          Origin: TunnelForge
+          Label: TunnelForge
+          Codename: stable
+          Architectures: amd64 arm64
+          Components: main
+          Description: TunnelForge APT Repository
+          EOF
+
+      - name: Sign repository
+        if: env.GPG_PRIVATE_KEY != ''
+        env:
+          GPG_PRIVATE_KEY: ${{ secrets.GPG_PRIVATE_KEY }}
+          GPG_PASSPHRASE: ${{ secrets.GPG_PASSPHRASE }}
+        run: |
+          echo "$GPG_PRIVATE_KEY" | gpg --import
+          cd apt-repo/dists/stable
+          gpg --armor --detach-sign -o Release.gpg Release
+          gpg --clearsign -o InRelease Release
+
+      - name: Upload to APT hosting
+        if: env.APT_DEPLOY_KEY != ''
+        env:
+          APT_DEPLOY_KEY: ${{ secrets.APT_DEPLOY_KEY }}
+          APT_HOST: ${{ secrets.APT_HOST }}
+        run: |
+          echo "$APT_DEPLOY_KEY" > deploy_key
+          chmod 600 deploy_key
+          
+          rsync -avz -e "ssh -i deploy_key -o StrictHostKeyChecking=no" \
+            apt-repo/ $APT_HOST:/var/www/apt/
+          
+          rm deploy_key
+
+      - name: APT Repository Instructions
+        run: |
+          echo "⚠️ APT repository setup incomplete."
+          echo ""
+          echo "To enable APT publishing, configure these secrets:"
+          echo "  - GPG_PRIVATE_KEY: GPG key for signing packages"
+          echo "  - GPG_PASSPHRASE: Passphrase for GPG key"
+          echo "  - APT_DEPLOY_KEY: SSH key for uploading to server"
+          echo "  - APT_HOST: user@host:/path to APT repository"
+          echo ""
+          echo "Users can then install with:"
+          echo "  curl -fsSL https://apt.tunnelforge.dev/key.gpg | sudo gpg --dearmor -o /usr/share/keyrings/tunnelforge.gpg"
+          echo "  echo 'deb [signed-by=/usr/share/keyrings/tunnelforge.gpg] https://apt.tunnelforge.dev stable main' | sudo tee /etc/apt/sources.list.d/tunnelforge.list"
+          echo "  sudo apt update && sudo apt install tunnelforge"
+
+  # Publish to Snap Store
+  publish-snap:
+    name: Publish to Snap Store
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Download Linux artifacts
+        uses: actions/download-artifact@v4
+        with:
+          name: tunnelforge-linux
+          path: ./artifacts
+
+      - name: Install snapcraft
+        run: |
+          sudo snap install snapcraft --classic
+
+      - name: Create snapcraft.yaml
+        run: |
+          VERSION="${{ github.event.release.tag_name || github.event.inputs.version }}"
+          VERSION="${VERSION#v}"
+          
+          mkdir -p snap
+          cat > snap/snapcraft.yaml <<EOF
+          name: tunnelforge
+          version: '$VERSION'
+          summary: Cross-platform terminal multiplexer
+          description: |
+            TunnelForge is a modern terminal multiplexer with real-time sharing,
+            session management, and cross-platform support.
+            
+            Features:
+            - Real-time terminal sharing
+            - WebSocket-based streaming
+            - Built-in tunnel support (Cloudflare, ngrok, Tailscale)
+            - Cross-platform (Linux, macOS, Windows)
+            - Mobile-optimized web interface
+
+          base: core22
+          confinement: strict
+          grade: stable
+
+          apps:
+            tunnelforge:
+              command: bin/tunnelforge-server
+              plugs:
+                - network
+                - network-bind
+                - home
+
+          parts:
+            tunnelforge:
+              plugin: dump
+              source: ./artifacts/
+              stage-packages:
+                - libwebkit2gtk-4.0-37
+          EOF
+
+      - name: Build snap
+        run: |
+          snapcraft
+
+      - name: Publish to Snap Store
+        if: env.SNAPCRAFT_STORE_CREDENTIALS != ''
+        env:
+          SNAPCRAFT_STORE_CREDENTIALS: ${{ secrets.SNAPCRAFT_STORE_CREDENTIALS }}
+        run: |
+          snapcraft upload --release=stable tunnelforge_*.snap
+
+      - name: Snap Store Instructions
+        run: |
+          echo "⚠️ Snap Store publishing not configured."
+          echo ""
+          echo "To enable Snap publishing:"
+          echo "  1. Register package: snapcraft register tunnelforge"
+          echo "  2. Export credentials: snapcraft export-login snap-credentials"
+          echo "  3. Add SNAPCRAFT_STORE_CREDENTIALS secret with the exported credentials"
+          echo ""
+          echo "Users can then install with:"
+          echo "  sudo snap install tunnelforge"
+
+  # Publish to Windows Package Managers (Chocolatey, winget)
+  publish-windows:
+    name: Publish to Windows Package Managers
+    runs-on: windows-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Get Release Info
+        id: release
+        shell: bash
+        run: |
+          if [ "${{ github.event_name }}" == "workflow_dispatch" ]; then
+            VERSION="${{ github.event.inputs.version }}"
+          else
+            VERSION="${{ github.event.release.tag_name }}"
+            VERSION="${VERSION#v}"
+          fi
+          echo "version=$VERSION" >> $GITHUB_OUTPUT
+
+      - name: Download Windows artifacts
+        uses: actions/download-artifact@v4
+        with:
+          name: tunnelforge-windows
+          path: ./artifacts
+
+      - name: Create Chocolatey package
+        shell: bash
+        run: |
+          VERSION="${{ steps.release.outputs.version }}"
+          
+          mkdir -p chocolatey/tools
+          
+          # Create nuspec
+          cat > chocolatey/tunnelforge.nuspec <<EOF
+          <?xml version="1.0" encoding="utf-8"?>
+          <package xmlns="http://schemas.microsoft.com/packaging/2015/06/nuspec.xsd">
+            <metadata>
+              <id>tunnelforge</id>
+              <version>$VERSION</version>
+              <title>TunnelForge</title>
+              <authors>TunnelForge Team</authors>
+              <owners>tunnelforge</owners>
+              <projectUrl>https://tunnelforge.dev</projectUrl>
+              <licenseUrl>https://github.com/${{ github.repository }}/blob/main/LICENSE</licenseUrl>
+              <requireLicenseAcceptance>false</requireLicenseAcceptance>
+              <description>Cross-platform terminal multiplexer with real-time sharing</description>
+              <summary>Terminal multiplexer with WebSocket streaming and session management</summary>
+              <tags>terminal multiplexer ssh tunnel cloudflare ngrok</tags>
+              <packageSourceUrl>https://github.com/${{ github.repository }}</packageSourceUrl>
+            </metadata>
+            <files>
+              <file src="tools\**" target="tools" />
+            </files>
+          </package>
+          EOF
+          
+          # Create install script
+          cat > chocolatey/tools/chocolateyinstall.ps1 <<EOF
+          \$ErrorActionPreference = 'Stop'
+          \$packageName = 'tunnelforge'
+          \$toolsDir = "\$(Split-Path -parent \$MyInvocation.MyCommand.Definition)"
+          \$url64 = 'https://github.com/${{ github.repository }}/releases/download/v$VERSION/TunnelForge-$VERSION.msi'
+          
+          \$packageArgs = @{
+            packageName   = \$packageName
+            fileType      = 'msi'
+            url64bit      = \$url64
+            softwareName  = 'TunnelForge*'
+            checksum64    = 'CHECKSUM'
+            checksumType64= 'sha256'
+            silentArgs    = '/qn /norestart'
+            validExitCodes= @(0, 3010, 1641)
+          }
+          
+          Install-ChocolateyPackage @packageArgs
+          EOF
+
+      - name: Create winget manifest
+        shell: bash
+        run: |
+          VERSION="${{ steps.release.outputs.version }}"
+          
+          mkdir -p winget/manifests/t/TunnelForge/TunnelForge/$VERSION
+          
+          # Installer manifest
+          cat > winget/manifests/t/TunnelForge/TunnelForge/$VERSION/TunnelForge.TunnelForge.installer.yaml <<EOF
+          PackageIdentifier: TunnelForge.TunnelForge
+          PackageVersion: $VERSION
+          Platform:
+            - Windows.Desktop
+          MinimumOSVersion: 10.0.0.0
+          InstallerType: wix
+          Scope: machine
+          InstallModes:
+            - interactive
+            - silent
+            - silentWithProgress
+          UpgradeBehavior: install
+          Installers:
+            - Architecture: x64
+              InstallerUrl: https://github.com/${{ github.repository }}/releases/download/v$VERSION/TunnelForge-$VERSION-x64.msi
+              InstallerSha256: INSTALLER_SHA256
+              ProductCode: '{PRODUCT_CODE}'
+          ManifestType: installer
+          ManifestVersion: 1.4.0
+          EOF
+          
+          # Locale manifest
+          cat > winget/manifests/t/TunnelForge/TunnelForge/$VERSION/TunnelForge.TunnelForge.locale.en-US.yaml <<EOF
+          PackageIdentifier: TunnelForge.TunnelForge
+          PackageVersion: $VERSION
+          PackageLocale: en-US
+          Publisher: TunnelForge
+          PublisherUrl: https://tunnelforge.dev
+          PublisherSupportUrl: https://github.com/${{ github.repository }}/issues
+          Author: TunnelForge Team
+          PackageName: TunnelForge
+          PackageUrl: https://tunnelforge.dev
+          License: MIT
+          LicenseUrl: https://github.com/${{ github.repository }}/blob/main/LICENSE
+          ShortDescription: Cross-platform terminal multiplexer
+          Description: TunnelForge is a modern terminal multiplexer with real-time sharing, session management, and cross-platform support.
+          Tags:
+            - terminal
+            - multiplexer
+            - ssh
+            - tunnel
+            - cloudflare
+          ManifestType: defaultLocale
+          ManifestVersion: 1.4.0
+          EOF
+          
+          # Version manifest
+          cat > winget/manifests/t/TunnelForge/TunnelForge/$VERSION/TunnelForge.TunnelForge.yaml <<EOF
+          PackageIdentifier: TunnelForge.TunnelForge
+          PackageVersion: $VERSION
+          DefaultLocale: en-US
+          ManifestType: version
+          ManifestVersion: 1.4.0
+          EOF
+
+      - name: Package Manager Instructions
+        shell: bash
+        run: |
+          echo "⚠️ Windows package manager publishing requires manual steps."
+          echo ""
+          echo "Chocolatey:"
+          echo "  1. Get API key from https://community.chocolatey.org/account"
+          echo "  2. Add CHOCOLATEY_API_KEY secret"
+          echo "  3. Run: choco push tunnelforge.${{ steps.release.outputs.version }}.nupkg --source https://push.chocolatey.org/"
+          echo ""
+          echo "winget:"
+          echo "  1. Fork https://github.com/microsoft/winget-pkgs"
+          echo "  2. Add manifests to manifests/t/TunnelForge/TunnelForge/"
+          echo "  3. Create PR to winget-pkgs"
+          echo ""
+          echo "Users can install with:"
+          echo "  choco install tunnelforge"
+          echo "  winget install TunnelForge.TunnelForge"
+
+  # Create installation documentation
+  create-install-docs:
+    name: Create Installation Documentation
+    runs-on: ubuntu-latest
+    needs: [publish-homebrew, publish-apt, publish-snap, publish-windows]
+    if: always()
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Create INSTALL.md
+        run: |
+          cat > INSTALL.md <<'EOF'
+          # TunnelForge Installation Guide
+
+          ## macOS
+
+          ### Homebrew (Recommended)
+          ```bash
+          brew tap tunnelforge/tap
+          brew install tunnelforge
+          ```
+
+          ### Manual Download
+          1. Download the `.dmg` file for your architecture (arm64 for Apple Silicon, x86_64 for Intel)
+          2. Open the DMG and drag TunnelForge to Applications
+          3. Launch from Applications folder
+
+          ## Linux
+
+          ### Ubuntu/Debian (APT)
+          ```bash
+          # Add repository
+          curl -fsSL https://apt.tunnelforge.dev/key.gpg | sudo gpg --dearmor -o /usr/share/keyrings/tunnelforge.gpg
+          echo 'deb [signed-by=/usr/share/keyrings/tunnelforge.gpg] https://apt.tunnelforge.dev stable main' | sudo tee /etc/apt/sources.list.d/tunnelforge.list
+
+          # Install
+          sudo apt update
+          sudo apt install tunnelforge
+          ```
+
+          ### Snap (All distributions)
+          ```bash
+          sudo snap install tunnelforge
+          ```
+
+          ### AppImage (Universal)
+          ```bash
+          # Download AppImage
+          curl -LO https://github.com/${{ github.repository }}/releases/latest/download/TunnelForge.AppImage
+          
+          # Make executable
+          chmod +x TunnelForge.AppImage
+          
+          # Run
+          ./TunnelForge.AppImage
+          ```
+
+          ### Fedora/RHEL/CentOS (RPM)
+          ```bash
+          sudo rpm -i tunnelforge-*.x86_64.rpm
+          ```
+
+          ## Windows
+
+          ### winget (Recommended for Windows 11)
+          ```powershell
+          winget install TunnelForge.TunnelForge
+          ```
+
+          ### Chocolatey
+          ```powershell
+          choco install tunnelforge
+          ```
+
+          ### Manual Download
+          1. Download the `.msi` installer
+          2. Run the installer
+          3. Follow installation wizard
+
+          ## Post-Installation
+
+          ### Start the server
+          ```bash
+          tunnelforge-server
+          ```
+
+          ### Access web interface
+          Open your browser to: http://localhost:3001
+
+          ### Desktop app
+          Launch the TunnelForge desktop app from your applications menu.
+
+          ## Updating
+
+          ### macOS
+          ```bash
+          brew upgrade tunnelforge
+          ```
+
+          ### Linux (APT)
+          ```bash
+          sudo apt update && sudo apt upgrade tunnelforge
+          ```
+
+          ### Linux (Snap)
+          ```bash
+          sudo snap refresh tunnelforge
+          ```
+
+          ### Windows (winget)
+          ```powershell
+          winget upgrade TunnelForge.TunnelForge
+          ```
+
+          ## Troubleshooting
+
+          ### Server won't start
+          - Check if port 4021 is already in use
+          - Verify permissions for tunnel services (cloudflared, ngrok)
+          - Check logs: `tunnelforge-server --log-level debug`
+
+          ### Desktop app won't connect
+          - Ensure server is running: `ps aux | grep tunnelforge-server`
+          - Check firewall settings
+          - Try: `tunnelforge-server --host 0.0.0.0`
+
+          For more help, visit: https://tunnelforge.dev/docs
+          EOF
+
+      - name: Commit installation docs
+        run: |
+          git config --local user.email "action@github.com"
+          git config --local user.name "GitHub Action"
+          
+          git add INSTALL.md
+          git commit -m "Update installation documentation" || true
+          git push

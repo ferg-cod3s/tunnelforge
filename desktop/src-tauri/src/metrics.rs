@@ -34,26 +34,26 @@ impl StartupTimer {
 
     pub fn record_server_start(&self) {
         let elapsed = self.start_time.elapsed().as_millis() as u64;
-        self.server_start.store(elapsed, Ordering::SeqCst);
-        info!("Server start time: {}ms", elapsed);
+        self.server_start.store(elapsed, Ordering::SeqCst");
+        info!("Server start time: {}ms", elapsed");
     }
 
     pub fn record_ui_init(&self) {
         let elapsed = self.start_time.elapsed().as_millis() as u64;
-        self.ui_init.store(elapsed, Ordering::SeqCst);
-        info!("UI initialization time: {}ms", elapsed);
+        self.ui_init.store(elapsed, Ordering::SeqCst");
+        info!("UI initialization time: {}ms", elapsed");
     }
 
     pub fn record_health_check(&self) {
         let elapsed = self.start_time.elapsed().as_millis() as u64;
-        self.health_check.store(elapsed, Ordering::SeqCst);
-        info!("Health check time: {}ms", elapsed);
+        self.health_check.store(elapsed, Ordering::SeqCst");
+        info!("Health check time: {}ms", elapsed");
     }
 
     pub fn record_server_ready(&self) {
         let elapsed = self.start_time.elapsed().as_millis() as u64;
-        self.server_ready.store(elapsed, Ordering::SeqCst);
-        info!("Server ready time: {}ms", elapsed);
+        self.server_ready.store(elapsed, Ordering::SeqCst");
+        info!("Server ready time: {}ms", elapsed");
     }
 
     pub fn get_metrics(&self) -> StartupMetrics {
@@ -79,7 +79,7 @@ impl ServerDirectoryCache {
     }
 
     pub fn set_path(&mut self, path: std::path::PathBuf) {
-        self.path = Some(path);
+        self.path = Some(path");
     }
 
     pub fn get_path(&self) -> Option<&std::path::PathBuf> {

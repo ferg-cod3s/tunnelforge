@@ -6,15 +6,15 @@ console.log('Starting CI build process...');
 
 // Ensure directories exist
 console.log('Creating directories...');
-execSync('node scripts/ensure-dirs.js', { stdio: 'inherit' });
+execSync('bun run scripts/ensure-dirs.js', { stdio: 'inherit' });
 
 // Copy assets
 console.log('Copying assets...');
-execSync('node scripts/copy-assets.js', { stdio: 'inherit' });
+execSync('bun run scripts/copy-assets.js', { stdio: 'inherit' });
 
 // Build CSS
 console.log('Building CSS...');
-execSync('pnpm exec postcss ./src/client/styles.css -o ./public/bundle/styles.css', { stdio: 'inherit' });
+execSync('bunx postcss ./src/client/styles.css -o ./public/bundle/styles.css', { stdio: 'inherit' });
 
 // Bundle client JavaScript
 console.log('Bundling client JavaScript...');
@@ -25,7 +25,7 @@ execSync('esbuild src/client/sw.ts --bundle --outfile=public/sw.js --format=iife
 // Build server TypeScript
 console.log('Building server...');
 // Force a clean build in CI to avoid incremental build issues
-execSync('npx tsc --build --force', { stdio: 'inherit' });
+execSync('bunx tsc --build --force', { stdio: 'inherit' });
 
 // Verify dist directory exists
 if (fs.existsSync(path.join(__dirname, '../dist'))) {
@@ -47,6 +47,6 @@ if (fs.existsSync(path.join(__dirname, '../dist'))) {
 
 // Build native executable in CI
 console.log('Building native executable for CI...');
-execSync('node build-native.js', { stdio: 'inherit' });
+execSync('bun run build-native.js', { stdio: 'inherit' });
 
 console.log('CI build completed successfully!');

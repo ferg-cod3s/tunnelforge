@@ -42,7 +42,7 @@ pub struct SessionManager {
 
 impl SessionManager {
     pub fn new(server_url: String) -> Self {
-        let (event_sender, _) = broadcast::channel(100);
+        let (event_sender, _) = broadcast::channel(100");
 
         Self {
             sessions: Arc::new(Mutex::new(HashMap::new())),
@@ -52,8 +52,8 @@ impl SessionManager {
     }
 
     pub async fn fetch_sessions(&self) -> Result<Vec<Session>, String> {
-        let client = reqwest::Client::new();
-        let url = format!("{}/api/sessions", self.server_url);
+        let client = reqwest::Client::new(");
+        let url = format!("{}/api/sessions", self.server_url");
 
         match client.get(&url).send().await {
             Ok(response) => {
@@ -63,10 +63,10 @@ impl SessionManager {
 
                     // Update local cache
                     {
-                        let mut local_sessions = self.sessions.lock().unwrap();
-                        local_sessions.clear();
+                        let mut local_sessions = self.sessions.lock().unwrap(");
+                        local_sessions.clear(");
                         for session in &sessions {
-                            local_sessions.insert(session.id.clone(), session.clone());
+                            local_sessions.insert(session.id.clone(), session.clone()");
                         }
                     }
 
@@ -80,15 +80,15 @@ impl SessionManager {
     }
 
     pub async fn create_session(&self, title: Option<String>, command: Option<String>) -> Result<Session, String> {
-        let client = reqwest::Client::new();
-        let url = format!("{}/api/sessions", self.server_url);
+        let client = reqwest::Client::new(");
+        let url = format!("{}/api/sessions", self.server_url");
 
-        let mut body = serde_json::Map::new();
+        let mut body = serde_json::Map::new(");
         if let Some(title) = title {
-            body.insert("title".to_string(), serde_json::Value::String(title));
+            body.insert("title".to_string(), serde_json::Value::String(title)");
         }
         if let Some(command) = command {
-            body.insert("command".to_string(), serde_json::Value::String(command));
+            body.insert("command".to_string(), serde_json::Value::String(command)");
         }
 
         match client.post(&url).json(&body).send().await {
@@ -99,8 +99,8 @@ impl SessionManager {
 
                     // Update local cache
                     {
-                        let mut local_sessions = self.sessions.lock().unwrap();
-                        local_sessions.insert(session.id.clone(), session.clone());
+                        let mut local_sessions = self.sessions.lock().unwrap(");
+                        local_sessions.insert(session.id.clone(), session.clone()");
                     }
 
                     // Emit event
@@ -110,7 +110,7 @@ impl SessionManager {
                         data: serde_json::to_value(&session).unwrap(),
                         timestamp: chrono::Utc::now().to_rfc3339(),
                     };
-                    let _ = self.event_sender.send(event);
+                    let _ = self.event_sender.send(event");
 
                     Ok(session)
                 } else {
@@ -122,16 +122,16 @@ impl SessionManager {
     }
 
     pub async fn delete_session(&self, session_id: &str) -> Result<(), String> {
-        let client = reqwest::Client::new();
-        let url = format!("{}/api/sessions/{}", self.server_url, session_id);
+        let client = reqwest::Client::new(");
+        let url = format!("{}/api/sessions/{}", self.server_url, session_id");
 
         match client.delete(&url).send().await {
             Ok(response) => {
                 if response.status().is_success() {
                     // Remove from local cache
                     {
-                        let mut local_sessions = self.sessions.lock().unwrap();
-                        local_sessions.remove(session_id);
+                        let mut local_sessions = self.sessions.lock().unwrap(");
+                        local_sessions.remove(session_id");
                     }
 
                     // Emit event
@@ -141,7 +141,7 @@ impl SessionManager {
                         data: serde_json::Value::Null,
                         timestamp: chrono::Utc::now().to_rfc3339(),
                     };
-                    let _ = self.event_sender.send(event);
+                    let _ = self.event_sender.send(event");
 
                     Ok(())
                 } else {
@@ -155,15 +155,15 @@ impl SessionManager {
     pub async fn get_session_details(&self, session_id: &str) -> Result<Session, String> {
         // First check local cache
         {
-            let sessions = self.sessions.lock().unwrap();
+            let sessions = self.sessions.lock().unwrap(");
             if let Some(session) = sessions.get(session_id) {
-                return Ok(session.clone());
+                return Ok(session.clone()");
             }
         }
 
         // If not in cache, fetch from server
-        let client = reqwest::Client::new();
-        let url = format!("{}/api/sessions/{}", self.server_url, session_id);
+        let client = reqwest::Client::new(");
+        let url = format!("{}/api/sessions/{}", self.server_url, session_id");
 
         match client.get(&url).send().await {
             Ok(response) => {
@@ -173,8 +173,8 @@ impl SessionManager {
 
                     // Update local cache
                     {
-                        let mut local_sessions = self.sessions.lock().unwrap();
-                        local_sessions.insert(session.id.clone(), session.clone());
+                        let mut local_sessions = self.sessions.lock().unwrap(");
+                        local_sessions.insert(session.id.clone(), session.clone()");
                     }
 
                     Ok(session)
@@ -187,7 +187,7 @@ impl SessionManager {
     }
 
     pub fn get_local_sessions(&self) -> Vec<Session> {
-        let sessions = self.sessions.lock().unwrap();
+        let sessions = self.sessions.lock().unwrap(");
         sessions.values().cloned().collect()
     }
 
@@ -199,7 +199,7 @@ impl SessionManager {
 // Tauri commands for session management
 #[tauri::command]
 pub async fn get_sessions(server_url: String) -> Result<Vec<Session>, String> {
-    let session_manager = SessionManager::new(server_url);
+    let session_manager = SessionManager::new(server_url");
     session_manager.fetch_sessions().await
 }
 
@@ -209,18 +209,18 @@ pub async fn create_session(
     title: Option<String>,
     command: Option<String>
 ) -> Result<Session, String> {
-    let session_manager = SessionManager::new(server_url);
+    let session_manager = SessionManager::new(server_url");
     session_manager.create_session(title, command).await
 }
 
 #[tauri::command]
 pub async fn delete_session(server_url: String, session_id: String) -> Result<(), String> {
-    let session_manager = SessionManager::new(server_url);
+    let session_manager = SessionManager::new(server_url");
     session_manager.delete_session(&session_id).await
 }
 
 #[tauri::command]
 pub async fn get_session_details(server_url: String, session_id: String) -> Result<Session, String> {
-    let session_manager = SessionManager::new(server_url);
+    let session_manager = SessionManager::new(server_url");
     session_manager.get_session_details(&session_id).await
 }

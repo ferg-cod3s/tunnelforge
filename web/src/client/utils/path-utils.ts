@@ -20,10 +20,10 @@
  * formatPathForDisplay('/home/bob/projects') // returns '~/projects'
  */
 export function formatPathForDisplay(path: string): string {
-  if (!path) return "";
+  if (!path) return '';
 
   // If the path is already using ~ notation, return as-is
-  if (path.startsWith("~")) {
+  if (path.startsWith('~')) {
     return path;
   }
 
@@ -31,7 +31,7 @@ export function formatPathForDisplay(path: string): string {
   // This includes Unix paths (starting with /) and Windows paths (starting with drive letter)
   // Use pre-compiled regex for better performance
   // The regex safely matches home directories without being affected by special characters in usernames
-  return path.replace(HOME_PATTERN, "~");
+  return path.replace(HOME_PATTERN, '~');
 }
 
 /**
@@ -45,9 +45,9 @@ export function formatPathForDisplay(path: string): string {
  * expandTilde("/tmp") // returns "/tmp"
  */
 export function expandTilde(path: string): string {
-  if (!path) return "";
+  if (!path) return '';
 
-  if (path.startsWith("~")) {
+  if (path.startsWith('~')) {
     // In the browser, we can't easily get the home directory
     // For now, return the path as-is and let the server handle it
     return path;

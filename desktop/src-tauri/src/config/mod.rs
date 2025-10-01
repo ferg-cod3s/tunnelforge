@@ -59,15 +59,15 @@ impl ConfigManager {
     pub fn load_config(&self) -> Result<AppConfig, String> {
         if !self.config_path.exists() {
             // No config file exists, create default
-            let default_config = AppConfig::default();
+            let default_config = AppConfig::default(");
             self.save_config(&default_config)?;
-            return Ok(default_config);
+            return Ok(default_config");
         }
 
         let mut file = fs::File::open(&self.config_path)
             .map_err(|e| format!("Failed to open config file: {}", e))?;
 
-        let mut contents = String::new();
+        let mut contents = String::new(");
         file.read_to_string(&mut contents)
             .map_err(|e| format!("Failed to read config file: {}", e))?;
 
@@ -93,7 +93,7 @@ impl ConfigManager {
         F: FnOnce(&mut AppConfig),
     {
         let mut config = self.load_config()?;
-        updater(&mut config);
+        updater(&mut config");
         self.save_config(&config)?;
         Ok(config)
     }

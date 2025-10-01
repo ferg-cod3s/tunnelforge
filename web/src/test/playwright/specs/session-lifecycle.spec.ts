@@ -1,5 +1,5 @@
 import { expect, test } from '@playwright/test';
-import { createTestSession, TestSessionTracker, waitForSession } from '../test-utils';
+import { createTestSession, TestSessionTracker, waitForSession } from '../utils/test-utils';
 
 let sessionTracker: TestSessionTracker;
 

@@ -6,14 +6,27 @@
 use std::sync::Arc;
 use tauri::Manager;
 use tauri_plugin_log::{Target, TargetKind};
-use futures::future::join_all;
+// use futures::future::join_all; // Not needed
+use sentry;
+use once_cell::sync::OnceCell;
 
 // Import the library modules
-use tunnelforge_desktop::{
-    init_app_state, setup_app, config, notifications, power, system, ui,
-    access_mode_service, ngrok_service, cloudflare_service, server, sessions,
-    metrics::{StartupTimer, StartupMetrics}
-};
+mod config;
+mod notifications;
+mod power;
+mod system;
+mod ui;
+mod access_mode_service;
+mod ngrok_service;
+mod cloudflare_service;
+mod server;
+mod sessions;
+mod metrics;
+
+// Import lib functions
+use crate::{init_app_state, setup_app};
+use crate::linux_platform;
+use crate::metrics::{StartupTimer, StartupMetrics};
 
 // Feature flags for startup optimizations
 const ENABLE_PARALLEL_UI_INIT: bool = true;
@@ -30,7 +43,7 @@ async fn check_cli_installation() -> Result<bool, String> {
 
     for path in paths {
         if std::path::Path::new(path).exists() {
-            return Ok(true);
+            return Ok(true");
         }
     }
 
@@ -39,20 +52,23 @@ async fn check_cli_installation() -> Result<bool, String> {
 
 #[tauri::command]
 async fn install_cli_tool() -> Result<(), String> {
-    use std::process::Command;
-    use log::info;
+     use std::process::Command;
+     use log::{info, error};
 
-    info!("Installing CLI tool...");
+     info!("Installing CLI tool...");
 
-    #[cfg(target_os = "macos")]
-    {
-        // For now, we'll create a simple shell script that connects to the local server
-        // In a production app, this would download the actual TunnelForge CLI
+     // Capture any errors that occur during CLI installation
+     let result = (|| {
+         // macOS installation logic
+         #[cfg(target_os = "macos")]
+         {
+             // For now, we'll create a simple shell script that connects to the local server
+             // In a production app, this would download the actual TunnelForge CLI
 
-        let install_path = "/usr/local/bin/tunnelforge";
+             let install_path = "/usr/local/bin/tunnelforge";
 
-        // Create a simple CLI script content
-        let cli_script_content = r#"#!/bin/bash
+             // Create a simple CLI script content
+             let cli_script_content = r#"#!/bin/bash
 # TunnelForge CLI (Desktop App Version)
 # This is a simple wrapper that connects to the TunnelForge server
 
@@ -83,48 +99,73 @@ case "$1" in
 esac
 "#;
 
-        // Write the script to a temporary file first
-        let temp_path = "/tmp/tunnelforge_cli_install";
-        std::fs::write(temp_path, cli_script_content)
-            .map_err(|e| format!("Failed to create temporary CLI script: {}", e))?;
+             // Write the script to a temporary file first
+             let temp_path = "/tmp/tunnelforge_cli_install";
+             std::fs::write(temp_path, cli_script_content)
+                 .map_err(|e| format!("Failed to create temporary CLI script: {}", e))?;
 
-        // Install with administrator privileges
-        let status = Command::new("osascript")
-            .arg("-e")
-            .arg(format!(
-                "do shell script \"cp '{}' '{}' && chmod +x '{}' && rm '{}'\" with administrator privileges",
-                temp_path,
-                install_path,
-                install_path,
-                temp_path
-            ))
-            .status()
-            .map_err(|e| format!("Failed to execute install command: {}", e))?;
+             // Install with administrator privileges
+             let status = Command::new("osascript")
+                 .arg("-e")
+                 .arg(format!(
+                     "do shell script \"cp '{}' '{}' && chmod +x '{}' && rm '{}'\" with administrator privileges",
+                     temp_path,
+                     install_path,
+                     install_path,
+                     temp_path
+                 ))
+                 .status()
+                 .map_err(|e| format!("Failed to execute install command: {}", e))?;
 
-        if status.success() {
-            info!("CLI tool installed successfully to {}", install_path);
-            Ok(())
-        } else {
-            Err("CLI installation failed or was cancelled by user".to_string())
-        }
+             if status.success() {
+                 info!("CLI tool installed successfully to {}", install_path");
+                 Ok(())
+             } else {
+                 let error_msg = "CLI installation failed or was cancelled by user".to_string(");
+                 error!("CLI installation failed: {}", error_msg");
+                 sentry::capture_message(&error_msg, sentry::Level::Error");
+                 Err(error_msg)
+             }
+         }
+
+         #[cfg(target_os = "windows")]
+         {
+             Err("CLI installation is not yet supported on Windows".to_string())
+         }
+
+         #[cfg(target_os = "linux")]
+         {
+             Err("CLI installation is not yet supported on Linux".to_string())
+         }
+     })(");
+
+     result
+ }
+
+#[tauri::command]
+async fn test_sentry_integration() -> Result<String, String> {
+    use log::info;
+
+    info!("Testing Sentry integration...");
+
+    // Try to capture a test message
+    sentry::capture_message("Test message from Tauri app", sentry::Level::Info");
+
+    // Check if Sentry DSN is configured
+    let dsn = std::env::var("SENTRY_DSN").unwrap_or_default(");
+    if dsn.is_empty() {
+        return Err("SENTRY_DSN not configured".to_string()");
     }
 
-    #[cfg(target_os = "windows")]
-    {
-        Err("CLI installation is not yet supported on Windows".to_string())
-    }
-
-    #[cfg(target_os = "linux")]
-    {
-        Err("CLI installation is not yet supported on Linux".to_string())
-    }
+    info!("Sentry integration test completed successfully");
+    Ok("Sentry integration working".to_string())
 }
 
 #[tauri::command]
 async fn open_external_url(url: String) -> Result<(), String> {
     use log::{info, error};
 
-    info!("Attempting to open URL: {}", url);
+    info!("Attempting to open URL: {}", url");
 
     // Try using the tauri_plugin_opener first
     match tauri_plugin_opener::open_url(&url, None::<&str>) {
@@ -133,7 +174,7 @@ async fn open_external_url(url: String) -> Result<(), String> {
             Ok(())
         }
         Err(e) => {
-            error!("tauri_plugin_opener failed: {}", e);
+            error!("tauri_plugin_opener failed: {}", e");
 
             // Fallback to system open command
             #[cfg(target_os = "macos")]
@@ -143,7 +184,7 @@ async fn open_external_url(url: String) -> Result<(), String> {
                     .arg(&url)
                     .status()
                     .map_err(|e| {
-                        error!("Failed to execute 'open' command: {}", e);
+                        error!("Failed to execute 'open' command: {}", e");
                         format!("Failed to execute 'open' command: {}", e)
                     })?;
 
@@ -151,7 +192,7 @@ async fn open_external_url(url: String) -> Result<(), String> {
                     info!("URL opened successfully with 'open' command");
                     Ok(())
                 } else {
-                    error!("'open' command failed with exit code: {:?}", status.code());
+                    error!("'open' command failed with exit code: {:?}", status.code()");
                     Err(format!("'open' command failed with exit code: {:?}", status.code()))
                 }
             }
@@ -190,7 +231,7 @@ async fn open_external_url(url: String) -> Result<(), String> {
 #[tauri::command]
 async fn get_startup_metrics() -> Result<StartupMetrics, String> {
     if !ENABLE_STARTUP_METRICS {
-        return Err("Startup metrics are disabled".to_string());
+        return Err("Startup metrics are disabled".to_string()");
     }
 
     let startup_timer = STARTUP_TIMER.get().ok_or("Startup timer not initialized")?;
@@ -198,13 +239,30 @@ async fn get_startup_metrics() -> Result<StartupMetrics, String> {
 }
 
 // Global startup timer
-static STARTUP_TIMER: once_cell::sync::OnceCell<Arc<StartupTimer>> = once_cell::sync::OnceCell::new();
+static STARTUP_TIMER: OnceCell<Arc<StartupTimer>> = OnceCell::new(");
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
+    // Initialize Sentry for error tracking
+    let sentry_dsn = std::env::var("SENTRY_DSN").unwrap_or_default(");
+    if !sentry_dsn.is_empty() {
+        sentry::init((
+            sentry_dsn,
+            sentry::ClientOptions {
+                release: sentry::release_name!(),
+                environment: Some(std::env::var("SENTRY_ENVIRONMENT").unwrap_or_else(|_| "development".into()).into()),
+                traces_sample_rate: 1.0,
+                ..Default::default()
+            }
+        )");
+        log::info!("Sentry initialized for error tracking");
+    } else {
+        log::warn!("SENTRY_DSN not set, Sentry error reporting disabled");
+    }
+
     // Initialize startup timer
-    let startup_timer = Arc::new(StartupTimer::new());
-    let _ = STARTUP_TIMER.set(startup_timer.clone());
+    let startup_timer = Arc::new(StartupTimer::new()");
+    let _ = STARTUP_TIMER.set(startup_timer.clone()");
 
     let app = tauri::Builder::default()
         .manage(init_app_state())
@@ -240,6 +298,7 @@ pub fn run() {
             // CLI and utility commands
             check_cli_installation,
             install_cli_tool,
+            test_sentry_integration,
             open_external_url,
             get_startup_metrics,
 
@@ -291,63 +350,50 @@ pub fn run() {
             access_mode_service::set_access_mode,
             access_mode_service::get_current_binding,
             access_mode_service::test_network_connectivity,
-        ]);
+        ]");
 
     // Parallel UI initialization if enabled
     if ENABLE_PARALLEL_UI_INIT {
         let app = app.setup(move |app| {
-            let app_handle = app.handle();
+            let app_handle = app.handle(");
             
-            // Create services that need AppHandle during setup
-            let futures = vec![
-                Box::pin(async move {
-                    app.manage(access_mode_service::AccessModeService::new(app_handle.clone()));
-                }),
-                Box::pin(async move {
-                    app.manage(ngrok_service::NgrokService::new(app_handle.clone()));
-                }),
-                Box::pin(async move {
-                    app.manage(cloudflare_service::CloudflareService::new(app_handle.clone()));
-                }),
-                Box::pin(async move {
-                    app.manage(ui::MainWindow::new());
-                }),
-                Box::pin(async move {
-                    app.manage(ui::SettingsWindow::new());
-                }),
-                Box::pin(async move {
-                    app.manage(ui::SessionWindow::new());
-                }),
-            ];
+             // Create services that need AppHandle during setup
+             let access_mode_service = access_mode_service::AccessModeService::new(app_handle.clone()");
+             let ngrok_service = ngrok_service::NgrokService::new(app_handle.clone()");
+             let cloudflare_service = cloudflare_service::CloudflareService::new(app_handle.clone()");
+             let main_window = ui::MainWindow::new(");
+             let settings_window = ui::SettingsWindow::new(");
+             let session_window = ui::SessionWindow::new(");
 
-            // Run all initialization futures in parallel
-            tokio::runtime::Runtime::new()
-                .unwrap()
-                .block_on(async {
-                    join_all(futures).await;
-                });
+             // Manage all services
+             app.manage(access_mode_service");
+             app.manage(ngrok_service");
+             app.manage(cloudflare_service");
+             app.manage(main_window");
+             app.manage(settings_window");
+             app.manage(session_window");
 
-            startup_timer.record_ui_init();
-            setup_app(app)
-        });
+             startup_timer.record_ui_init(");
+             setup_app(app).map_err(|e| Box::new(std::io::Error::new(std::io::ErrorKind::Other, e)))?;
+         }");
 
         app.run(tauri::generate_context!())
             .expect("error while running tauri application");
     } else {
         // Sequential initialization (original behavior)
         let app = app.setup(|app| {
-            let app_handle = app.handle();
+            let app_handle = app.handle(");
             
-            app.manage(access_mode_service::AccessModeService::new(app_handle.clone()));
-            app.manage(ngrok_service::NgrokService::new(app_handle.clone()));
-            app.manage(cloudflare_service::CloudflareService::new(app_handle.clone()));
-            app.manage(ui::MainWindow::new());
-            app.manage(ui::SettingsWindow::new());
-            app.manage(ui::SessionWindow::new());
+            app.manage(access_mode_service::AccessModeService::new(app_handle.clone())");
+            app.manage(ngrok_service::NgrokService::new(app_handle.clone())");
+            app.manage(cloudflare_service::CloudflareService::new(app_handle.clone())");
+            app.manage(ui::MainWindow::new()");
+            app.manage(ui::SettingsWindow::new()");
+             app.manage(ui::SessionWindow::new()");
 
-            startup_timer.record_ui_init();
-            setup_app(app)
-        });
+             startup_timer.record_ui_init(");
+             setup_app(app).map_err(|e| Box::new(std::io::Error::new(std::io::ErrorKind::Other, e)))?;
+         }");
 
         app.run(tauri::generate_context!())
             .expect("error while running tauri application");
@@ -355,5 +401,5 @@ pub fn run() {
 }
 
 fn main() {
-    run();
+    run(");
 }

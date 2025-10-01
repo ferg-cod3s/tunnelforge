@@ -32,7 +32,9 @@ describe('formatPathForDisplay', () => {
     });
 
     it('should not replace if not at the beginning', () => {
-      expect(formatPathForDisplay('/some/path/Users/john/Documents')).toBe('/some/path/Users/john/Documents');
+      expect(formatPathForDisplay('/some/path/Users/john/Documents')).toBe(
+        '/some/path/Users/john/Documents'
+      );
       expect(formatPathForDisplay('/home/other/Users/alice')).toBe('/home/other/Users/alice');
     });
   });
@@ -62,7 +64,9 @@ describe('formatPathForDisplay', () => {
     });
 
     it('should not replace if not at the beginning', () => {
-      expect(formatPathForDisplay('/some/path/home/john/Documents')).toBe('/some/path/home/john/Documents');
+      expect(formatPathForDisplay('/some/path/home/john/Documents')).toBe(
+        '/some/path/home/john/Documents'
+      );
       expect(formatPathForDisplay('/usr/local/home/alice')).toBe('/usr/local/home/alice');
     });
   });
@@ -115,7 +119,9 @@ describe('formatPathForDisplay', () => {
     });
 
     it('should not replace if Users is not after drive', () => {
-      expect(formatPathForDisplay('C:/some/path/Users/john/Documents')).toBe('C:/some/path/Users/john/Documents');
+      expect(formatPathForDisplay('C:/some/path/Users/john/Documents')).toBe(
+        'C:/some/path/Users/john/Documents'
+      );
       expect(formatPathForDisplay('C:/Users-backup/alice')).toBe('C:/Users-backup/alice');
     });
   });
@@ -159,7 +165,9 @@ describe('formatPathForDisplay', () => {
     });
 
     it('should handle multiple home directory patterns in path', () => {
-      expect(formatPathForDisplay('/Users/john/Projects/Users/alice')).toBe('~/Projects/Users/alice');
+      expect(formatPathForDisplay('/Users/john/Projects/Users/alice')).toBe(
+        '~/Projects/Users/alice'
+      );
       expect(formatPathForDisplay('/home/john/Work/home/alice')).toBe('~/Work/home/alice');
     });
   });
@@ -229,7 +237,9 @@ describe('copyToClipboard', () => {
   it('should return false when execCommand throws', async () => {
     // Remove clipboard API and make execCommand throw
     delete (globalThis.navigator as any).clipboard;
-    execCommandSpy = mock(() => { throw new Error('execCommand failed'); });
+    execCommandSpy = mock(() => {
+      throw new Error('execCommand failed');
+    });
 
     const result = await copyToClipboard('test text');
     expect(result).toBe(false);
@@ -247,7 +257,9 @@ describe('copyToClipboard', () => {
   it('should clean up textarea even when execCommand fails', async () => {
     // Remove clipboard API and make execCommand fail
     delete (globalThis.navigator as any).clipboard;
-    execCommandSpy = mock(() => { throw new Error('execCommand failed'); });
+    execCommandSpy = mock(() => {
+      throw new Error('execCommand failed');
+    });
 
     const result = await copyToClipboard('test text');
     expect(result).toBe(false);

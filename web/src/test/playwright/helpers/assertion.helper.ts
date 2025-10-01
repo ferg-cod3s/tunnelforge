@@ -18,7 +18,7 @@ export async function assertSessionInList(
   }
 
   // Ensure all sessions are visible (including exited ones)
-  const { ensureAllSessionsVisible } = await import('./ui-state.helper');
+  const { ensureAllSessionsVisible } = require('./ui-state.helper');
   await ensureAllSessionsVisible(page);
 
   // Wait for session list to be ready - check for cards or "no sessions" message

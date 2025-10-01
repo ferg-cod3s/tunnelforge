@@ -1,8 +1,8 @@
 {
   "extends": "./tsconfig.base.json",
   "compilerOptions": {
-    "module": "CommonJS",
-    "lib": ["ES2020"],
+    "module": "ESNext",
+    "lib": ["ES2020", "DOM"],
     "outDir": "./dist",
     "rootDir": "./src",
     "declaration": true,
@@ -17,7 +17,8 @@
     "src/server/**/*",
     "src/shared/**/*",
     "src/types/**/*",
-    "src/cli.ts"
+    "src/cli.ts",
+    "src/sentry.ts"
   ],
   "exclude": [
     "node_modules",

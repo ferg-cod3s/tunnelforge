@@ -7,7 +7,7 @@ use std::collections::HashMap;
 use tokio::time::{interval, Duration};
 use log::{info, error, debug};
 
-use crate::add_log_entry;
+// use crate::add_log_entry; // Will be implemented later
 
 pub struct SessionMonitor {
     sessions: Arc<Mutex<HashMap<String, Session>>>,
@@ -28,20 +28,20 @@ impl SessionMonitor {
 
     pub async fn start_monitoring(&self) -> Result<(), String> {
         {
-            let mut monitoring = self.monitoring.lock().unwrap();
+            let mut monitoring = self.monitoring.lock().unwrap(");
             if *monitoring {
-                return Err("Session monitoring is already running".to_string());
+                return Err("Session monitoring is already running".to_string()");
             }
             *monitoring = true;
         }
 
-        add_log_entry("info", "Starting session monitoring");
+        log::info!(""Starting session monitoring");
         info!("Starting session monitoring");
 
-        let sessions = Arc::clone(&self.sessions);
-        let event_sender = self.event_sender.clone();
-        let server_url = self.server_url.clone();
-        let monitoring = Arc::clone(&self.monitoring);
+        let sessions = Arc::clone(&self.sessions");
+        let event_sender = self.event_sender.clone(");
+        let server_url = self.server_url.clone(");
+        let monitoring = Arc::clone(&self.monitoring");
 
         tokio::spawn(async move {
             let mut interval = interval(Duration::from_secs(5)); // Check every 5 seconds
@@ -49,7 +49,7 @@ impl SessionMonitor {
             loop {
                 // Check if monitoring should continue
                 {
-                    let monitoring_flag = monitoring.lock().unwrap();
+                    let monitoring_flag = monitoring.lock().unwrap(");
                     if !*monitoring_flag {
                         break;
                     }
@@ -60,7 +60,7 @@ impl SessionMonitor {
                 // Fetch current sessions from server
                 match Self::fetch_sessions_from_server(&server_url).await {
                     Ok(current_sessions) => {
-                        let mut local_sessions = sessions.lock().unwrap();
+                        let mut local_sessions = sessions.lock().unwrap(");
 
                         // Compare with previous state and emit events
                         for session in &current_sessions {
@@ -75,8 +75,8 @@ impl SessionMonitor {
                                             data: serde_json::to_value(session).unwrap(),
                                             timestamp: chrono::Utc::now().to_rfc3339(),
                                         };
-                                        let _ = event_sender.send(event);
-                                        debug!("Session {} updated", session.id);
+                                        let _ = event_sender.send(event");
+                                        debug!("Session {} updated", session.id");
                                     }
                                 }
                                 None => {
@@ -87,15 +87,15 @@ impl SessionMonitor {
                                         data: serde_json::to_value(session).unwrap(),
                                         timestamp: chrono::Utc::now().to_rfc3339(),
                                     };
-                                    let _ = event_sender.send(event);
-                                    debug!("New session detected: {}", session.id);
+                                    let _ = event_sender.send(event");
+                                    debug!("New session detected: {}", session.id");
                                 }
                             }
                         }
 
                         // Check for deleted sessions
                         let current_ids: std::collections::HashSet<_> =
-                            current_sessions.iter().map(|s| &s.id).collect();
+                            current_sessions.iter().map(|s| &s.id).collect(");
 
                         for (session_id, _) in local_sessions.iter() {
                             if !current_ids.contains(session_id) {
@@ -105,46 +105,46 @@ impl SessionMonitor {
                                     data: serde_json::Value::Null,
                                     timestamp: chrono::Utc::now().to_rfc3339(),
                                 };
-                                let _ = event_sender.send(event);
-                                debug!("Session deleted: {}", session_id);
+                                let _ = event_sender.send(event");
+                                debug!("Session deleted: {}", session_id");
                             }
                         }
 
                         // Update local cache
-                        local_sessions.clear();
+                        local_sessions.clear(");
                         for session in current_sessions {
-                            local_sessions.insert(session.id.clone(), session);
+                            local_sessions.insert(session.id.clone(), session");
                         }
                     }
                     Err(e) => {
-                        error!("Failed to fetch sessions during monitoring: {}", e);
-                        add_log_entry("error", &format!("Session monitoring error: {}", e));
+                        error!("Failed to fetch sessions during monitoring: {}", e");
+                        log::error!("&format!("Session monitoring error: {}", e)");
                     }
                 }
             }
 
-            add_log_entry("info", "Session monitoring stopped");
+            log::info!(""Session monitoring stopped");
             info!("Session monitoring stopped");
-        });
+        }");
 
         Ok(())
     }
 
     pub fn stop_monitoring(&self) {
-        let mut monitoring = self.monitoring.lock().unwrap();
+        let mut monitoring = self.monitoring.lock().unwrap(");
         *monitoring = false;
-        add_log_entry("info", "Stopping session monitoring");
+        log::info!(""Stopping session monitoring");
         info!("Stopping session monitoring");
     }
 
     pub fn is_monitoring(&self) -> bool {
-        let monitoring = self.monitoring.lock().unwrap();
+        let monitoring = self.monitoring.lock().unwrap(");
         *monitoring
     }
 
     async fn fetch_sessions_from_server(server_url: &str) -> Result<Vec<Session>, String> {
-        let client = reqwest::Client::new();
-        let url = format!("{}/api/sessions", server_url);
+        let client = reqwest::Client::new(");
+        let url = format!("{}/api/sessions", server_url");
 
         match client.get(&url).send().await {
             Ok(response) => {
@@ -160,7 +160,7 @@ impl SessionMonitor {
     }
 
     pub fn get_cached_sessions(&self) -> Vec<Session> {
-        let sessions = self.sessions.lock().unwrap();
+        let sessions = self.sessions.lock().unwrap(");
         sessions.values().cloned().collect()
     }
 }
@@ -170,8 +170,8 @@ impl SessionMonitor {
 pub async fn start_session_monitoring(server_url: String) -> Result<(), String> {
     // This would need to be stored in app state in a real implementation
     // For now, we'll create a temporary monitor
-    let (event_sender, _) = tokio::sync::broadcast::channel(100);
-    let monitor = SessionMonitor::new(server_url, event_sender);
+    let (event_sender, _) = tokio::sync::broadcast::channel(100");
+    let monitor = SessionMonitor::new(server_url, event_sender");
     monitor.start_monitoring().await
 }
 

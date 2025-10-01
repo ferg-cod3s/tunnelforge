@@ -6,7 +6,7 @@ import CloudflareIntegration from './CloudflareIntegration.svelte';
 const mockInvoke = vi.fn();
 
 vi.mock('@tauri-apps/api/core', () => ({
-  invoke: mockInvoke
+  invoke: mockInvoke,
 }));
 
 describe('CloudflareIntegration', () => {
@@ -19,7 +19,11 @@ describe('CloudflareIntegration', () => {
 
     expect(screen.getByText('☁️')).toBeInTheDocument();
     expect(screen.getByText('Cloudflare Quick Tunnels')).toBeInTheDocument();
-    expect(screen.getByText('Create secure tunnels to expose your local development server to the internet using Cloudflare')).toBeInTheDocument();
+    expect(
+      screen.getByText(
+        'Create secure tunnels to expose your local development server to the internet using Cloudflare'
+      )
+    ).toBeInTheDocument();
   });
 
   it('shows not installed status initially', async () => {
@@ -28,13 +32,13 @@ describe('CloudflareIntegration', () => {
       is_installed: false,
       is_running: false,
       public_url: null,
-      status_error: null
+      status_error: null,
     });
 
     render(CloudflareIntegration);
 
     // Wait for status to load
-    await new Promise(resolve => setTimeout(resolve, 100));
+    await new Promise((resolve) => setTimeout(resolve, 100));
 
     expect(screen.getByText('Status: Not Installed')).toBeInTheDocument();
     expect(screen.getByText('Installation Required')).toBeInTheDocument();
@@ -45,12 +49,12 @@ describe('CloudflareIntegration', () => {
       is_installed: false,
       is_running: false,
       public_url: null,
-      status_error: null
+      status_error: null,
     });
 
     render(CloudflareIntegration);
 
-    await new Promise(resolve => setTimeout(resolve, 100));
+    await new Promise((resolve) => setTimeout(resolve, 100));
 
     expect(screen.getByText('Install via Homebrew')).toBeInTheDocument();
     expect(screen.getByText('Download')).toBeInTheDocument();
@@ -62,12 +66,12 @@ describe('CloudflareIntegration', () => {
       is_installed: true,
       is_running: false,
       public_url: null,
-      status_error: null
+      status_error: null,
     });
 
     render(CloudflareIntegration);
 
-    await new Promise(resolve => setTimeout(resolve, 100));
+    await new Promise((resolve) => setTimeout(resolve, 100));
 
     expect(screen.getByText('Status: Installed')).toBeInTheDocument();
   });
@@ -77,12 +81,12 @@ describe('CloudflareIntegration', () => {
       is_installed: true,
       is_running: true,
       public_url: 'https://test.trycloudflare.com',
-      status_error: null
+      status_error: null,
     });
 
     render(CloudflareIntegration);
 
-    await new Promise(resolve => setTimeout(resolve, 100));
+    await new Promise((resolve) => setTimeout(resolve, 100));
 
     expect(screen.getByText('Status: Running')).toBeInTheDocument();
     expect(screen.getByText('Public URL:')).toBeInTheDocument();
@@ -95,7 +99,7 @@ describe('CloudflareIntegration', () => {
       is_installed: true,
       is_running: false,
       public_url: null,
-      status_error: null
+      status_error: null,
     });
 
     // Mock successful tunnel start
@@ -103,7 +107,7 @@ describe('CloudflareIntegration', () => {
 
     render(CloudflareIntegration);
 
-    await new Promise(resolve => setTimeout(resolve, 100));
+    await new Promise((resolve) => setTimeout(resolve, 100));
 
     const startButton = screen.getByText('Start Tunnel');
     await fireEvent.click(startButton);
@@ -117,12 +121,12 @@ describe('CloudflareIntegration', () => {
       is_installed: true,
       is_running: true,
       public_url: 'https://test.trycloudflare.com',
-      status_error: null
+      status_error: null,
     });
 
     render(CloudflareIntegration);
 
-    await new Promise(resolve => setTimeout(resolve, 100));
+    await new Promise((resolve) => setTimeout(resolve, 100));
 
     const stopButton = screen.getByText('Stop Tunnel');
     await fireEvent.click(stopButton);
@@ -135,12 +139,12 @@ describe('CloudflareIntegration', () => {
       is_installed: true,
       is_running: false,
       public_url: null,
-      status_error: null
+      status_error: null,
     });
 
     render(CloudflareIntegration);
 
-    await new Promise(resolve => setTimeout(resolve, 100));
+    await new Promise((resolve) => setTimeout(resolve, 100));
 
     const portInput = screen.getByDisplayValue('4021');
     await fireEvent.change(portInput, { target: { value: '8080' } });
@@ -153,12 +157,12 @@ describe('CloudflareIntegration', () => {
       is_installed: true,
       is_running: false,
       public_url: null,
-      status_error: null
+      status_error: null,
     });
 
     render(CloudflareIntegration);
 
-    await new Promise(resolve => setTimeout(resolve, 100));
+    await new Promise((resolve) => setTimeout(resolve, 100));
 
     const refreshButton = screen.getByText('Refresh');
     await fireEvent.click(refreshButton);
@@ -171,12 +175,12 @@ describe('CloudflareIntegration', () => {
       is_installed: false,
       is_running: false,
       public_url: null,
-      status_error: null
+      status_error: null,
     });
 
     render(CloudflareIntegration);
 
-    await new Promise(resolve => setTimeout(resolve, 100));
+    await new Promise((resolve) => setTimeout(resolve, 100));
 
     const homebrewButton = screen.getByText('Install via Homebrew');
     const downloadButton = screen.getByText('Download');

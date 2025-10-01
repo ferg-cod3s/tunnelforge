@@ -355,7 +355,7 @@ Git follow mode creates an intelligent synchronization between a main repository
 - **Git Hooks** (`src/server/utils/git-hooks.ts`): Manages post-commit, post-checkout, post-merge hooks
 - **Git Event Handler** (`src/server/routes/git.ts:186-482`): Processes git events and handles synchronization
 - **Socket API** (`src/server/api-socket-server.ts:217-267`): Socket-based follow mode control
-- **CLI Integration** (`web/bin/vt`): Smart command handling with path/branch detection
+ - **CLI Integration** (`web/bin/tf`): Smart command handling with path/branch detection
 
 **Configuration**:
 - Single config option: `tunnelforge.followWorktree` stores the worktree path being followed
@@ -370,23 +370,23 @@ Git follow mode creates an intelligent synchronization between a main repository
 **Command Usage**:
 ```bash
 # From worktree - follow this worktree
-vt follow
+tf follow
 
 # From main repo - smart detection
-vt follow                    # Follow current branch's worktree (if exists)
-vt follow feature/new-api    # Follow worktree for this branch
-vt follow ~/project-feature  # Follow worktree by path
+tf follow                    # Follow current branch's worktree (if exists)
+tf follow feature/new-api    # Follow worktree for this branch
+tf follow ~/project-feature  # Follow worktree by path
 ```
 
 **Hook Installation**:
 - Hooks installed in BOTH main repository and worktree
-- Hooks execute `vt git event` which notifies server via socket API
+ - Hooks execute `tf git event` which notifies server via socket API
 - Server processes events based on source (main vs worktree)
 - Existing hooks are preserved with `.vtbak` extension
 
 **Event Flow**:
 1. Git event occurs (checkout, commit, merge)
-2. Hook executes `vt git event`
+ 2. Hook executes `tf git event`
 3. CLI sends event via socket to server
 4. Server determines sync action based on event source
 5. Appropriate git commands executed to maintain sync

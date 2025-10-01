@@ -6,15 +6,15 @@ import SettingsWindow from './SettingsWindow.svelte';
 const mockInvoke = vi.fn();
 const mockWindow = {
   setTitle: vi.fn(),
-  close: vi.fn()
+  close: vi.fn(),
 };
 
 vi.mock('@tauri-apps/api/core', () => ({
-  invoke: mockInvoke
+  invoke: mockInvoke,
 }));
 
 vi.mock('@tauri-apps/api/window', () => ({
-  getCurrentWindow: () => mockWindow
+  getCurrentWindow: () => mockWindow,
 }));
 
 describe('SettingsWindow', () => {
@@ -75,13 +75,13 @@ describe('SettingsWindow', () => {
       general: { auto_start: true },
       server: { port: 4021 },
       notifications: { session_start: true },
-      integrations: {}
+      integrations: {},
     });
 
     render(SettingsWindow);
 
     // Wait for loading to complete
-    await new Promise(resolve => setTimeout(resolve, 100));
+    await new Promise((resolve) => setTimeout(resolve, 100));
 
     expect(mockInvoke).toHaveBeenCalledWith('get_config');
   });

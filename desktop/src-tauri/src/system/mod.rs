@@ -27,7 +27,7 @@ impl Default for SystemSettings {
 #[tauri::command]
 pub async fn get_system_settings() -> Result<SystemSettings, String> {
     // In a real implementation, this would load from persistent storage
-    add_log_entry("info", "Getting system settings");
+    log::info!(""Getting system settings");
     Ok(SystemSettings::default())
 }
 
@@ -35,7 +35,7 @@ pub async fn get_system_settings() -> Result<SystemSettings, String> {
 pub async fn update_system_settings(_settings: SystemSettings) -> Result<(), String> {
     // In a real implementation, this would update the stored settings
     // and apply changes like enabling/disabling auto-start
-    use crate::add_log_entry;
-    add_log_entry("info", "System settings updated");
+// use crate::add_log_entry; // Will be implemented later
+    log::info!("System settings updated");
     Ok(())
 }

@@ -122,7 +122,7 @@ TunnelForge is a modern cross-platform terminal multiplexer that provides browse
 ## Data Flows
 
 ### Terminal Session Lifecycle
-1. User launches the `vt` command or selects **New Session** from the UI.
+1. User launches the `tf` command or selects **New Session** from the UI.
 2. `ServerManager` verifies that the Bun server is running and starts it if needed.
 3. A `POST /api/sessions` request triggers `TerminalManager.createTerminal()` on the server.
 4. `PtyManager.spawn()` allocates a new PTY process and stores session metadata.
@@ -138,7 +138,7 @@ TunnelForge is a modern cross-platform terminal multiplexer that provides browse
 4. The client updates its terminal display accordingly.
 
 ### Server Lifecycle Flow
-1. Starting the macOS app or running `vt` launches `ServerManager`.
+1. Starting the macOS app or running `tf` launches `ServerManager`.
 2. `BunServer` spawns the Bun-based HTTP/WebSocket server process.
 3. Health checks hit `/api/health` to verify the server is alive.
 4. On stop or crash, `ServerManager` gracefully shuts down or restarts the process.
@@ -472,9 +472,9 @@ export interface Session {
 
 ## CLI Integration
 
-### vt Command Wrapper
+### tf Command Wrapper
 
-**Script Location**: `/usr/local/bin/vt`
+**Script Location**: `/usr/local/bin/tf`
 ```bash
 #!/bin/bash
 # TunnelForge CLI wrapper for Node.js server
@@ -493,7 +493,7 @@ exec /usr/local/bin/tunnelforge fwd "$@"
 ### CLI Features
 
 **Command Parsing**:
-- Automatic 'fwd' prepending for vt wrapper
+- Automatic 'fwd' prepending for tf wrapper
 - Shell detection and setup
 - Working directory preservation
 - Environment variable handling

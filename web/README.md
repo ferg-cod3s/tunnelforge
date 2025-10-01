@@ -29,7 +29,7 @@ pnpm run build
 - Pre-built binaries for common platforms (macOS x64/arm64, Linux x64/arm64)
 - Automatic fallback to source compilation if pre-built binaries unavailable
 - Global installation makes `tunnelforge` command available system-wide
-- Conditional `vt` command installation (see [VT Installation Guide](docs/VT_INSTALLATION.md))
+ - Conditional `tf` command installation (see [TF Installation Guide](docs/TF_INSTALLATION.md))
 - Includes production dependencies only
 
 **Source installation**:
@@ -112,42 +112,42 @@ Debugging:
   --debug               Enable debug logging
 ```
 
-### Use the vt command wrapper
+### Use the tf command wrapper
 
-The `vt` command allows you to run commands with TTY forwarding:
+The `tf` command allows you to run commands with TTY forwarding:
 
 ```bash
 # Monitor AI agents with automatic activity tracking
-vt claude
-vt claude --dangerously-skip-permissions
+tf claude
+tf claude --dangerously-skip-permissions
 
 # Run commands with output visible in TunnelForge
-vt npm test
-vt python script.py
-vt top
+tf npm test
+tf python script.py
+tf top
 
 # Launch interactive shell
-vt --shell
-vt -i
+tf --shell
+tf -i
 
 # Update session title (inside a session)
-vt title "My Project"
+tf title "My Project"
 
 # Execute command directly without shell wrapper
-vt --no-shell-wrap ls -la
-vt -S ls -la
+tf --no-shell-wrap ls -la
+tf -S ls -la
 
 # Control terminal title behavior
-vt --title-mode none     # No title management
-vt --title-mode filter   # Block all title changes
-vt --title-mode static   # Show directory and command
-vt --title-mode dynamic  # Show directory, command, and activity
+tf --title-mode none     # No title management
+tf --title-mode filter   # Block all title changes
+tf --title-mode static   # Show directory and command
+tf --title-mode dynamic  # Show directory, command, and activity
 
 # Verbosity control
-vt -q npm test          # Quiet mode (errors only)
-vt -v npm run dev       # Verbose mode
-vt -vv npm test         # Extra verbose
-vt -vvv npm build       # Debug mode
+tf -q npm test          # Quiet mode (errors only)
+tf -v npm run dev       # Verbose mode
+tf -vv npm test         # Extra verbose
+tf -vvv npm build       # Debug mode
 ```
 
 ### Forward commands to a session
@@ -204,7 +204,7 @@ For detailed information, see the [Git Worktree Management Guide](docs/worktree.
 
 This npm package includes:
 - Full TunnelForge server with web UI
-- Command-line tools (tunnelforge, vt)
+ - Command-line tools (tunnelforge, tf)
 - Native PTY support for terminal emulation
 - Web interface with xterm.js
 - Session management and forwarding

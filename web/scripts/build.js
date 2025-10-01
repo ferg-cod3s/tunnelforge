@@ -10,15 +10,15 @@ async function build() {
   
   // Validate version sync
   console.log('Validating version sync...');
-  execSync('node scripts/validate-version-sync.js', { stdio: 'inherit' });
+  execSync('bun run scripts/validate-version-sync.js', { stdio: 'inherit' });
 
   // Ensure directories exist
   console.log('Creating directories...');
-  execSync('node scripts/ensure-dirs.js', { stdio: 'inherit' });
+  execSync('bun run scripts/ensure-dirs.js', { stdio: 'inherit' });
 
   // Copy assets
   console.log('Copying assets...');
-  execSync('node scripts/copy-assets.js', { stdio: 'inherit' });
+  execSync('bun run scripts/copy-assets.js', { stdio: 'inherit' });
 
   // Build CSS
   console.log('Building CSS...');
@@ -59,7 +59,7 @@ async function build() {
 
   // Build server TypeScript
   console.log('Building server...');
-  execSync('npx tsc -p tsconfig.server.json', { stdio: 'inherit' });
+  execSync('bunx tsc -p tsconfig.server.json', { stdio: 'inherit' });
 
   // Bundle CLI
   console.log('Bundling CLI...');

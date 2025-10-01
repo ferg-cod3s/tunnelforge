@@ -390,10 +390,8 @@ func (s *Server) setupRoutes() {
 
 	// Domain setup routes
 
-	// Control stream route (for frontend compatibility)
-	sessionRouter.HandleFunc("/control/stream", s.handleControlStream).Methods("GET")
-	// Control stream route (for frontend compatibility)
-	sessionRouter.HandleFunc("/control/stream", s.handleControlStream).Methods("GET")
+ 	// Control stream route (for frontend compatibility)
+ 	sessionRouter.HandleFunc("/control/stream", s.handleControlStream).Methods("GET")
 
 	// Static file serving (serve embedded frontend files)
 	staticHandler, err := static.GetStaticHandler()
@@ -509,15 +507,13 @@ func (s *Server) setupRoutes() {
 		handler = ipWhitelist.Middleware(handler)
 	}
 
-	s.httpServer = &http.Server{
-		Addr:         fmt.Sprintf("%s:%s", s.config.Host, s.config.Port),
-		Handler:      handler,
-		ReadTimeout:  15 * time.Second,
-		WriteTimeout: 15 * time.Second,
-		IdleTimeout:  60 * time.Second,
-	}
-	s.mu.Lock()
-	s.mu.Unlock()
+ 	s.httpServer = &http.Server{
+ 		Addr:         fmt.Sprintf("%s:%s", s.config.Host, s.config.Port),
+ 		Handler:      handler,
+ 		ReadTimeout:  15 * time.Second,
+ 		WriteTimeout: 15 * time.Second,
+ 		IdleTimeout:  60 * time.Second,
+ 	}
 }
 
 // Handler returns the HTTP handler for the server
@@ -552,7 +548,8 @@ func (s *Server) Start() error {
 		WithMessage("TunnelForge Go server started")
 	s.broadcastEvent(startEvent)
 
-	return s.httpServer.ListenAndServe()
+ 	log.Printf("Starting HTTP server on %s", s.httpServer.Addr)
+ 	return s.httpServer.ListenAndServe()
 }
 
 func (s *Server) Shutdown(ctx context.Context) error {

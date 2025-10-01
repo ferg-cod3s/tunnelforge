@@ -43,11 +43,19 @@ export function createFilesystemRoutes(): Router {
       const resolvedPath = path.resolve(requestedPath);
       const resolvedBase = path.resolve(basePath);
 
+      logger.log(
+        '[FileBrowser] Path safety check - requested:',
+        requestedPath,
+        'resolved:',
+        resolvedPath
+      );
+
       // Allow access to user's home directory and its subdirectories
       const userHome = process.env.HOME || process.env.USERPROFILE;
       if (userHome) {
         const resolvedHome = path.resolve(userHome);
         if (resolvedPath.startsWith(resolvedHome)) {
+          logger.log('[FileBrowser] Path allowed - matches user home:', resolvedHome);
           return true;
         }
       }
@@ -61,17 +69,40 @@ export function createFilesystemRoutes(): Router {
         process.cwd(), // Current working directory
       ];
 
+      // Allow custom directories from environment variable
+      const customAllowedDirs = process.env.TUNNELFORGE_ALLOWED_DIRS;
+      if (customAllowedDirs) {
+        const customPaths = customAllowedDirs.split(':').filter((p) => p.trim());
+        safePaths.push(...customPaths);
+      }
+
       for (const safePath of safePaths) {
         const resolvedSafePath = path.resolve(safePath);
         if (resolvedPath.startsWith(resolvedSafePath)) {
+          logger.log('[FileBrowser] Path allowed - matches safe path:', resolvedSafePath);
           return true;
         }
       }
 
       // Check if path is within base path
-      return resolvedPath.startsWith(resolvedBase);
+      if (resolvedPath.startsWith(resolvedBase)) {
+        logger.log('[FileBrowser] Path allowed - within base path:', resolvedBase);
+        return true;
+      }
+
+      logger.warn(
+        '[FileBrowser] Path rejected - not in any allowed directory. Path:',
+        resolvedPath,
+        'Allowed:',
+        {
+          userHome: userHome ? path.resolve(userHome) : 'none',
+          safePaths: safePaths.map((p) => path.resolve(p)),
+          basePath: resolvedBase,
+        }
+      );
+      return false;
     } catch (error) {
-      logger.warn(`Path safety check failed for ${requestedPath}:`, error);
+      logger.warn(`[FileBrowser] Path safety check failed for ${requestedPath}:`, error);
       return false;
     }
   }
@@ -154,6 +185,13 @@ export function createFilesystemRoutes(): Router {
       const showHidden = req.query.showHidden === 'true';
       const gitFilter = req.query.gitFilter as string; // 'all' | 'changed' | 'none'
 
+      logger.log(
+        '[FileBrowser] Browse request received - raw path:',
+        req.query.path,
+        'decoded:',
+        requestedPath
+      );
+
       // Handle tilde expansion for home directory
       requestedPath = expandTildePath(requestedPath);
 
@@ -163,8 +201,13 @@ export function createFilesystemRoutes(): Router {
 
       // Security check
       if (!isPathSafe(requestedPath, process.cwd())) {
-        logger.warn(`access denied for path: ${requestedPath}`);
-        return res.status(403).json({ error: 'Access denied' });
+        logger.warn(`[FileBrowser] Access denied for path: ${requestedPath}`);
+        const userHome = process.env.HOME || process.env.USERPROFILE || '~';
+        return res.status(403).json({
+          error: 'Access denied',
+          message: `Access to this directory is restricted for security. Allowed locations: ${userHome}, /tmp, /usr/local, /opt, or current working directory. Use TUNNELFORGE_ALLOWED_DIRS environment variable to allow additional directories.`,
+          path: requestedPath,
+        });
       }
 
       const fullPath = path.resolve(requestedPath);
@@ -175,16 +218,24 @@ export function createFilesystemRoutes(): Router {
         stats = await fs.stat(fullPath);
       } catch (error) {
         if (error instanceof Error && 'code' in error && error.code === 'ENOENT') {
-          logger.warn(`directory not found: ${requestedPath}`);
-          return res.status(404).json({ error: 'Directory not found' });
+          logger.warn(`[FileBrowser] Directory not found: ${requestedPath}`);
+          return res.status(404).json({
+            error: 'Directory not found',
+            message: `The directory "${requestedPath}" does not exist or is not accessible.`,
+            path: requestedPath,
+          });
         }
         // Re-throw other errors to be handled by outer catch
         throw error;
       }
 
       if (!stats.isDirectory()) {
-        logger.warn(`path is not a directory: ${requestedPath}`);
-        return res.status(400).json({ error: 'Path is not a directory' });
+        logger.warn(`[FileBrowser] Path is not a directory: ${requestedPath}`);
+        return res.status(400).json({
+          error: 'Path is not a directory',
+          message: `The path "${requestedPath}" exists but is not a directory. Please select a directory instead.`,
+          path: requestedPath,
+        });
       }
 
       // Get Git status if requested

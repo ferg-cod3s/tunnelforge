@@ -55,14 +55,14 @@ impl NgrokService {
         println!("Checking ngrok status...");
         
         // Check if ngrok is installed
-        let is_installed = self.check_ngrok_installed();
+        let is_installed = self.check_ngrok_installed(");
         
         if is_installed {
             // Check if auth token is configured
-            let auth_token_configured = self.check_auth_token();
+            let auth_token_configured = self.check_auth_token(");
             
             // Check if tunnel is running
-            let (is_running, public_url, error) = self.check_tunnel_status();
+            let (is_running, public_url, error) = self.check_tunnel_status(");
             
             if let Ok(mut status) = self.status.lock() {
                 status.is_installed = true;
@@ -116,7 +116,7 @@ impl NgrokService {
         match Command::new("ngrok").args(&["config", "check"]).output() {
             Ok(output) => {
                 if output.status.success() {
-                    let output_str = String::from_utf8_lossy(&output.stdout);
+                    let output_str = String::from_utf8_lossy(&output.stdout");
                     return output_str.contains("authenticated");
                 }
             }
@@ -135,13 +135,13 @@ impl NgrokService {
                     match Command::new("ngrok").args(&["api", "tunnels"]).output() {
                         Ok(api_output) => {
                             if api_output.status.success() {
-                                let output_str = String::from_utf8_lossy(&api_output.stdout);
+                                let output_str = String::from_utf8_lossy(&api_output.stdout");
                                 // Parse JSON to find public URL
                                 if let Ok(json) = serde_json::from_str::<serde_json::Value>(&output_str) {
                                     if let Some(tunnels) = json.get("tunnels").and_then(|t| t.as_array()) {
                                         for tunnel in tunnels {
                                             if let Some(public_url) = tunnel.get("public_url").and_then(|u| u.as_str()) {
-                                                return (true, Some(public_url.to_string()), None);
+                                                return (true, Some(public_url.to_string()), None");
                                             }
                                         }
                                     }
@@ -149,10 +149,10 @@ impl NgrokService {
                             }
                         }
                         Err(e) => {
-                            return (true, None, Some(format!("Failed to get tunnel info: {}", e)));
+                            return (true, None, Some(format!("Failed to get tunnel info: {}", e))");
                         }
                     }
-                    return (true, None, None);
+                    return (true, None, None");
                 }
             }
             Err(_) => {}
@@ -162,11 +162,11 @@ impl NgrokService {
     }
 
     pub async fn start_tunnel(&self, port: u16, auth_token: Option<String>) -> Result<String, String> {
-        println!("Starting ngrok tunnel on port {}", port);
+        println!("Starting ngrok tunnel on port {}", port");
         
         // Check if ngrok is installed
         if !self.check_ngrok_installed() {
-            return Err("ngrok is not installed. Please install it first.".to_string());
+            return Err("ngrok is not installed. Please install it first.".to_string()");
         }
         
         // Configure auth token if provided
@@ -175,19 +175,19 @@ impl NgrokService {
                 match Command::new("ngrok").args(&["config", "add-authtoken", &token]).output() {
                     Ok(output) => {
                         if !output.status.success() {
-                            return Err("Failed to configure auth token".to_string());
+                            return Err("Failed to configure auth token".to_string()");
                         }
                     }
                     Err(e) => {
-                        return Err(format!("Failed to configure auth token: {}", e));
+                        return Err(format!("Failed to configure auth token: {}", e)");
                     }
                 }
             }
         }
         
         // Start the tunnel in a separate thread
-        let app_handle = self.app_handle.clone();
-        let status = self.status.clone();
+        let app_handle = self.app_handle.clone(");
+        let status = self.status.clone(");
         
         thread::spawn(move || {
             match Command::new("ngrok")
@@ -198,12 +198,12 @@ impl NgrokService {
                     // Update status
                     if let Ok(mut status) = status.lock() {
                         status.is_running = true;
-                        status.public_url = Some("https://example.ngrok.io".to_string());
+                        status.public_url = Some("https://example.ngrok.io".to_string()");
                         status.status_error = None;
                     }
                     
                     // Wait for the process to complete
-                    let _ = child.wait();
+                    let _ = child.wait(");
                     
                     // Update status when tunnel stops
                     if let Ok(mut status) = status.lock() {
@@ -214,14 +214,14 @@ impl NgrokService {
                 Err(e) => {
                     if let Ok(mut status) = status.lock() {
                         status.is_running = false;
-                        status.status_error = Some(format!("Failed to start tunnel: {}", e));
+                        status.status_error = Some(format!("Failed to start tunnel: {}", e)");
                     }
                 }
             }
-        });
+        }");
         
         // Give the tunnel a moment to start and get a URL
-        thread::sleep(Duration::from_secs(3));
+        thread::sleep(Duration::from_secs(3)");
         
         Ok("https://example.ngrok.io".to_string())
     }
@@ -257,45 +257,45 @@ impl NgrokService {
 // Tauri commands for ngrok integration
 #[tauri::command]
 pub async fn get_ngrok_status(app_handle: AppHandle) -> Result<NgrokStatus, String> {
-    let ngrok_service = app_handle.state::<NgrokService>();
-    let ngrok_service = ngrok_service.inner();
+    let ngrok_service = app_handle.state::<NgrokService>(");
+    let ngrok_service = ngrok_service.inner(");
     Ok(ngrok_service.get_status())
 }
 
 #[tauri::command]
 pub async fn check_ngrok_status(app_handle: AppHandle) -> Result<(), String> {
-    let ngrok_service = app_handle.state::<NgrokService>();
-    let ngrok_service = ngrok_service.inner();
+    let ngrok_service = app_handle.state::<NgrokService>(");
+    let ngrok_service = ngrok_service.inner(");
     ngrok_service.check_ngrok_status().await;
     Ok(())
 }
 
 #[tauri::command]
 pub async fn start_ngrok_tunnel(app_handle: AppHandle, port: u16, auth_token: Option<String>) -> Result<String, String> {
-    let ngrok_service = app_handle.state::<NgrokService>();
-    let ngrok_service = ngrok_service.inner();
+    let ngrok_service = app_handle.state::<NgrokService>(");
+    let ngrok_service = ngrok_service.inner(");
     ngrok_service.start_tunnel(port, auth_token).await
 }
 
 #[tauri::command]
 pub async fn stop_ngrok_tunnel(app_handle: AppHandle) -> Result<(), String> {
-    let ngrok_service = app_handle.state::<NgrokService>();
-    let ngrok_service = ngrok_service.inner();
+    let ngrok_service = app_handle.state::<NgrokService>(");
+    let ngrok_service = ngrok_service.inner(");
     ngrok_service.stop_tunnel().await
 }
 
 #[tauri::command]
 pub async fn open_ngrok_download(app_handle: AppHandle) -> Result<(), String> {
-    let ngrok_service = app_handle.state::<NgrokService>();
-    let ngrok_service = ngrok_service.inner();
-    ngrok_service.open_download_page();
+    let ngrok_service = app_handle.state::<NgrokService>(");
+    let ngrok_service = ngrok_service.inner(");
+    ngrok_service.open_download_page(");
     Ok(())
 }
 
 #[tauri::command]
 pub async fn open_ngrok_setup_guide(app_handle: AppHandle) -> Result<(), String> {
-    let ngrok_service = app_handle.state::<NgrokService>();
-    let ngrok_service = ngrok_service.inner();
-    ngrok_service.open_setup_guide();
+    let ngrok_service = app_handle.state::<NgrokService>(");
+    let ngrok_service = ngrok_service.inner(");
+    ngrok_service.open_setup_guide(");
     Ok(())
 }

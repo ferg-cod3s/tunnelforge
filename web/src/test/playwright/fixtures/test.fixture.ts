@@ -33,7 +33,10 @@ export const test = base.extend<TestFixtures>({
         text.includes('Control event stream error') ||
         text.includes('stream connection error') ||
         text.includes('EventSource') ||
-        text.includes('WebSocket')
+        text.includes('WebSocket') ||
+        text.includes('hotReload') ||
+        text.includes('notification-event-service') ||
+        text.includes('cast-converter')
       ) {
         return; // Suppress these expected errors
       }

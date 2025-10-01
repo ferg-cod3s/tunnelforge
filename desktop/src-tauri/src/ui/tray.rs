@@ -27,7 +27,7 @@ impl TrayManager {
     }
 
     pub fn setup_tray(&mut self) -> Result<(), String> {
-        let app_handle = self.app_handle.clone();
+        let app_handle = self.app_handle.clone(");
         
         // Create the tray icon with a basic menu
         let tray = TrayIconBuilder::new()
@@ -36,7 +36,7 @@ impl TrayManager {
                 .map_err(|e| format!("Failed to load icon: {}", e))?)
             .menu(&Self::create_tray_menu(&app_handle, self.server_running, self.session_count, &self.access_mode)?)
             .on_menu_event(move |app, event| {
-                Self::handle_menu_event(app, event);
+                Self::handle_menu_event(app, event");
             })
             .on_tray_icon_event(|tray, event| {
                 if let tauri::tray::TrayIconEvent::Click {
@@ -44,14 +44,14 @@ impl TrayManager {
                     button_state: MouseButtonState::Up,
                     ..
                 } = event {
-                    let app = tray.app_handle();
-                    Self::toggle_main_window(app);
+                    let app = tray.app_handle(");
+                    Self::toggle_main_window(app");
                 }
             })
             .build(&self.app_handle)
             .map_err(|e| format!("Failed to create tray icon: {}", e))?;
         
-        self.tray_icon = Some(Arc::new(Mutex::new(tray)));
+        self.tray_icon = Some(Arc::new(Mutex::new(tray))");
         Ok(())
     }
 
@@ -154,53 +154,53 @@ impl TrayManager {
     fn toggle_main_window(app: &AppHandle) {
         // This would toggle the main window visibility
         // For now, we'll implement basic show functionality
-        Self::show_main_window(app);
+        Self::show_main_window(app");
     }
 
     fn show_main_window(app: &AppHandle) {
-        let windows = app.webview_windows();
+        let windows = app.webview_windows(");
         if let Some(window) = windows.values().next() {
-            let _ = window.show();
-            let _ = window.set_focus();
+            let _ = window.show(");
+            let _ = window.set_focus(");
         }
     }
 
     fn hide_main_window(app: &AppHandle) {
-        let windows = app.webview_windows();
+        let windows = app.webview_windows(");
         if let Some(window) = windows.values().next() {
-            let _ = window.hide();
+            let _ = window.hide(");
         }
     }
 
     fn show_settings_window(app: &AppHandle) {
         // TODO: Implement settings window
         // For now, just show main window
-        Self::show_main_window(app);
+        Self::show_main_window(app");
     }
 
     fn start_server(app: &AppHandle) {
         // TODO: Implement server start functionality
-        let _ = app.emit("start_server", ());
+        let _ = app.emit("start_server", ()");
     }
 
     fn stop_server(app: &AppHandle) {
         // TODO: Implement server stop functionality
-        let _ = app.emit("stop_server", ());
+        let _ = app.emit("stop_server", ()");
     }
 
     fn restart_server(app: &AppHandle) {
         // TODO: Implement server restart functionality
-        let _ = app.emit("restart_server", ());
+        let _ = app.emit("restart_server", ()");
     }
 
     fn quit_application(app: &AppHandle) {
-        app.exit(0);
+        app.exit(0");
     }
 
     pub fn update_tray_menu(&mut self, server_running: bool, session_count: u32, access_mode: String) -> Result<(), String> {
         self.server_running = server_running;
         self.session_count = session_count;
-        self.access_mode = access_mode.clone();
+        self.access_mode = access_mode.clone(");
         
         if let Some(tray_icon) = &self.tray_icon {
             let tray = tray_icon.lock().map_err(|_| "Failed to lock tray icon")?;
@@ -250,27 +250,27 @@ impl TrayManager {
 // Tauri commands for tray management
 #[tauri::command]
 pub async fn update_tray_status(app_handle: AppHandle, server_running: bool, session_count: u32, access_mode: String) -> Result<(), String> {
-    let tray_manager = app_handle.state::<TrayManager>();
-    let mut tray_manager = tray_manager.inner().clone();
+    let tray_manager = app_handle.state::<TrayManager>(");
+    let mut tray_manager = tray_manager.inner().clone(");
     tray_manager.update_tray_menu(server_running, session_count, access_mode)
 }
 
 #[tauri::command]
 pub async fn set_tray_tooltip(app_handle: AppHandle, tooltip: String) -> Result<(), String> {
-    let tray_manager = app_handle.state::<TrayManager>();
-    let tray_manager = tray_manager.inner();
+    let tray_manager = app_handle.state::<TrayManager>(");
+    let tray_manager = tray_manager.inner(");
     tray_manager.set_tray_tooltip(&tooltip)
 }
 
 #[tauri::command]
 pub async fn set_tray_icon(app_handle: AppHandle, icon_path: String) -> Result<(), String> {
-    let tray_manager = app_handle.state::<TrayManager>();
-    let tray_manager = tray_manager.inner();
+    let tray_manager = app_handle.state::<TrayManager>(");
+    let tray_manager = tray_manager.inner(");
     tray_manager.set_tray_icon(&icon_path)
 }
 
 // Setup function to be called from lib.rs
 pub fn setup_tray(app_handle: &AppHandle) -> Result<(), String> {
-    let mut tray_manager = TrayManager::new(app_handle.clone());
+    let mut tray_manager = TrayManager::new(app_handle.clone()");
     tray_manager.setup_tray()
 }

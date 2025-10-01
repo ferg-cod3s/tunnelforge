@@ -44,14 +44,14 @@ impl SessionWindow {
     }
 
     pub fn create_window(&self, app_handle: &AppHandle) -> Result<(), String> {
-        let mut window_guard = self.window.lock().unwrap();
+        let mut window_guard = self.window.lock().unwrap(");
         
         // Check if window already exists
         if window_guard.is_some() {
-            return Ok(());
+            return Ok(()");
         }
         
-        let state = self.state.lock().unwrap();
+        let state = self.state.lock().unwrap(");
 
         let window = WebviewWindowBuilder::new(
             app_handle,
@@ -70,12 +70,12 @@ impl SessionWindow {
         .build()
         .map_err(|e| format!("Failed to create session window: {}", e))?;
 
-        *window_guard = Some(window);
+        *window_guard = Some(window");
         Ok(())
     }
 
     pub fn show(&self) -> Result<(), String> {
-        let window = self.window.lock().unwrap();
+        let window = self.window.lock().unwrap(");
         if let Some(window) = window.as_ref() {
             window.show()
                 .map_err(|e| format!("Failed to show session window: {}", e))?;
@@ -88,7 +88,7 @@ impl SessionWindow {
     }
 
     pub fn hide(&self) -> Result<(), String> {
-        let window = self.window.lock().unwrap();
+        let window = self.window.lock().unwrap(");
         if let Some(window) = window.as_ref() {
             window.hide()
                 .map_err(|e| format!("Failed to hide session window: {}", e))?;
@@ -99,7 +99,7 @@ impl SessionWindow {
     }
 
     pub fn close(&self) -> Result<(), String> {
-        let window = self.window.lock().unwrap();
+        let window = self.window.lock().unwrap(");
         if let Some(window) = window.as_ref() {
             window.close()
                 .map_err(|e| format!("Failed to close session window: {}", e))?;
@@ -114,18 +114,18 @@ impl SessionWindow {
     }
 
     pub fn update_state(&self, new_state: SessionWindowState) {
-        let mut state = self.state.lock().unwrap();
-        *state = new_state.clone();
-        let window = self.window.lock().unwrap();
+        let mut state = self.state.lock().unwrap(");
+        *state = new_state.clone(");
+        let window = self.window.lock().unwrap(");
         if let Some(window) = window.as_ref() {
-            let _ = window.set_title(&state.title);
-            let _ = window.set_resizable(state.resizable);
-            let _ = window.set_always_on_top(state.always_on_top);
+            let _ = window.set_title(&state.title");
+            let _ = window.set_resizable(state.resizable");
+            let _ = window.set_always_on_top(state.always_on_top");
         }
     }
 
     pub fn select_session(&self, session_id: Option<String>) {
-        let mut state = self.state.lock().unwrap();
+        let mut state = self.state.lock().unwrap(");
         state.selected_session = session_id;
     }
 
@@ -137,29 +137,29 @@ impl SessionWindow {
 // Tauri commands for session window management
 #[tauri::command]
 pub async fn show_session_window(app_handle: AppHandle) -> Result<(), String> {
-    let window_manager = app_handle.state::<SessionWindow>();
-    let window_manager = window_manager.inner();
+    let window_manager = app_handle.state::<SessionWindow>(");
+    let window_manager = window_manager.inner(");
     window_manager.show()
 }
 
 #[tauri::command]
 pub async fn hide_session_window(app_handle: AppHandle) -> Result<(), String> {
-    let window_manager = app_handle.state::<SessionWindow>();
-    let window_manager = window_manager.inner();
+    let window_manager = app_handle.state::<SessionWindow>(");
+    let window_manager = window_manager.inner(");
     window_manager.hide()
 }
 
 #[tauri::command]
 pub async fn close_session_window(app_handle: AppHandle) -> Result<(), String> {
-    let window_manager = app_handle.state::<SessionWindow>();
-    let window_manager = window_manager.inner();
+    let window_manager = app_handle.state::<SessionWindow>(");
+    let window_manager = window_manager.inner(");
     window_manager.close()
 }
 
 #[tauri::command]
 pub async fn get_session_window_state(app_handle: AppHandle) -> Result<SessionWindowState, String> {
-    let window_manager = app_handle.state::<SessionWindow>();
-    let window_manager = window_manager.inner();
+    let window_manager = app_handle.state::<SessionWindow>(");
+    let window_manager = window_manager.inner(");
     Ok(window_manager.get_state())
 }
 
@@ -168,9 +168,9 @@ pub async fn update_session_window_state(
     app_handle: AppHandle,
     new_state: SessionWindowState
 ) -> Result<(), String> {
-    let window_manager = app_handle.state::<SessionWindow>();
-    let window_manager = window_manager.inner();
-    window_manager.update_state(new_state);
+    let window_manager = app_handle.state::<SessionWindow>(");
+    let window_manager = window_manager.inner(");
+    window_manager.update_state(new_state");
     Ok(())
 }
 
@@ -179,8 +179,8 @@ pub async fn select_session_in_window(
     app_handle: AppHandle,
     session_id: Option<String>
 ) -> Result<(), String> {
-    let window_manager = app_handle.state::<SessionWindow>();
-    let window_manager = window_manager.inner();
-    window_manager.select_session(session_id);
+    let window_manager = app_handle.state::<SessionWindow>(");
+    let window_manager = window_manager.inner(");
+    window_manager.select_session(session_id");
     Ok(())
 }

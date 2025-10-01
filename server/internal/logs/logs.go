@@ -10,6 +10,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/getsentry/sentry-go"
 	"github.com/gorilla/mux"
 )
 
@@ -37,7 +38,40 @@ type LogService struct {
 
 // NewLogService creates a new log service
 func NewLogService() *LogService {
+	// Initialize Sentry for error tracking
+	err := sentry.Init(sentry.ClientOptions{
+		Dsn:         getSentryDSN(),
+		Environment: getEnv("SENTRY_ENVIRONMENT", "development"),
+		Release:     getEnv("SENTRY_RELEASE", "dev"),
+		// Set TracesSampleRate to 1.0 to capture 100% of transactions for performance monitoring.
+		// We recommend adjusting this value in production,
+		TracesSampleRate: 1.0,
+		// Set ProfilesSampleRate to profile 100% of sampled transactions.
+		// We recommend adjusting this value in production,
+		ProfilesSampleRate: 1.0,
+	})
+	if err != nil {
+		log.Printf("Sentry initialization failed: %v", err)
+	}
+
 	return &LogService{}
+}
+
+// getSentryDSN retrieves Sentry DSN from environment or returns empty string for development
+func getSentryDSN() string {
+	dsn := os.Getenv("SENTRY_DSN")
+	if dsn == "" {
+		log.Println("SENTRY_DSN not set, Sentry error reporting disabled")
+	}
+	return dsn
+}
+
+// getEnv retrieves environment variable with fallback
+func getEnv(key, fallback string) string {
+	if value := os.Getenv(key); value != "" {
+		return value
+	}
+	return fallback
 }
 
 // RegisterRoutes registers log-related routes
@@ -101,10 +135,30 @@ func (ls *LogService) handleClientLog(w http.ResponseWriter, r *http.Request) {
 	switch req.Level {
 	case LogLevelError:
 		log.Printf("%s ERROR: %s", prefix, message)
+		// Send to Sentry if it's an error
+		sentry.WithScope(func(scope *sentry.Scope) {
+			scope.SetTag("module", req.Module)
+			scope.SetLevel(sentry.LevelError)
+			sentry.CaptureMessage(fmt.Sprintf("Client Error in %s: %s", req.Module, message))
+		})
 	case LogLevelWarn:
 		log.Printf("%s WARN: %s", prefix, message)
+		// Send warnings to Sentry as well for monitoring
+		sentry.WithScope(func(scope *sentry.Scope) {
+			scope.SetTag("module", req.Module)
+			scope.SetLevel(sentry.LevelWarning)
+			sentry.CaptureMessage(fmt.Sprintf("Client Warning in %s: %s", req.Module, message))
+		})
 	case LogLevelDebug:
 		log.Printf("%s DEBUG: %s", prefix, message)
+		// Don't send debug logs to Sentry unless in development
+		if getEnv("SENTRY_ENVIRONMENT", "development") == "development" {
+			sentry.WithScope(func(scope *sentry.Scope) {
+				scope.SetTag("module", req.Module)
+				scope.SetLevel(sentry.LevelDebug)
+				sentry.CaptureMessage(fmt.Sprintf("Client Debug in %s: %s", req.Module, message))
+			})
+		}
 	default:
 		log.Printf("%s %s", prefix, message)
 	}

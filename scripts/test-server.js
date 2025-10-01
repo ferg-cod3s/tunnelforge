@@ -26,6 +26,8 @@ const server = spawn(serverPath, serverArgs, {
     ...process.env,
     NODE_ENV: 'test',
     TUNNELFORGE_DISABLE_PUSH_NOTIFICATIONS: 'true',
+    ENABLE_RATE_LIMIT: 'false', // Disable rate limiting for tests
+    RATE_LIMIT_PER_MIN: '10000', // Backup: very high limit if somehow still enabled
   }
 });
 

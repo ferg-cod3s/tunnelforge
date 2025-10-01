@@ -7,7 +7,7 @@ pub struct AutoStartManager;
 
 impl AutoStartManager {
     pub fn enable_auto_start() -> Result<(), String> {
-        add_log_entry("info", "Enabling auto-start");
+        log::info!(""Enabling auto-start");
         info!("Enabling auto-start");
 
         #[cfg(target_os = "macos")]
@@ -27,7 +27,7 @@ impl AutoStartManager {
     }
 
     pub fn disable_auto_start() -> Result<(), String> {
-        add_log_entry("info", "Disabling auto-start");
+        log::info!(""Disabling auto-start");
         info!("Disabling auto-start");
 
         #[cfg(target_os = "macos")]
@@ -66,14 +66,14 @@ impl AutoStartManager {
     #[cfg(target_os = "macos")]
     fn enable_macos_auto_start() -> Result<(), String> {
         // In a real implementation, this would create a Launch Agent plist
-        add_log_entry("debug", "macOS auto-start would be enabled here");
+        log::debug!("""macOS auto-start would be enabled here");
         Ok(())
     }
 
     #[cfg(target_os = "macos")]
     fn disable_macos_auto_start() -> Result<(), String> {
         // In a real implementation, this would remove the Launch Agent plist
-        add_log_entry("debug", "macOS auto-start would be disabled here");
+        log::debug!("""macOS auto-start would be disabled here");
         Ok(())
     }
 
@@ -86,14 +86,14 @@ impl AutoStartManager {
     #[cfg(target_os = "windows")]
     fn enable_windows_auto_start() -> Result<(), String> {
         // In a real implementation, this would add a registry entry
-        add_log_entry("debug", "Windows auto-start would be enabled here");
+        log::debug!("""Windows auto-start would be enabled here");
         Ok(())
     }
 
     #[cfg(target_os = "windows")]
     fn disable_windows_auto_start() -> Result<(), String> {
         // In a real implementation, this would remove the registry entry
-        add_log_entry("debug", "Windows auto-start would be disabled here");
+        log::debug!("""Windows auto-start would be disabled here");
         Ok(())
     }
 
@@ -106,14 +106,14 @@ impl AutoStartManager {
     #[cfg(target_os = "linux")]
     fn enable_linux_auto_start() -> Result<(), String> {
         // In a real implementation, this would create a .desktop file in autostart
-        add_log_entry("debug", "Linux auto-start would be enabled here");
+        log::debug!("""Linux auto-start would be enabled here");
         Ok(())
     }
 
     #[cfg(target_os = "linux")]
     fn disable_linux_auto_start() -> Result<(), String> {
         // In a real implementation, this would remove the .desktop file
-        add_log_entry("debug", "Linux auto-start would be disabled here");
+        log::debug!("""Linux auto-start would be disabled here");
         Ok(())
     }
 
