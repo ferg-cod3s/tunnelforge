@@ -159,7 +159,7 @@ mod vibetunnel_parity_validation {
     #[test]
     fn validate_vibetunnel_service_parity() {
         println!("🔍 Validating VibeTunnel → TunnelForge Service Parity");
-        println!("Found {} VibeTunnel services to validate", VIBETUNNEL_SERVICES.len());
+        println!("Found {} VibeTunnel services to validate", VIBETUNNEL_SERVICES.len()");
 
         let mut implemented_count = 0;
         let mut enhanced_count = 0;
@@ -171,43 +171,43 @@ mod vibetunnel_parity_validation {
                 ServiceStatus::Implemented => {
                     implemented_count += 1;
                     println!("✅ {} ({}) → {} (IMPLEMENTED)",
-                        service.name, service.swift_file, service.rust_equivalent);
+                        service.name, service.swift_file, service.rust_equivalent");
                 }
                 ServiceStatus::Enhanced => {
                     enhanced_count += 1;
                     println!("🚀 {} ({}) → {} (ENHANCED)",
-                        service.name, service.swift_file, service.rust_equivalent);
+                        service.name, service.swift_file, service.rust_equivalent");
                 }
                 ServiceStatus::NewFeature => {
                     new_features_count += 1;
                     println!("🆕 {} ({}) → {} (NEW FEATURE)",
-                        service.name, service.swift_file, service.rust_equivalent);
+                        service.name, service.swift_file, service.rust_equivalent");
                 }
                 ServiceStatus::NotImplemented => {
                     not_implemented_count += 1;
                     println!("❌ {} ({}) → {} (NOT IMPLEMENTED)",
-                        service.name, service.swift_file, service.rust_equivalent);
+                        service.name, service.swift_file, service.rust_equivalent");
                 }
             }
         }
 
         println!("\n📊 Service Implementation Summary:");
-        println!("  ✅ Implemented: {} services", implemented_count);
-        println!("  🚀 Enhanced: {} services", enhanced_count);
-        println!("  🆕 New Features: {} services", new_features_count);
-        println!("  ❌ Not Implemented: {} services", not_implemented_count);
+        println!("  ✅ Implemented: {} services", implemented_count");
+        println!("  🚀 Enhanced: {} services", enhanced_count");
+        println!("  🆕 New Features: {} services", new_features_count");
+        println!("  ❌ Not Implemented: {} services", not_implemented_count");
 
         // Assert that we have 100% parity (implemented or enhanced)
         let total_implemented = implemented_count + enhanced_count + new_features_count;
         assert_eq!(not_implemented_count, 0,
             "Found {} unimplemented services - feature parity not achieved!",
-            not_implemented_count);
+            not_implemented_count");
 
         assert!(total_implemented >= VIBETUNNEL_SERVICES.len(),
             "Total implemented services should cover all original services");
 
         println!("🎉 VibeTunnel feature parity validation PASSED!");
-        println!("   All {} original services are implemented or enhanced", VIBETUNNEL_SERVICES.len());
+        println!("   All {} original services are implemented or enhanced", VIBETUNNEL_SERVICES.len()");
     }
 
     #[test]
@@ -230,7 +230,7 @@ mod vibetunnel_parity_validation {
         for service in VIBETUNNEL_SERVICES {
             assert!(std::path::Path::new(service.rust_equivalent).exists(),
                 "Rust equivalent {} should exist for {}",
-                service.rust_equivalent, service.name);
+                service.rust_equivalent, service.name");
         }
 
         println!("✅ Architecture conversion validation PASSED!");
@@ -349,7 +349,7 @@ mod vibetunnel_parity_validation {
             "Go server should exist for performance");
 
         // Test that Tauri v2 is used (performance improvement over Electron)
-        let cargo_toml = std::fs::read_to_string("Cargo.toml").unwrap();
+        let cargo_toml = std::fs::read_to_string("Cargo.toml").unwrap(");
         assert!(cargo_toml.contains("tauri = { version = \"2.3\""),
             "Tauri v2 should be used for performance");
 
@@ -361,13 +361,13 @@ mod vibetunnel_parity_validation {
         println!("📋 Generating Feature Parity Validation Report");
         println!("============================================");
 
-        let mut report = String::new();
+        let mut report = String::new(");
 
         report.push_str(&format!(
             "VibeTunnel → TunnelForge Feature Parity Report\n\
              Generated: {}\n\n",
             chrono::Utc::now().format("%Y-%m-%d %H:%M:%S UTC")
-        ));
+        )");
 
         report.push_str("SERVICE IMPLEMENTATION STATUS:\n");
         for service in VIBETUNNEL_SERVICES {
@@ -381,7 +381,7 @@ mod vibetunnel_parity_validation {
             report.push_str(&format!(
                 "{} {} ({} → {})\n",
                 status_icon, service.name, service.swift_file, service.rust_equivalent
-            ));
+            )");
         }
 
         report.push_str("\nVALIDATION RESULTS:\n");

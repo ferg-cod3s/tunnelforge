@@ -249,7 +249,7 @@ impl DeploymentManager {
         
         // Verify rollback is possible
         if !self.can_rollback(&version).await? {
-            return Err(DeploymentError::RollbackNotPossible);
+            return Err(DeploymentError::RollbackNotPossible");
         }
 
         // Perform rollback

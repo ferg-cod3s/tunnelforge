@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
+	"log"
 	"net/http"
 	"net/url"
 	"os"
@@ -13,6 +14,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/getsentry/sentry-go"
 	"github.com/gorilla/mux"
 )
 
@@ -65,34 +67,154 @@ func NewFileSystemService(basePath string) *FileSystemService {
 	}
 }
 
+// isCommonUserDirectory checks if a path is a common user directory that should be accessible
+func isCommonUserDirectory(path string) bool {
+	homeDir := os.Getenv("HOME")
+	if homeDir == "" {
+		return false
+	}
+
+	// Define common user directories that are generally safe to access
+	commonDirs := []string{
+		"Desktop",
+		"Documents",
+		"Downloads",
+		"Pictures",
+		"Music",
+		"Videos",
+		"Movies",
+		"Public",
+		"Templates",
+		".config",
+		".local",
+		".cache",
+		"src",
+		"dev",
+		"projects",
+		"workspace",
+		"git",
+	}
+
+	// Check if the path is within the home directory
+	if !strings.HasPrefix(path, homeDir) {
+		return false
+	}
+
+	// Get the relative path from home
+	relPath, err := filepath.Rel(homeDir, path)
+	if err != nil {
+		return false
+	}
+
+	// Check if it's a direct subdirectory of home
+	if !strings.Contains(relPath, string(filepath.Separator)) {
+		// It's a direct subdirectory, check if it's in our allowed list
+		dirName := relPath
+		for _, allowed := range commonDirs {
+			if dirName == allowed {
+				return true
+			}
+		}
+	}
+
+	// Check for common nested directories (e.g., ~/Documents/projects)
+	parts := strings.Split(relPath, string(filepath.Separator))
+	if len(parts) >= 2 {
+		firstLevel := parts[0]
+		secondLevel := parts[1]
+
+		// Allow common patterns like ~/Documents/*, ~/src/*
+		if firstLevel == "Documents" || firstLevel == "src" || firstLevel == "dev" || firstLevel == "projects" {
+			return true
+		}
+
+		// Allow ~/Pictures/*, ~/Music/*, etc.
+		if firstLevel == "Pictures" || firstLevel == "Music" || firstLevel == "Videos" || firstLevel == "Downloads" {
+			return true
+		}
+
+		// Allow hidden directories like ~/.config/*
+		if strings.HasPrefix(firstLevel, ".") && (secondLevel == "config" || secondLevel == "local" || secondLevel == "cache") {
+			return true
+		}
+	}
+
+	return false
+}
+
+// getUserFriendlyError converts technical errors to user-friendly messages
+func getUserFriendlyError(err error) string {
+	if err == nil {
+		return "An unknown error occurred"
+	}
+
+	errMsg := err.Error()
+
+	// Handle specific error types with user-friendly messages
+	if strings.Contains(errMsg, "access denied") || strings.Contains(errMsg, "outside allowed directory") {
+		return "You don't have permission to access this location. Please choose a folder within your allowed directories (like Documents, Desktop, or Downloads)."
+	}
+
+	if strings.Contains(errMsg, "invalid path") {
+		return "The path you entered is not valid. Please check for typos and ensure you're using a proper folder path."
+	}
+
+	if strings.Contains(errMsg, "invalid base path") {
+		return "There's a configuration issue with the server's allowed directories. Please contact your administrator."
+	}
+
+	// For other errors, provide a generic but helpful message
+	return "The path could not be accessed. Please make sure the folder exists and you have permission to view it."
+}
+
 func (fs *FileSystemService) validatePath(requestedPath string) (string, error) {
+	log.Printf("🔍 Validating path: %s", requestedPath)
+
 	// URL-decode the path first
 	decodedPath, err := url.QueryUnescape(requestedPath)
 	if err != nil {
+		log.Printf("⚠️ Failed to URL-decode path %s: %v, using original", requestedPath, err)
 		decodedPath = requestedPath
 	}
-	
+	log.Printf("🔍 Decoded path: %s", decodedPath)
+
 	// Handle tilde expansion for home directory
 	expandedPath := decodedPath
 	if strings.HasPrefix(expandedPath, "~") {
 		homeDir := os.Getenv("HOME")
 		if homeDir != "" {
 			expandedPath = strings.Replace(expandedPath, "~", homeDir, 1)
+			log.Printf("🔍 Expanded tilde to home directory: %s", expandedPath)
+		} else {
+			log.Printf("⚠️ Tilde expansion requested but HOME env var not set")
 		}
 	}
+
 	// Clean the path to prevent directory traversal
 	cleanPath := filepath.Clean(expandedPath)
+	log.Printf("🔍 Cleaned path: %s", cleanPath)
 
 	// Convert relative path to absolute
 	if !filepath.IsAbs(cleanPath) {
 		cleanPath = filepath.Join(fs.basePath, cleanPath)
+		log.Printf("🔍 Converted to absolute path: %s", cleanPath)
 	}
 
 	// Resolve symlinks and get absolute path
 	absPath, err := filepath.Abs(cleanPath)
 	if err != nil {
+		log.Printf("❌ Failed to resolve absolute path for %s: %v", cleanPath, err)
+		sentry.WithScope(func(scope *sentry.Scope) {
+			scope.SetTag("operation", "path_resolution")
+			scope.SetContext("path_info", map[string]interface{}{
+				"requested_path": requestedPath,
+				"clean_path":     cleanPath,
+			})
+			sentry.CaptureException(err)
+		})
 		return "", fmt.Errorf("invalid path: %v", err)
 	}
+	log.Printf("🔍 Resolved absolute path: %s", absPath)
 
 	// Ensure the path is within the base path (security check)
 	// Note: Skip base path validation if we're using home directory expansion
@@ -104,12 +226,21 @@ func (fs *FileSystemService) validatePath(requestedPath string) (string, error) 
 		}
 
 		if !strings.HasPrefix(absPath, absBasePath) {
-			return "", fmt.Errorf("access denied: path outside allowed directory")
+			// Check if it's a common user directory that should be allowed
+			if isCommonUserDirectory(absPath) {
+				log.Printf("✅ Allowing access to common user directory: %s", absPath)
+			} else {
+				log.Printf("❌ Access denied: path %s is outside allowed directory %s", absPath, absBasePath)
+				return "", fmt.Errorf("access denied: path outside allowed directory")
+			}
 		}
+		log.Printf("✅ Path validation passed for %s", absPath)
+	} else {
+		log.Printf("✅ Path validation skipped for home directory access: %s", absPath)
 	}
 
-	return absPath, nil
-}
+ 	return absPath, nil
+ }
 
 // getFileInfo extracts metadata from os.FileInfo
 func (fs *FileSystemService) getFileInfo(path string, info os.FileInfo) FileInfo {
@@ -167,6 +298,8 @@ func (fs *FileSystemService) sortFiles(files []FileInfo, sortBy string, sortDesc
 
 // ListDirectory handles GET /api/filesystem/ls
 func (fs *FileSystemService) ListDirectory(w http.ResponseWriter, r *http.Request) {
+	log.Printf("📁 ListDirectory request: %s %s", r.Method, r.URL.String())
+
 	var req ListRequest
 	// Parse query parameters
 	req.Path = r.URL.Query().Get("path")
@@ -184,19 +317,25 @@ func (fs *FileSystemService) ListDirectory(w http.ResponseWriter, r *http.Reques
 		req.GitFilter = "all"
 	}
 
+	log.Printf("📁 ListDirectory params: path=%s, showHidden=%v, sortBy=%s, sortDesc=%v, gitFilter=%s", req.Path, req.ShowHidden, req.SortBy, req.SortDesc, req.GitFilter)
+
 	// Validate and resolve path
 	fullPath, err := fs.validatePath(req.Path)
 	if err != nil {
-		http.Error(w, fmt.Sprintf("Invalid path: %v", err), http.StatusBadRequest)
+		log.Printf("❌ ListDirectory path validation failed for %s: %v", req.Path, err)
+		userFriendlyError := getUserFriendlyError(err)
+		http.Error(w, userFriendlyError, http.StatusBadRequest)
 		return
 	}
 
 	// Check if path exists and is accessible
 	if _, err := os.Stat(fullPath); err != nil {
 		if os.IsNotExist(err) {
-			http.Error(w, "Path not found", http.StatusNotFound)
+			log.Printf("❌ ListDirectory path not found: %s", fullPath)
+			http.Error(w, "The specified folder or file could not be found. Please check the path and try again.", http.StatusNotFound)
 		} else {
-			http.Error(w, fmt.Sprintf("Access denied: %v", err), http.StatusForbidden)
+			log.Printf("❌ ListDirectory access denied for %s: %v", fullPath, err)
+			http.Error(w, "You don't have permission to access this location. Please choose a different folder.", http.StatusForbidden)
 		}
 		return
 	}
@@ -204,31 +343,44 @@ func (fs *FileSystemService) ListDirectory(w http.ResponseWriter, r *http.Reques
 	// Read directory contents
 	entries, err := os.ReadDir(fullPath)
 	if err != nil {
-		http.Error(w, fmt.Sprintf("Failed to read directory: %v", err), http.StatusInternalServerError)
+		log.Printf("❌ ListDirectory failed to read directory %s: %v", fullPath, err)
+		sentry.WithScope(func(scope *sentry.Scope) {
+			scope.SetTag("operation", "list_directory")
+			scope.SetContext("directory_info", map[string]interface{}{
+				"requested_path": req.Path,
+				"full_path":      fullPath,
+			})
+			sentry.CaptureException(err)
+		})
+		http.Error(w, "Unable to read the contents of this folder. It may be corrupted or inaccessible.", http.StatusInternalServerError)
 		return
 	}
 
-	var files = make([]FileInfo, 0)
-	var directories = make([]FileInfo, 0)
-		// Skip hidden files if not requested
-		if !req.ShowHidden && strings.HasPrefix(entry.Name(), ".") {
-			continue
-		}
+	log.Printf("📁 ListDirectory found %d entries in %s", len(entries), fullPath)
 
-		entryPath := filepath.Join(fullPath, entry.Name())
-		info, err := entry.Info()
-		if err != nil {
-			continue // Skip files we can't read
-		}
+ 	var files = make([]FileInfo, 0)
+ 	var directories = make([]FileInfo, 0)
 
-		fileInfo := fs.getFileInfo(entryPath, info)
+ 	for _, entry := range entries {
+ 		// Skip hidden files if not requested
+ 		if !req.ShowHidden && strings.HasPrefix(entry.Name(), ".") {
+ 			continue
+ 		}
 
-		if info.IsDir() {
-			directories = append(directories, fileInfo)
-		} else {
-			files = append(files, fileInfo)
-		}
-	}
+ 		entryPath := filepath.Join(fullPath, entry.Name())
+ 		info, err := entry.Info()
+ 		if err != nil {
+ 			continue // Skip files we can't read
+ 		}
+
+ 		fileInfo := fs.getFileInfo(entryPath, info)
+
+ 		if info.IsDir() {
+ 			directories = append(directories, fileInfo)
+ 		} else {
+ 			files = append(files, fileInfo)
+ 		}
+ 	}
 
 	// Sort files and directories
 	fs.sortFiles(files, req.SortBy, req.SortDesc)
@@ -256,10 +408,13 @@ func (fs *FileSystemService) ListDirectory(w http.ResponseWriter, r *http.Reques
 
 // DownloadFile handles GET /api/filesystem/download/{path}
 func (fs *FileSystemService) DownloadFile(w http.ResponseWriter, r *http.Request) {
+	log.Printf("📥 DownloadFile request: %s %s", r.Method, r.URL.String())
+
 	vars := mux.Vars(r)
 	requestedPath := vars["path"]
 
 	if requestedPath == "" {
+		log.Printf("❌ DownloadFile: Path parameter is required")
 		http.Error(w, "Path parameter is required", http.StatusBadRequest)
 		return
 	}
@@ -267,7 +422,9 @@ func (fs *FileSystemService) DownloadFile(w http.ResponseWriter, r *http.Request
 	// Validate and resolve path
 	fullPath, err := fs.validatePath(requestedPath)
 	if err != nil {
-		http.Error(w, fmt.Sprintf("Invalid path: %v", err), http.StatusBadRequest)
+		log.Printf("❌ DownloadFile path validation failed for %s: %v", requestedPath, err)
+		userFriendlyError := getUserFriendlyError(err)
+		http.Error(w, userFriendlyError, http.StatusBadRequest)
 		return
 	}
 
@@ -275,22 +432,34 @@ func (fs *FileSystemService) DownloadFile(w http.ResponseWriter, r *http.Request
 	info, err := os.Stat(fullPath)
 	if err != nil {
 		if os.IsNotExist(err) {
-			http.Error(w, "File not found", http.StatusNotFound)
+			log.Printf("❌ DownloadFile: File not found: %s", fullPath)
+			http.Error(w, "The file you're trying to download could not be found. Please check the path and try again.", http.StatusNotFound)
 		} else {
-			http.Error(w, fmt.Sprintf("Access denied: %v", err), http.StatusForbidden)
+			log.Printf("❌ DownloadFile access denied for %s: %v", fullPath, err)
+			http.Error(w, "You don't have permission to access this file. Please choose a different file.", http.StatusForbidden)
 		}
 		return
 	}
 
 	// Ensure it's a file, not a directory
 	if info.IsDir() {
-		http.Error(w, "Cannot download directory", http.StatusBadRequest)
+		log.Printf("❌ DownloadFile: Cannot download directory: %s", fullPath)
+		http.Error(w, "Folders cannot be downloaded directly. Please select a specific file to download.", http.StatusBadRequest)
 		return
 	}
 
 	// Open file
 	file, err := os.Open(fullPath)
 	if err != nil {
+		log.Printf("❌ DownloadFile failed to open file %s: %v", fullPath, err)
+		sentry.WithScope(func(scope *sentry.Scope) {
+			scope.SetTag("operation", "download_file")
+			scope.SetContext("file_info", map[string]interface{}{
+				"requested_path": requestedPath,
+				"full_path":      fullPath,
+			})
+			sentry.CaptureException(err)
+		})
 		http.Error(w, fmt.Sprintf("Failed to open file: %v", err), http.StatusInternalServerError)
 		return
 	}
@@ -302,19 +471,24 @@ func (fs *FileSystemService) DownloadFile(w http.ResponseWriter, r *http.Request
 	w.Header().Set("Content-Type", "application/octet-stream")
 	w.Header().Set("Content-Length", strconv.FormatInt(info.Size(), 10))
 
+	log.Printf("📥 DownloadFile starting download: %s (%d bytes)", fullPath, info.Size())
+
 	// Stream file to response
 	_, err = io.Copy(w, file)
 	if err != nil {
 		// Can't change headers after writing starts, so just log the error
-		fmt.Printf("Error streaming file: %v\n", err)
+		log.Printf("❌ DownloadFile error streaming file %s: %v", fullPath, err)
 	}
 }
 
 // UploadFile handles POST /api/filesystem/upload
 func (fs *FileSystemService) UploadFile(w http.ResponseWriter, r *http.Request) {
+	log.Printf("📤 UploadFile request: %s %s", r.Method, r.URL.String())
+
 	// Parse multipart form (32MB max memory)
 	err := r.ParseMultipartForm(32 << 20)
 	if err != nil {
+		log.Printf("❌ UploadFile failed to parse multipart form: %v", err)
 		http.Error(w, fmt.Sprintf("Failed to parse multipart form: %v", err), http.StatusBadRequest)
 		return
 	}
@@ -325,30 +499,39 @@ func (fs *FileSystemService) UploadFile(w http.ResponseWriter, r *http.Request) 
 		targetDir = "."
 	}
 
+	log.Printf("📤 UploadFile target directory: %s", targetDir)
+
 	// Validate target directory
 	fullTargetDir, err := fs.validatePath(targetDir)
 	if err != nil {
-		http.Error(w, fmt.Sprintf("Invalid target directory: %v", err), http.StatusBadRequest)
+		log.Printf("❌ UploadFile invalid target directory %s: %v", targetDir, err)
+		userFriendlyError := getUserFriendlyError(err)
+		http.Error(w, userFriendlyError, http.StatusBadRequest)
 		return
 	}
 
 	// Ensure target directory exists and is a directory
 	info, err := os.Stat(fullTargetDir)
 	if err != nil {
-		http.Error(w, "Target directory not found", http.StatusNotFound)
+		log.Printf("❌ UploadFile target directory not found: %s", fullTargetDir)
+		http.Error(w, "The destination folder could not be found. Please check the path and try again.", http.StatusNotFound)
 		return
 	}
 	if !info.IsDir() {
-		http.Error(w, "Target path is not a directory", http.StatusBadRequest)
+		log.Printf("❌ UploadFile target path is not a directory: %s", fullTargetDir)
+		http.Error(w, "The specified path is not a folder. Please select a valid destination folder.", http.StatusBadRequest)
 		return
 	}
 
 	// Get uploaded files
 	files := r.MultipartForm.File["files"]
 	if len(files) == 0 {
-		http.Error(w, "No files uploaded", http.StatusBadRequest)
+		log.Printf("❌ UploadFile: No files uploaded")
+		http.Error(w, "No files were selected for upload. Please choose one or more files to upload.", http.StatusBadRequest)
 		return
 	}
+
+	log.Printf("📤 UploadFile processing %d files to %s", len(files), fullTargetDir)
 
 	uploadedFiles := make([]string, 0, len(files))
 
@@ -367,6 +550,16 @@ func (fs *FileSystemService) UploadFile(w http.ResponseWriter, r *http.Request) 
 		// Create target file
 		targetFile, err := os.Create(targetPath)
 		if err != nil {
+			log.Printf("❌ UploadFile failed to create target file %s: %v", targetPath, err)
+			sentry.WithScope(func(scope *sentry.Scope) {
+				scope.SetTag("operation", "upload_file")
+				scope.SetContext("upload_info", map[string]interface{}{
+					"target_dir":     fullTargetDir,
+					"target_path":    targetPath,
+					"filename":       fileHeader.Filename,
+				})
+				sentry.CaptureException(err)
+			})
 			http.Error(w, fmt.Sprintf("Failed to create target file: %v", err), http.StatusInternalServerError)
 			return
 		}
@@ -394,6 +587,8 @@ func (fs *FileSystemService) UploadFile(w http.ResponseWriter, r *http.Request) 
 
 // CreateDirectory handles POST /api/filesystem/mkdir
 func (fs *FileSystemService) CreateDirectory(w http.ResponseWriter, r *http.Request) {
+	log.Printf("📁 CreateDirectory request: %s %s", r.Method, r.URL.String())
+
 	var req struct {
 		Path string `json:"path"`
 		Mode string `json:"mode,omitempty"` // Optional: directory permissions (e.g., "0755")
@@ -401,19 +596,25 @@ func (fs *FileSystemService) CreateDirectory(w http.ResponseWriter, r *http.Requ
 
 	// Parse JSON request
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		log.Printf("❌ CreateDirectory invalid JSON: %v", err)
 		http.Error(w, fmt.Sprintf("Invalid JSON: %v", err), http.StatusBadRequest)
 		return
 	}
 
 	if req.Path == "" {
+		log.Printf("❌ CreateDirectory: Path is required")
 		http.Error(w, "Path is required", http.StatusBadRequest)
 		return
 	}
 
+	log.Printf("📁 CreateDirectory path: %s, mode: %s", req.Path, req.Mode)
+
 	// Validate and resolve path
 	fullPath, err := fs.validatePath(req.Path)
 	if err != nil {
-		http.Error(w, fmt.Sprintf("Invalid path: %v", err), http.StatusBadRequest)
+		log.Printf("❌ CreateDirectory path validation failed for %s: %v", req.Path, err)
+		userFriendlyError := getUserFriendlyError(err)
+		http.Error(w, userFriendlyError, http.StatusBadRequest)
 		return
 	}
 
@@ -422,15 +623,21 @@ func (fs *FileSystemService) CreateDirectory(w http.ResponseWriter, r *http.Requ
 	if req.Mode != "" {
 		if parsedMode, err := strconv.ParseUint(req.Mode, 8, 32); err == nil {
 			mode = os.FileMode(parsedMode)
+			log.Printf("📁 CreateDirectory using custom mode: %o", mode)
+		} else {
+			log.Printf("⚠️ CreateDirectory invalid mode %s, using default 0755", req.Mode)
 		}
 	}
 
 	// Create directory
 	err = os.MkdirAll(fullPath, mode)
 	if err != nil {
+		log.Printf("❌ CreateDirectory failed to create directory %s: %v", fullPath, err)
 		http.Error(w, fmt.Sprintf("Failed to create directory: %v", err), http.StatusInternalServerError)
 		return
 	}
+
+	log.Printf("✅ CreateDirectory successfully created: %s", fullPath)
 
 	response := map[string]interface{}{
 		"success": true,
@@ -444,6 +651,8 @@ func (fs *FileSystemService) CreateDirectory(w http.ResponseWriter, r *http.Requ
 
 // DeletePath handles DELETE /api/filesystem/rm
 func (fs *FileSystemService) DeletePath(w http.ResponseWriter, r *http.Request) {
+	log.Printf("🗑️ DeletePath request: %s %s", r.Method, r.URL.String())
+
 	var req struct {
 		Path      string `json:"path"`
 		Recursive bool   `json:"recursive,omitempty"` // For directories
@@ -452,19 +661,25 @@ func (fs *FileSystemService) DeletePath(w http.ResponseWriter, r *http.Request) 
 
 	// Parse JSON request
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		log.Printf("❌ DeletePath invalid JSON: %v", err)
 		http.Error(w, fmt.Sprintf("Invalid JSON: %v", err), http.StatusBadRequest)
 		return
 	}
 
 	if req.Path == "" {
+		log.Printf("❌ DeletePath: Path is required")
 		http.Error(w, "Path is required", http.StatusBadRequest)
 		return
 	}
 
+	log.Printf("🗑️ DeletePath path: %s, recursive: %v, force: %v", req.Path, req.Recursive, req.Force)
+
 	// Validate and resolve path
 	fullPath, err := fs.validatePath(req.Path)
 	if err != nil {
-		http.Error(w, fmt.Sprintf("Invalid path: %v", err), http.StatusBadRequest)
+		log.Printf("❌ DeletePath path validation failed for %s: %v", req.Path, err)
+		userFriendlyError := getUserFriendlyError(err)
+		http.Error(w, userFriendlyError, http.StatusBadRequest)
 		return
 	}
 
@@ -473,19 +688,22 @@ func (fs *FileSystemService) DeletePath(w http.ResponseWriter, r *http.Request) 
 	if err != nil {
 		if os.IsNotExist(err) {
 			if req.Force {
+				log.Printf("✅ DeletePath: Path already deleted or does not exist (force mode): %s", fullPath)
 				// Ignore if path doesn't exist and force is true
 				response := map[string]interface{}{
 					"success": true,
-					"message": "Path already deleted or does not exist",
+					"message": "The item was already deleted or doesn't exist.",
 					"path":    req.Path,
 				}
 				w.Header().Set("Content-Type", "application/json")
 				json.NewEncoder(w).Encode(response)
 				return
 			}
-			http.Error(w, "Path not found", http.StatusNotFound)
+			log.Printf("❌ DeletePath: Path not found: %s", fullPath)
+			http.Error(w, "The file or folder you're trying to delete could not be found.", http.StatusNotFound)
 		} else {
-			http.Error(w, fmt.Sprintf("Access denied: %v", err), http.StatusForbidden)
+			log.Printf("❌ DeletePath access denied for %s: %v", fullPath, err)
+			http.Error(w, "You don't have permission to delete this item. Please check permissions and try again.", http.StatusForbidden)
 		}
 		return
 	}
@@ -493,18 +711,24 @@ func (fs *FileSystemService) DeletePath(w http.ResponseWriter, r *http.Request) 
 	// Delete the path
 	if info.IsDir() {
 		if req.Recursive {
+			log.Printf("🗑️ DeletePath removing directory recursively: %s", fullPath)
 			err = os.RemoveAll(fullPath)
 		} else {
+			log.Printf("🗑️ DeletePath removing directory (non-recursive): %s", fullPath)
 			err = os.Remove(fullPath) // Will fail if directory is not empty
 		}
 	} else {
+		log.Printf("🗑️ DeletePath removing file: %s", fullPath)
 		err = os.Remove(fullPath)
 	}
 
 	if err != nil {
+		log.Printf("❌ DeletePath failed to delete %s: %v", fullPath, err)
 		http.Error(w, fmt.Sprintf("Failed to delete: %v", err), http.StatusInternalServerError)
 		return
 	}
+
+	log.Printf("✅ DeletePath successfully deleted: %s", fullPath)
 
 	response := map[string]interface{}{
 		"success": true,
@@ -546,10 +770,14 @@ func (fs *FileSystemService) BrowseDirectory(w http.ResponseWriter, r *http.Requ
 
 // PathCompletions handles GET /api/fs/completions
 func (fs *FileSystemService) PathCompletions(w http.ResponseWriter, r *http.Request) {
+	log.Printf("🔍 PathCompletions request: %s %s", r.Method, r.URL.String())
+
 	originalPath := r.URL.Query().Get("path")
 	if originalPath == "" {
 		originalPath = "."
 	}
+
+	log.Printf("🔍 PathCompletions original path: %s", originalPath)
 
 	// Handle tilde expansion for home directory
 	partialPath := originalPath
@@ -557,6 +785,9 @@ func (fs *FileSystemService) PathCompletions(w http.ResponseWriter, r *http.Requ
 		homeDir := os.Getenv("HOME")
 		if homeDir != "" {
 			partialPath = strings.Replace(partialPath, "~", homeDir, 1)
+			log.Printf("🔍 PathCompletions expanded tilde: %s", partialPath)
+		} else {
+			log.Printf("⚠️ PathCompletions tilde expansion requested but HOME env var not set")
 		}
 	}
 
@@ -572,6 +803,8 @@ func (fs *FileSystemService) PathCompletions(w http.ResponseWriter, r *http.Requ
 		partialName = filepath.Base(partialPath)
 	}
 
+	log.Printf("🔍 PathCompletions dirPath: %s, partialName: %s", dirPath, partialName)
+
 	// Resolve the directory path
 	fullDirPath := filepath.Clean(dirPath)
 	if !filepath.IsAbs(fullDirPath) {
@@ -579,6 +812,7 @@ func (fs *FileSystemService) PathCompletions(w http.ResponseWriter, r *http.Requ
 			var err error
 			fullDirPath, err = os.Getwd()
 			if err != nil {
+				log.Printf("❌ PathCompletions failed to get working directory: %v", err)
 				http.Error(w, fmt.Sprintf("Failed to get working directory: %v", err), http.StatusInternalServerError)
 				return
 			}
@@ -586,15 +820,19 @@ func (fs *FileSystemService) PathCompletions(w http.ResponseWriter, r *http.Requ
 			var err error
 			fullDirPath, err = filepath.Abs(fullDirPath)
 			if err != nil {
+				log.Printf("❌ PathCompletions failed to resolve path %s: %v", fullDirPath, err)
 				http.Error(w, fmt.Sprintf("Failed to resolve path: %v", err), http.StatusInternalServerError)
 				return
 			}
 		}
 	}
 
+	log.Printf("🔍 PathCompletions fullDirPath: %s", fullDirPath)
+
 	// Check if directory exists
 	dirStats, err := os.Stat(fullDirPath)
 	if err != nil || !dirStats.IsDir() {
+		log.Printf("⚠️ PathCompletions directory does not exist or is not a directory: %s", fullDirPath)
 		// Directory doesn't exist, return empty completions
 		response := PathCompletionResponse{
 			Completions: []CompletionEntry{},
@@ -608,9 +846,12 @@ func (fs *FileSystemService) PathCompletions(w http.ResponseWriter, r *http.Requ
 	// Read directory contents
 	entries, err := os.ReadDir(fullDirPath)
 	if err != nil {
+		log.Printf("❌ PathCompletions failed to read directory %s: %v", fullDirPath, err)
 		http.Error(w, fmt.Sprintf("Failed to read directory: %v", err), http.StatusInternalServerError)
 		return
 	}
+
+	log.Printf("🔍 PathCompletions found %d entries in %s", len(entries), fullDirPath)
 
 	var completions []CompletionEntry
 

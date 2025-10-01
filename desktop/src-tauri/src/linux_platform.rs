@@ -39,14 +39,14 @@ X-GNOME-Autostart-enabled=true
 Hidden=false
 "#,
                 exe_path.display()
-            );
+            ");
 
             std::fs::write(&desktop_file, desktop_entry)?;
-            info!("Created Linux autostart desktop entry");
+            log::info!("Created Linux autostart desktop entry");
         } else {
             if desktop_file.exists() {
                 std::fs::remove_file(&desktop_file)?;
-                info!("Removed Linux autostart desktop entry");
+                log::info!("Removed Linux autostart desktop entry");
             }
         }
 
@@ -68,7 +68,7 @@ impl PlatformIntegration for LinuxPlatform {
 
     fn setup_notifications(&self) -> Result<(), String> {
         // Notifications are handled by Tauri's notification plugin
-        info!("Notification setup for Linux");
+        log::info!("Notification setup for Linux");
         Ok(())
     }
 
@@ -76,5 +76,20 @@ impl PlatformIntegration for LinuxPlatform {
         // Power management is handled by the system on Linux
         info!("Power management setup for Linux (system default)");
         Ok(())
+    }
+
+    fn get_platform_name() -> &'static str {
+        "linux"
+    }
+
+    fn is_supported() -> bool {
+        true
+    }
+
+    fn get_config_paths() -> Vec<std::path::PathBuf> {
+        vec![
+            dirs::home_dir().unwrap_or_default().join(".config").join("tunnelforge"),
+            std::env::temp_dir().join("tunnelforge"),
+        ]
     }
 }

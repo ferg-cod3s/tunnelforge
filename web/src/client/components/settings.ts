@@ -14,6 +14,7 @@ import { createLogger } from '../utils/logger.js';
 import { type MediaQueryState, responsiveObserver } from '../utils/responsive-utils.js';
 import { VERSION } from '../version.js';
 import { DomainSetup } from './domain-setup.js';
+import { TunnelAPIService, type TunnelConfig, type TunnelStatus } from '../services/tunnel-service.js';
 
 const logger = createLogger('settings');
 
@@ -52,14 +53,22 @@ export class Settings extends LitElement {
   @state() private repositoryBasePath = DEFAULT_REPOSITORY_BASE_PATH;
   @state() private mediaState: MediaQueryState = responsiveObserver.getCurrentState();
   @state() private repositoryCount = 0;
-  @state() private activeTab: 'general' | 'notifications' | 'domains' = 'general';
+  @state() private activeTab: 'general' | 'notifications' | 'domains' | 'tunnels' = 'general';
   @state() private isDiscoveringRepositories = false;
+
+  // Tunnel settings state
+  @state() private tunnelStatus: TunnelStatus = { running: false };
+  @state() private tunnelConfig: TunnelConfig = {};
+  @state() private tunnelInstalled = false;
+  @state() private quickTunnelPort = 3000;
+  @state() private isTunnelLoading = false;
 
   private permissionChangeUnsubscribe?: () => void;
   private subscriptionChangeUnsubscribe?: () => void;
   private unsubscribeResponsive?: () => void;
   private repositoryService?: RepositoryService;
   private serverConfigService?: ServerConfigService;
+  private tunnelService?: TunnelAPIService;
 
   connectedCallback() {
     super.connectedCallback();
@@ -68,6 +77,7 @@ export class Settings extends LitElement {
 
     // Initialize services
     this.serverConfigService = new ServerConfigService(this.authClient);
+    this.tunnelService = new TunnelAPIService(this.authClient);
 
     // Initialize repository service if authClient is available
     if (this.authClient) {
@@ -105,6 +115,8 @@ export class Settings extends LitElement {
         this.discoverRepositories();
         // Refresh notification state when dialog opens
         this.refreshNotificationState();
+        // Load tunnel status when dialog opens
+        this.loadTunnelStatus();
       } else {
         document.removeEventListener('keydown', this.handleKeyDown);
       }
@@ -565,6 +577,12 @@ export class Settings extends LitElement {
               >
                 Domains
               </button>
+              <button
+                class="px-4 py-2 text-sm font-medium border-b-2 transition-colors ${this.activeTab === 'tunnels' ? 'border-primary text-primary' : 'border-transparent text-text-muted hover:text-primary'}"
+                @click=${() => (this.activeTab = 'tunnels')}
+              >
+                Tunnels
+              </button>
             </div>
           </div>
 
@@ -851,8 +869,208 @@ export class Settings extends LitElement {
         return this.renderNotificationSettings();
       case 'domains':
         return html`<domain-setup .authClient=${this.authClient} .visible=${true}></domain-setup>`;
+      case 'tunnels':
+        return this.renderTunnelSettings();
       default:
         return this.renderAppSettings();
     }
+  }
+
+  private async loadTunnelStatus() {
+    if (!this.tunnelService) return;
+
+    try {
+      const [tunnels, status] = await Promise.all([
+        this.tunnelService.listTunnelServices(),
+        this.tunnelService.getCloudflareStatus().catch(() => ({ running: false })),
+      ]);
+
+      const cloudflare = tunnels.find(t => t.type === 'cloudflare');
+      this.tunnelInstalled = cloudflare?.installed || false;
+      this.tunnelStatus = status;
+    } catch (error) {
+      logger.error('Failed to load tunnel status', error);
+    }
+  }
+
+  private async handleStartQuickTunnel() {
+    if (!this.tunnelService || this.isTunnelLoading) return;
+
+    this.isTunnelLoading = true;
+    try {
+      await this.tunnelService.startTunnel({
+        port: this.quickTunnelPort,
+      });
+
+      await new Promise(resolve => setTimeout(resolve, 2000));
+      await this.loadTunnelStatus();
+
+      this.dispatchEvent(
+        new CustomEvent('success', {
+          detail: `Tunnel started on port ${this.quickTunnelPort}`,
+        })
+      );
+    } catch (error) {
+      const message = error instanceof Error ? error.message : 'Failed to start tunnel';
+      this.dispatchEvent(
+        new CustomEvent('error', {
+          detail: message,
+        })
+      );
+    } finally {
+      this.isTunnelLoading = false;
+    }
+  }
+
+  private async handleStopTunnel() {
+    if (!this.tunnelService || this.isTunnelLoading) return;
+
+    this.isTunnelLoading = true;
+    try {
+      await this.tunnelService.stopTunnel();
+      await this.loadTunnelStatus();
+
+      this.dispatchEvent(
+        new CustomEvent('success', {
+          detail: 'Tunnel stopped',
+        })
+      );
+    } catch (error) {
+      const message = error instanceof Error ? error.message : 'Failed to stop tunnel';
+      this.dispatchEvent(
+        new CustomEvent('error', {
+          detail: message,
+        })
+      );
+    } finally {
+      this.isTunnelLoading = false;
+    }
+  }
+
+  private renderTunnelSettings() {
+    return html`
+      <div class="space-y-4">
+        <div class="flex items-center justify-between mb-3">
+          <h3 class="text-md font-bold text-primary">Cloudflare Quick Tunnels</h3>
+          <div class="flex items-center space-x-2">
+            ${this.tunnelStatus.running
+              ? html`
+                  <span class="text-status-success font-mono">●</span>
+                  <span class="text-sm text-primary">Running</span>
+                `
+              : html`
+                  <span class="text-status-error font-mono">●</span>
+                  <span class="text-sm text-primary">Stopped</span>
+                `}
+          </div>
+        </div>
+
+        ${!this.tunnelInstalled
+          ? html`
+              <div class="p-4 bg-status-warning/10 border border-status-warning rounded-lg">
+                <p class="text-sm text-status-warning mb-2">
+                  ⚠️ cloudflared is not installed
+                </p>
+                <p class="text-xs text-status-warning opacity-80">
+                  Please install cloudflared to use tunnel features. Visit
+                  <a
+                    href="https://developers.cloudflare.com/cloudflare-one/connections/connect-apps/install-and-setup/installation/"
+                    target="_blank"
+                    class="underline"
+                  >
+                    Cloudflare documentation
+                  </a>
+                  for installation instructions.
+                </p>
+              </div>
+            `
+          : html`
+              <div class="p-4 bg-bg-tertiary rounded-lg border border-border/50">
+                <p class="text-xs text-muted mb-3">
+                  Start a temporary Cloudflare tunnel to expose your local development server. The tunnel creates a public URL that you can share for testing.
+                </p>
+
+                <div class="space-y-3">
+                  <div>
+                    <label class="text-xs text-muted block mb-1">Local Port</label>
+                    <input
+                      type="number"
+                      .value=${this.quickTunnelPort.toString()}
+                      @input=${(e: Event) => {
+                        const input = e.target as HTMLInputElement;
+                        this.quickTunnelPort = parseInt(input.value) || 3000;
+                      }}
+                      class="input-field py-2 text-sm w-full"
+                      placeholder="3000"
+                      ?disabled=${this.tunnelStatus.running}
+                    />
+                  </div>
+
+                  ${this.tunnelStatus.running
+                    ? html`
+                        <div class="p-3 bg-bg rounded-lg">
+                          <div class="text-xs text-muted mb-1">Public URL</div>
+                          <div class="flex items-center space-x-2">
+                            <code class="text-xs text-primary flex-1 truncate break-all"
+                              >${this.tunnelStatus.url || 'Starting tunnel...'}</code
+                            >
+                            ${this.tunnelStatus.url
+                              ? html`
+                                  <button
+                                    class="text-primary hover:text-primary-hover text-xs transition-colors flex-shrink-0"
+                                    @click=${() => {
+                                      navigator.clipboard.writeText(this.tunnelStatus.url!);
+                                      this.dispatchEvent(
+                                        new CustomEvent('success', {
+                                          detail: 'URL copied to clipboard',
+                                        })
+                                      );
+                                    }}
+                                    title="Copy URL"
+                                  >
+                                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                      <path
+                                        stroke-linecap="round"
+                                        stroke-linejoin="round"
+                                        stroke-width="2"
+                                        d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z"
+                                      />
+                                    </svg>
+                                  </button>
+                                `
+                              : ''}
+                          </div>
+                        </div>
+
+                        <button
+                          class="btn-secondary w-full text-sm py-2"
+                          @click=${this.handleStopTunnel}
+                          ?disabled=${this.isTunnelLoading}
+                        >
+                          ${this.isTunnelLoading ? 'Stopping...' : 'Stop Tunnel'}
+                        </button>
+                      `
+                    : html`
+                        <button
+                          class="btn-primary w-full text-sm py-2"
+                          @click=${this.handleStartQuickTunnel}
+                          ?disabled=${this.isTunnelLoading}
+                        >
+                          ${this.isTunnelLoading ? 'Starting...' : 'Start Tunnel'}
+                        </button>
+                      `}
+                </div>
+              </div>
+
+              <div class="p-3 bg-bg-tertiary rounded-lg border border-border/50 text-xs text-muted">
+                <p class="font-medium text-primary mb-1">Note:</p>
+                <p>
+                  Quick tunnels are temporary and will stop when the server restarts. For production use cases with custom domains,
+                  configure an authenticated Cloudflare tunnel using the Cloudflare dashboard.
+                </p>
+              </div>
+            `}
+      </div>
+    `;
   }
 }

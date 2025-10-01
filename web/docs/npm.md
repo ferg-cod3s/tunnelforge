@@ -8,7 +8,7 @@ TunnelForge is distributed as an npm package that includes:
 - Full web server with terminal sharing capabilities
 - Native modules for terminal (PTY) and authentication (PAM) support
 - Cross-platform prebuilt binaries to avoid requiring build tools
-- Command-line tools (`tunnelforge` and `vt`)
+ - Command-line tools (`tunnelforge` and `tf`)
 
 ## Package Structure
 
@@ -18,7 +18,7 @@ tunnelforge/
 ├── public/                  # Web interface assets
 ├── bin/                     # CLI entry points
 │   ├── tunnelforge          # Main server executable
-│   └── vt                  # Terminal wrapper command
+ │   └── tf                  # Terminal wrapper command
 ├── node-pty/               # Vendored PTY implementation
 │   ├── lib/                # TypeScript compiled code
 │   └── package.json        # PTY package configuration
@@ -309,23 +309,23 @@ tunnelforge --no-auth
 
 Then open http://localhost:4020 in your browser to access the web interface.
 
-### Using the vt Command
+### Using the tf Command
 ```bash
 # Monitor AI agents with automatic activity tracking
-vt claude
-vt claude --dangerously-skip-permissions
+tf claude
+tf claude --dangerously-skip-permissions
 
 # Run commands with output visible in TunnelForge
-vt npm test
-vt python script.py
-vt top
+tf npm test
+tf python script.py
+tf top
 
 # Launch interactive shell
-vt --shell
-vt -i
+tf --shell
+tf -i
 
 # Update session title (inside a session)
-vt title "My Project"
+tf title "My Project"
 ```
 
 ### Command Forwarding
@@ -344,15 +344,15 @@ tunnelforge fwd --session-id abc123 python script.py
 The npm package works seamlessly alongside the Mac app:
 
 ### Command Routing
-- The `vt` command from npm automatically detects if the Mac app is installed
-- If Mac app found at `/Applications/TunnelForge.app`, npm `vt` defers to it
+ - The `tf` command from npm automatically detects if the Mac app is installed
+ - If Mac app found at `/Applications/TunnelForge.app`, npm `tf` defers to it
 - Ensures you always get the best available implementation
 
 ### Installation Behavior
-- Won't overwrite existing `/usr/local/bin/vt` from other tools
-- Provides helpful warnings if conflicts exist
-- Installation always succeeds, even if `vt` symlink can't be created
-- Use `tunnelforge` or `npx vt` as alternatives
+ - Won't overwrite existing `/usr/local/bin/tf` from other tools
+ - Provides helpful warnings if conflicts exist
+ - Installation always succeeds, even if `tf` symlink can't be created
+ - Use `tunnelforge` or `npx tf` as alternatives
 
 ## Build Process Validation
 

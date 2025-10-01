@@ -24,6 +24,8 @@ type TunnelService interface {
 	GetPublicURL() (string, error)
 	IsInstalled() bool
 	GetType() TunnelType
+	StartQuickTunnel(port int) error
+	StartWithConfig(port int, config *CloudflareConfig) error
 }
 
 // TunnelStatus represents the current status of a tunnel

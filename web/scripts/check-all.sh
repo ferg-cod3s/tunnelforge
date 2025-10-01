@@ -7,7 +7,7 @@
 FORMAT_OUT=$(mktemp)
 LINT_OUT=$(mktemp)
 TYPECHECK_OUT=$(mktemp)
-VT_OUT=$(mktemp)
+TF_OUT=$(mktemp)
 
 # Track PIDs for parallel tasks
 declare -a pids=()
@@ -42,11 +42,11 @@ pids+=($!)
 } &
 pids+=($!)
 
-# Run vt script tests in parallel
+# Run tf script tests in parallel
 {
-    if ! pnpm run test:vt > "$VT_OUT" 2>&1; then
-        echo "VT script test failed:"
-        cat "$VT_OUT"
+    if ! pnpm run test:tf > "$TF_OUT" 2>&1; then
+        echo "TF script test failed:"
+        cat "$TF_OUT"
         exit 1
     fi
 } &
@@ -61,7 +61,7 @@ for pid in "${pids[@]}"; do
 done
 
 # Cleanup
-rm -f "$FORMAT_OUT" "$LINT_OUT" "$TYPECHECK_OUT" "$VT_OUT"
+rm -f "$FORMAT_OUT" "$LINT_OUT" "$TYPECHECK_OUT" "$TF_OUT"
 
 # Exit with appropriate code
 if [ "$failed" = true ]; then

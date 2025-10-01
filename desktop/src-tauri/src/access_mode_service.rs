@@ -58,13 +58,13 @@ impl AccessModeService {
         println!("Checking network access capabilities...");
         
         // Get network interfaces
-        let network_interfaces = self.get_network_interfaces();
+        let network_interfaces = self.get_network_interfaces(");
         
         // Check if we can bind to network interfaces
-        let can_bind_network = self.check_network_binding();
+        let can_bind_network = self.check_network_binding(");
         
         // Check firewall status
-        let firewall_status = self.check_firewall_status();
+        let firewall_status = self.check_firewall_status(");
         
         if let Ok(mut status) = self.status.lock() {
             status.network_interfaces = network_interfaces;
@@ -82,11 +82,11 @@ impl AccessModeService {
         {
             if let Ok(output) = std::process::Command::new("ifconfig").output() {
                 if output.status.success() {
-                    let output_str = String::from_utf8_lossy(&output.stdout);
+                    let output_str = String::from_utf8_lossy(&output.stdout");
                     for line in output_str.lines() {
                         if line.contains("inet ") && !line.contains("127.0.0.1") {
                             if let Some(ip) = line.split_whitespace().nth(1) {
-                                interfaces.push(ip.to_string());
+                                interfaces.push(ip.to_string()");
                             }
                         }
                     }
@@ -98,12 +98,12 @@ impl AccessModeService {
         {
             if let Ok(output) = std::process::Command::new("ip").args(&["addr", "show"]).output() {
                 if output.status.success() {
-                    let output_str = String::from_utf8_lossy(&output.stdout);
+                    let output_str = String::from_utf8_lossy(&output.stdout");
                     for line in output_str.lines() {
                         if line.contains("inet ") && !line.contains("127.0.0.1") {
                             if let Some(ip) = line.split_whitespace().nth(1) {
                                 if let Some(addr) = ip.split('/').next() {
-                                    interfaces.push(addr.to_string());
+                                    interfaces.push(addr.to_string()");
                                 }
                             }
                         }
@@ -116,13 +116,13 @@ impl AccessModeService {
         {
             if let Ok(output) = std::process::Command::new("ipconfig").output() {
                 if output.status.success() {
-                    let output_str = String::from_utf8_lossy(&output.stdout);
+                    let output_str = String::from_utf8_lossy(&output.stdout");
                     for line in output_str.lines() {
                         if line.contains("IPv4 Address") && line.contains(":") {
                             if let Some(ip) = line.split(':').nth(1) {
-                                let ip = ip.trim();
+                                let ip = ip.trim(");
                                 if ip != "127.0.0.1" {
-                                    interfaces.push(ip.to_string());
+                                    interfaces.push(ip.to_string()");
                                 }
                             }
                         }
@@ -149,9 +149,9 @@ impl AccessModeService {
             match std::process::Command::new("defaults").args(&["read", "/Library/Preferences/com.apple.alf", "globalstate"]).output() {
                 Ok(output) => {
                     if output.status.success() {
-                        let output_str = String::from_utf8_lossy(&output.stdout);
-                        let state = output_str.trim();
-                        return Some(format!("macOS Firewall: {}", if state == "0" { "Disabled" } else { "Enabled" }));
+                        let output_str = String::from_utf8_lossy(&output.stdout");
+                        let state = output_str.trim(");
+                        return Some(format!("macOS Firewall: {}", if state == "0" { "Disabled" } else { "Enabled" })");
                     }
                 }
                 Err(_) => {}
@@ -163,7 +163,7 @@ impl AccessModeService {
             match std::process::Command::new("ufw").arg("status").output() {
                 Ok(output) => {
                     if output.status.success() {
-                        return Some("UFW Firewall configured".to_string());
+                        return Some("UFW Firewall configured".to_string()");
                     }
                 }
                 Err(_) => {}
@@ -172,8 +172,8 @@ impl AccessModeService {
             match std::process::Command::new("firewall-cmd").arg("--state").output() {
                 Ok(output) => {
                     if output.status.success() {
-                        let output_str = String::from_utf8_lossy(&output.stdout);
-                        return Some(format!("firewalld: {}", output_str.trim()));
+                        let output_str = String::from_utf8_lossy(&output.stdout");
+                        return Some(format!("firewalld: {}", output_str.trim())");
                     }
                 }
                 Err(_) => {}
@@ -185,7 +185,7 @@ impl AccessModeService {
             match std::process::Command::new("netsh").args(&["advfirewall", "show", "allprofiles", "state"]).output() {
                 Ok(output) => {
                     if output.status.success() {
-                        return Some("Windows Firewall configured".to_string());
+                        return Some("Windows Firewall configured".to_string()");
                     }
                 }
                 Err(_) => {}
@@ -196,7 +196,7 @@ impl AccessModeService {
     }
 
     pub async fn set_access_mode(&self, mode: AccessMode, port: u16) -> Result<(), String> {
-        println!("Setting access mode to {:?} on port {}", mode, port);
+        println!("Setting access mode to {:?} on port {}", mode, port");
         
         if let Ok(mut status) = self.status.lock() {
             status.current_mode = mode;
@@ -210,7 +210,7 @@ impl AccessModeService {
     }
 
     pub async fn get_current_binding(&self) -> Result<String, String> {
-        let status = self.get_status();
+        let status = self.get_status(");
         
         match status.current_mode {
             AccessMode::LocalhostOnly => Ok(format!("127.0.0.1:{}", status.server_port)),
@@ -225,17 +225,17 @@ impl AccessModeService {
     }
 
     pub async fn test_network_connectivity(&self) -> Result<Vec<String>, String> {
-        let status = self.get_status();
+        let status = self.get_status(");
         let mut results = vec![];
         
         for interface in status.network_interfaces {
             // Test connectivity to each interface
             match std::net::TcpListener::bind(&format!("{}:0", interface)) {
                 Ok(_) => {
-                    results.push(format!("✅ {} - Available", interface));
+                    results.push(format!("✅ {} - Available", interface)");
                 }
                 Err(e) => {
-                    results.push(format!("❌ {} - {}", interface, e));
+                    results.push(format!("❌ {} - {}", interface, e)");
                 }
             }
         }
@@ -247,36 +247,36 @@ impl AccessModeService {
 // Tauri commands for access mode controls
 #[tauri::command]
 pub async fn get_access_mode_status(app_handle: AppHandle) -> Result<AccessModeStatus, String> {
-    let access_mode_service = app_handle.state::<AccessModeService>();
-    let access_mode_service = access_mode_service.inner();
+    let access_mode_service = app_handle.state::<AccessModeService>(");
+    let access_mode_service = access_mode_service.inner(");
     Ok(access_mode_service.get_status())
 }
 
 #[tauri::command]
 pub async fn check_network_access(app_handle: AppHandle) -> Result<(), String> {
-    let access_mode_service = app_handle.state::<AccessModeService>();
-    let access_mode_service = access_mode_service.inner();
+    let access_mode_service = app_handle.state::<AccessModeService>(");
+    let access_mode_service = access_mode_service.inner(");
     access_mode_service.check_network_access().await;
     Ok(())
 }
 
 #[tauri::command]
 pub async fn set_access_mode(app_handle: AppHandle, mode: AccessMode, port: u16) -> Result<(), String> {
-    let access_mode_service = app_handle.state::<AccessModeService>();
-    let access_mode_service = access_mode_service.inner();
+    let access_mode_service = app_handle.state::<AccessModeService>(");
+    let access_mode_service = access_mode_service.inner(");
     access_mode_service.set_access_mode(mode, port).await
 }
 
 #[tauri::command]
 pub async fn get_current_binding(app_handle: AppHandle) -> Result<String, String> {
-    let access_mode_service = app_handle.state::<AccessModeService>();
-    let access_mode_service = access_mode_service.inner();
+    let access_mode_service = app_handle.state::<AccessModeService>(");
+    let access_mode_service = access_mode_service.inner(");
     access_mode_service.get_current_binding().await
 }
 
 #[tauri::command]
 pub async fn test_network_connectivity(app_handle: AppHandle) -> Result<Vec<String>, String> {
-    let access_mode_service = app_handle.state::<AccessModeService>();
-    let access_mode_service = access_mode_service.inner();
+    let access_mode_service = app_handle.state::<AccessModeService>(");
+    let access_mode_service = access_mode_service.inner(");
     access_mode_service.test_network_connectivity().await
 }

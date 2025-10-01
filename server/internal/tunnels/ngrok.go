@@ -124,3 +124,13 @@ func (n *ngrokService) IsInstalled() bool {
 func (n *ngrokService) GetType() TunnelType {
 	return TunnelTypeNgrok
 }
+
+// StartQuickTunnel starts a quick tunnel (not applicable for ngrok)
+func (n *ngrokService) StartQuickTunnel(port int) error {
+	return n.Start(port)
+}
+
+// StartWithConfig starts with config (not applicable for ngrok)
+func (n *ngrokService) StartWithConfig(port int, config *CloudflareConfig) error {
+	return fmt.Errorf("StartWithConfig not supported for ngrok")
+}

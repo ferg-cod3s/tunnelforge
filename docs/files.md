@@ -135,6 +135,77 @@ The project structure emphasizes modularity with separate build systems for each
 - `mac/TunnelForge/Core/Models/UpdateChannel.swift` - Update channels
 - `ios/TunnelForge/Models/ServerConfig.swift` - Server settings
 
+### Filesystem Security Configuration
+
+#### Base Path Configuration
+The filesystem service uses a configurable base path to restrict file operations to safe directories. This prevents directory traversal attacks and ensures users can only access intended files and directories.
+
+**Configuration Options:**
+- **Environment Variable:** `FILESYSTEM_BASE_PATH`
+- **Default Value:** User's home directory (`$HOME`)
+- **Purpose:** Defines the root directory for all filesystem operations
+
+**Example Configurations:**
+```bash
+# Restrict to home directory (default)
+export FILESYSTEM_BASE_PATH="$HOME"
+
+# Restrict to a specific directory
+export FILESYSTEM_BASE_PATH="/opt/tunnelforge-files"
+
+# Allow full filesystem access (NOT RECOMMENDED for production)
+export FILESYSTEM_BASE_PATH="/"
+```
+
+#### Path Validation Rules
+The filesystem service enforces strict path validation:
+
+1. **URL Decoding:** All paths are URL-decoded to handle encoded characters
+2. **Tilde Expansion:** `~` is expanded to the user's home directory
+3. **Absolute Path Resolution:** Relative paths are converted to absolute paths
+4. **Directory Traversal Prevention:** `../` and other traversal attempts are blocked
+5. **Base Path Enforcement:** All resolved paths must be within the configured base path
+
+**Allowed Operations:**
+- ✅ Relative paths within base directory
+- ✅ Absolute paths within base directory  
+- ✅ Tilde expansion (`~/Documents`)
+- ✅ Standard directory operations (list, create, delete, upload, download)
+
+**Blocked Operations:**
+- ❌ Paths outside the base directory
+- ❌ Directory traversal attempts (`../../../etc/passwd`)
+- ❌ Absolute paths to system directories (when base path is restricted)
+- ❌ Symlinks pointing outside the base directory
+
+#### Security Best Practices
+1. **Production Deployment:** Always set `FILESYSTEM_BASE_PATH` to a restricted directory
+2. **User Isolation:** Use per-user directories when serving multiple users
+3. **Regular Audits:** Monitor filesystem access logs for suspicious activity
+4. **Minimal Permissions:** Grant only necessary read/write permissions to the base directory
+
+#### Troubleshooting Common Issues
+- **400 Bad Request:** Usually indicates an invalid path or directory traversal attempt
+- **403 Forbidden:** Path exists but is outside the allowed base directory
+- **404 Not Found:** Path does not exist or is not accessible
+- **500 Internal Server Error:** Server-side error, check logs for details
+
+#### Logging
+All filesystem operations are logged with detailed information including:
+- Requested paths
+- Validation steps
+- Error conditions
+- Operation results
+
+Logs use structured format with emojis for easy identification:
+- 🔍 Path validation
+- 📁 Directory listing
+- 📥 File download
+- 📤 File upload
+- 🗑️ File deletion
+- ❌ Error conditions
+- ✅ Successful operations
+
 ### Assets & Resources
 - `assets/AppIcon.icon/` - App icon assets
 - `mac/TunnelForge/Assets.xcassets/` - macOS asset catalog

@@ -4,51 +4,51 @@ use std::process::{Command, Child};
 use std::path::Path;
 use log::info;
 
-use crate::add_log_entry;
+// use crate::add_log_entry; // Will be implemented later
 
 pub struct ProcessManager;
 
 impl ProcessManager {
     pub fn build_go_server(server_dir: &Path) -> Result<(), String> {
-        let msg = format!("Building Go server in directory: {:?}", server_dir);
-        info!("{}", msg);
-        add_log_entry("info", &msg);
+        let msg = format!("Building Go server in directory: {:?}", server_dir");
+        info!("{}", msg");
+        log::info!("&msg");
 
         // Check if go.mod exists
         if !server_dir.join("go.mod").exists() {
             let error = "go.mod not found in server directory";
-            add_log_entry("error", error);
-            return Err(error.to_string());
+            log::error!("error");
+            return Err(error.to_string()");
         }
 
         // Check if cmd/server/main.go exists
         if !server_dir.join("cmd/server/main.go").exists() {
             let error = "cmd/server/main.go not found in server directory";
-            add_log_entry("error", error);
-            return Err(error.to_string());
+            log::error!("error");
+            return Err(error.to_string()");
         }
 
-        add_log_entry("debug", "Running: go build -o tunnelforge-server cmd/server/main.go");
+        log::debug!("""Running: go build -o tunnelforge-server cmd/server/main.go");
 
         let output = Command::new("go")
             .args(&["build", "-o", "tunnelforge-server", "cmd/server/main.go"])
             .current_dir(server_dir)
             .output()
             .map_err(|e| {
-                let error = format!("Failed to run go build: {}", e);
-                add_log_entry("error", &error);
+                let error = format!("Failed to run go build: {}", e");
+                log::error!("&error");
                 error
             })?;
 
         if output.status.success() {
             let msg = "Go server built successfully";
-            info!("{}", msg);
-            add_log_entry("info", msg);
+            info!("{}", msg");
+            log::info!("msg");
             Ok(())
         } else {
-            let stderr = String::from_utf8_lossy(&output.stderr);
-            let error = format!("Go server build failed with exit code: {:?}. Error: {}", output.status.code(), stderr);
-            add_log_entry("error", &error);
+            let stderr = String::from_utf8_lossy(&output.stderr");
+            let error = format!("Go server build failed with exit code: {:?}. Error: {}", output.status.code(), stderr");
+            log::error!("&error");
             Err(error)
         }
     }
@@ -61,7 +61,7 @@ impl ProcessManager {
         let mut cmd = Command::new("./tunnelforge-server");
         cmd.current_dir(server_dir)
            .env("PORT", port.to_string())
-           .env("HOST", host);
+           .env("HOST", host");
 
         // Platform-specific configuration
         #[cfg(target_os = "windows")]
@@ -75,13 +75,13 @@ impl ProcessManager {
     }
 
     pub fn kill_process(mut child: Child) -> Result<(), String> {
-        info!("Killing process with PID: {}", child.id());
+        info!("Killing process with PID: {}", child.id()");
 
         child.kill()
             .map_err(|e| format!("Failed to kill process: {}", e))?;
 
         // Wait for process to exit
-        let _ = child.wait();
+        let _ = child.wait(");
         Ok(())
     }
 

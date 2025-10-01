@@ -77,21 +77,50 @@ test.describe('TunnelForge Settings Window', () => {
     await expect(firstToggle).toBeChecked();
   });
 
-  test('displays service integrations', async ({ page }) => {
-    await page.click('text=Integrations');
+   test('displays service integrations', async ({ page }) => {
+     await page.click('text=Integrations');
 
-    // Check Cloudflare integration
-    await expect(page.locator('text=☁️')).toBeVisible();
-    await expect(page.locator('text=Cloudflare Quick Tunnels')).toBeVisible();
+     // Check Cloudflare integration
+     await expect(page.locator('text=☁️')).toBeVisible();
+     await expect(page.locator('text=Cloudflare Quick Tunnels')).toBeVisible();
 
-    // Check ngrok integration
-    await expect(page.locator('text=🚇')).toBeVisible();
-    await expect(page.locator('text=ngrok Tunnels')).toBeVisible();
+     // Check ngrok integration
+     await expect(page.locator('text=🚇')).toBeVisible();
+     await expect(page.locator('text=ngrok Tunnels')).toBeVisible();
 
-    // Check access mode controls
-    await expect(page.locator('text=🌐')).toBeVisible();
-    await expect(page.locator('text=Access Mode Controls')).toBeVisible();
-  });
+     // Check access mode controls
+     await expect(page.locator('text=🌐')).toBeVisible();
+     await expect(page.locator('text=Access Mode Controls')).toBeVisible();
+   });
+
+   test('can configure custom domain', async ({ page }) => {
+     await page.click('text=Integrations');
+
+     // Check custom domain input field
+     const domainInput = page.locator('input[placeholder*="custom domain"]');
+     await expect(domainInput).toBeVisible();
+
+     // Test entering a custom domain
+     await domainInput.fill('my-tunnel.example.com');
+     await expect(domainInput).toHaveValue('my-tunnel.example.com');
+
+     // Check domain validation (should show valid state)
+     await expect(page.locator('text=✅')).toBeVisible();
+   });
+
+   test('validates custom domain format', async ({ page }) => {
+     await page.click('text=Integrations');
+
+     const domainInput = page.locator('input[placeholder*="custom domain"]');
+
+     // Test invalid domain
+     await domainInput.fill('invalid-domain');
+     await expect(page.locator('text=❌')).toBeVisible();
+
+     // Test valid domain
+     await domainInput.fill('valid.example.com');
+     await expect(page.locator('text=✅')).toBeVisible();
+   });
 
   test('can save settings', async ({ page }) => {
     // Mock the save function

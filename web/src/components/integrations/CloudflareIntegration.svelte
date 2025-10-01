@@ -15,6 +15,8 @@
   let isLoading = false;
   let isStarting = false;
   let port = 4021;
+  let customDomain = '';
+  let isCreatingNamedTunnel = false;
 
   // Load status on mount
   onMount(async () => {
@@ -37,16 +39,33 @@
   async function startTunnel() {
     try {
       isStarting = true;
-      const url = await invoke('start_cloudflare_tunnel', { port });
-      status.is_running = true;
-      status.public_url = url;
-      status.status_error = null;
-      dispatch('tunnel-started', { url });
+
+      if (customDomain.trim()) {
+        // Use named tunnel with custom domain
+        isCreatingNamedTunnel = true;
+        const result = await invoke('create_named_cloudflare_tunnel', {
+          port,
+          name: `tunnelforge-${Date.now()}`,
+          domain: customDomain.trim()
+        });
+        status.is_running = true;
+        status.public_url = result.url;
+        status.status_error = null;
+        dispatch('tunnel-started', { url: result.url });
+      } else {
+        // Use quick tunnel
+        const url = await invoke('start_cloudflare_tunnel', { port });
+        status.is_running = true;
+        status.public_url = url;
+        status.status_error = null;
+        dispatch('tunnel-started', { url });
+      }
     } catch (error) {
       console.error('Failed to start tunnel:', error);
       status.status_error = error as string;
     } finally {
       isStarting = false;
+      isCreatingNamedTunnel = false;
     }
   }
 
@@ -156,27 +175,49 @@
   <!-- Tunnel Controls -->
   {#if status.is_installed}
     <div class="space-y-3">
-      <div class="flex items-center space-x-3">
-        <label for="port-input" class="text-sm font-medium">Port:</label>
-        <input
-          id="port-input"
-          type="number"
-          bind:value={port}
-          min="1"
-          max="65535"
-          class="px-3 py-1 border border-gray-300 dark:border-gray-600 rounded text-sm w-20"
-        />
-      </div>
+       <div class="space-y-3">
+         <div class="flex items-center space-x-3">
+           <label for="port-input" class="text-sm font-medium">Port:</label>
+           <input
+             id="port-input"
+             type="number"
+             bind:value={port}
+             min="1"
+             max="65535"
+             class="px-3 py-1 border border-gray-300 dark:border-gray-600 rounded text-sm w-20"
+             disabled={isStarting}
+           />
+         </div>
+
+         <div class="flex items-center space-x-3">
+           <label for="domain-input" class="text-sm font-medium">Custom Domain:</label>
+           <input
+             id="domain-input"
+             type="text"
+             bind:value={customDomain}
+             placeholder="tunnel.example.com"
+             class="px-3 py-1 border border-gray-300 dark:border-gray-600 rounded text-sm flex-1"
+             disabled={isStarting}
+           />
+           <span class="text-xs text-gray-500 dark:text-gray-400">(optional)</span>
+         </div>
+       </div>
 
       <div class="flex space-x-2">
         {#if !status.is_running}
-          <button
-            class="px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700 disabled:opacity-50"
-            on:click={startTunnel}
-            disabled={isStarting}
-          >
-            {isStarting ? 'Starting...' : 'Start Tunnel'}
-          </button>
+           <button
+             class="px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700 disabled:opacity-50"
+             on:click={startTunnel}
+             disabled={isStarting}
+           >
+             {#if isCreatingNamedTunnel}
+               Creating Named Tunnel...
+             {:else if isStarting}
+               Starting...
+             {:else}
+               Start Tunnel
+             {/if}
+           </button>
         {:else}
           <button
             class="px-4 py-2 bg-red-600 text-white rounded hover:bg-red-700"

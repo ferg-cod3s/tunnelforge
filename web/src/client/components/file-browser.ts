@@ -177,6 +177,8 @@ export class FileBrowser extends LitElement {
       const headers = this.noAuthMode ? {} : { ...authClient.getAuthHeader() };
       const response = await fetch(url, { headers });
       logger.debug(`response status: ${response.status}`);
+
+      if (response.ok) {
         const data: DirectoryListing = await response.json();
         logger.debug(`received ${data.files?.length || 0} files`);
         // Use the absolute path (fullPath) instead of the potentially relative path
@@ -185,52 +187,50 @@ export class FileBrowser extends LitElement {
         this.files = (data.files || []).concat(data.directories || []);
         this.gitStatus = data.gitStatus || null;
         // Clear any previous error message on successful load
-        this.errorMessage = "";
-        // Clear any previous error message on successful load
-        this.errorMessage = "";
-       } else {
-         let errorMessage = "Failed to load directory";
-         try {
-           const errorData = await response.json();
-           errorMessage = errorData.error || errorMessage;
-           // Add specific handling for 400 errors
-           if (response.status === 400) {
-             errorMessage = `Invalid directory path: ${errorData.details || errorMessage}`;
-           }
-         } catch {
-           // If response isn"t JSON, use default message
-           errorMessage = `Failed to load directory (${response.status})`;
-         }
+        this.errorMessage = '';
+      } else {
+        let errorMessage = 'Failed to load directory';
+        try {
+          const errorData = await response.json();
+          errorMessage = errorData.error || errorMessage;
+          // Add specific handling for 400 errors
+          if (response.status === 400) {
+            errorMessage = `Invalid directory path: ${errorData.details || errorMessage}`;
+          }
+        } catch {
+          // If response isn"t JSON, use default message
+          errorMessage = `Failed to load directory (${response.status})`;
+        }
 
         logger.error(`failed to load directory: ${response.status}`, new Error(errorMessage));
-        
+
         // Retry on rate limit (429) or server errors
         if ((response.status === 429 || response.status >= 500) && attempt < maxRetries) {
-          if (response.status === 429) {
-            this.showErrorMessage(`Rate limited, retrying in ${delay/1000}s...`);
-          } else {
-            this.showErrorMessage(`Server error, retrying in ${delay/1000}s...`);
-          }
           const delay = Math.min(1000 * Math.pow(2, attempt - 1), 10000); // Exponential backoff, max 10s
+          if (response.status === 429) {
+            this.showErrorMessage(`Rate limited, retrying in ${delay / 1000}s...`);
+          } else {
+            this.showErrorMessage(`Server error, retrying in ${delay / 1000}s...`);
+          }
           logger.debug(`Retrying in ${delay}ms...`);
-          await new Promise(resolve => setTimeout(resolve, delay));
+          await new Promise((resolve) => setTimeout(resolve, delay));
           return this.loadDirectoryWithRetry(dirPath, attempt + 1, maxRetries);
         }
-        
+
         this.showErrorMessage(errorMessage);
       }
     } catch (error) {
-      logger.error("error loading directory:", error);
-      
+      logger.error('error loading directory:', error);
+
       // Retry on network errors
       if (attempt < maxRetries) {
         const delay = Math.min(1000 * Math.pow(2, attempt - 1), 10000); // Exponential backoff, max 10s
         logger.debug(`Retrying in ${delay}ms...`);
-        await new Promise(resolve => setTimeout(resolve, delay));
+        await new Promise((resolve) => setTimeout(resolve, delay));
         return this.loadDirectoryWithRetry(dirPath, attempt + 1, maxRetries);
       }
-      
-      this.showErrorMessage("Network error loading directory");
+
+      this.showErrorMessage('Network error loading directory');
     } finally {
       this.loading = false;
     }

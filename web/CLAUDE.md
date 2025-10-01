@@ -66,12 +66,12 @@ Do NOT use three separate commands (add, commit, push) as this is slow.
 - Understand and work with the existing codebase architecture first
 - This project has custom implementations - don't assume we need standard packages
 
-## CRITICAL: vt Command in package.json
-**IMPORTANT: DO NOT add "vt": "./bin/vt" to the bin section of package.json or package.npm.json!**
-- The vt command must NOT be registered as a global binary in package.json
-- This is because it conflicts with other tools that use 'vt' (there are many)
-- Instead, vt is conditionally installed via postinstall script only if available
-- The postinstall script checks if vt already exists before creating a symlink
+## CRITICAL: tf Command in package.json
+**IMPORTANT: DO NOT add "tf": "./bin/tf" to the bin section of package.json or package.npm.json!**
+ - The tf command must NOT be registered as a global binary in package.json
+ - This is because it conflicts with other tools that use 'tf' (there are many)
+ - Instead, tf is conditionally installed via postinstall script only if available
+ - The postinstall script checks if tf already exists before creating a symlink
 
 ## CRITICAL: Playwright Test UI Changes
 **IMPORTANT: When tests fail looking for UI elements, investigate the actual UI structure!**

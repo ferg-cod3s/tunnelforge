@@ -90,33 +90,64 @@ const server = Bun.serve({
 
     // Handle client configuration requests
     if (url.pathname === '/api/config') {
-      // Get the host from the request to determine the correct WebSocket URL
-      const requestHost = req.headers.get('host') || 'localhost:3001';
-      const protocol = req.url.startsWith('https') ? 'wss' : 'ws';
+      try {
+        // Fetch config from Go server to get authRequired status
+        const goConfigResponse = await fetch(`${GO_SERVER_URL}/api/config`);
+        const goConfig = await goConfigResponse.json();
 
-      // For network access, point directly to Go server using the same host but Go server port
-      const goServerPort = new URL(GO_SERVER_URL).port;
-      const wsHost = requestHost.includes('192.168.68.53')
-        ? `192.168.68.53:${goServerPort}`
-        : `localhost:${goServerPort}`;
+        // Get the host from the request to determine the correct WebSocket URL
+        const requestHost = req.headers.get('host') || 'localhost:3001';
+        const protocol = req.url.startsWith('https') ? 'wss' : 'ws';
 
-      const config = {
-        websocketUrl: `${protocol}://${wsHost}`,
-        features: {
-          directWebSocket: true, // Back to direct connection
-          streamingEnabled: true,
-        },
-        // Include origin information for WebSocket connections
-        origin: `${req.url.startsWith('https') ? 'https' : 'http'}://${requestHost}`,
-      };
+        // For network access, point directly to Go server using the same host but Go server port
+        const goServerPort = new URL(GO_SERVER_URL).port;
+        const wsHost = requestHost.includes('192.168.68.53')
+          ? `192.168.68.53:${goServerPort}`
+          : `localhost:${goServerPort}`;
 
-      return new Response(JSON.stringify(config), {
-        headers: {
-          'Content-Type': 'application/json',
-          'Access-Control-Allow-Origin': '*',
-          'Cache-Control': 'no-cache',
-        },
-      });
+        // Merge Go server config with client-specific settings
+        const config = {
+          ...goConfig,
+          websocketUrl: `${protocol}://${wsHost}`,
+          features: {
+            ...goConfig.features,
+            directWebSocket: true, // Back to direct connection
+            streamingEnabled: true,
+          },
+          // Include origin information for WebSocket connections
+          origin: `${req.url.startsWith('https') ? 'https' : 'http'}://${requestHost}`,
+        };
+
+        return new Response(JSON.stringify(config), {
+          headers: {
+            'Content-Type': 'application/json',
+            'Access-Control-Allow-Origin': '*',
+            'Cache-Control': 'no-cache',
+          },
+        });
+      } catch (error) {
+        console.error('Failed to fetch Go server config:', error);
+        // Fallback config if Go server is unavailable
+        const requestHost = req.headers.get('host') || 'localhost:3001';
+        const protocol = req.url.startsWith('https') ? 'wss' : 'ws';
+        const goServerPort = new URL(GO_SERVER_URL).port;
+        const wsHost = requestHost.includes('192.168.68.53')
+          ? `192.168.68.53:${goServerPort}`
+          : `localhost:${goServerPort}`;
+
+        return new Response(JSON.stringify({
+          authRequired: false,
+          websocketUrl: `${protocol}://${wsHost}`,
+          features: { directWebSocket: true, streamingEnabled: true },
+          origin: `${req.url.startsWith('https') ? 'https' : 'http'}://${requestHost}`,
+        }), {
+          headers: {
+            'Content-Type': 'application/json',
+            'Access-Control-Allow-Origin': '*',
+            'Cache-Control': 'no-cache',
+          },
+        });
+      }
     }
 
     // Handle missing file system endpoints with stub implementations
@@ -350,7 +381,7 @@ const server = Bun.serve({
         const cleanHeaders: Record<string, string> = {};
         const skipHeaders = [
           'host',
-           'accept-encoding',
+          'accept-encoding',
           'connection',
           'upgrade',
           'sec-websocket-key',
@@ -417,8 +448,8 @@ const server = Bun.serve({
         // Create new response with CORS headers and proper decompression handling
         let responseBody: BodyInit;
         const originalHeaders = new Headers(response.headers);
-        const contentEncoding = originalHeaders.get("content-encoding");
-        
+        const contentEncoding = originalHeaders.get('content-encoding');
+
         // Get response body
         const rawBody = await response.arrayBuffer();
         // Try to gunzip if it looks like gzip
@@ -429,7 +460,7 @@ const server = Bun.serve({
           responseBody = rawBody;
           console.log(`📄 Using raw response body`);
         }
-        
+
         const headers = new Headers();
 
         // Add CORS headers
@@ -442,7 +473,7 @@ const server = Bun.serve({
           // For JSON responses, parse and re-stringify to ensure proper encoding
           try {
             let jsonData;
-            if (contentEncoding === "gzip") {
+            if (contentEncoding === 'gzip') {
               const decompressedText = new TextDecoder().decode(responseBody as Uint8Array);
               jsonData = JSON.parse(decompressedText);
             } else {

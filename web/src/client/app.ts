@@ -433,9 +433,9 @@ export class TunnelForgeApp extends LitElement {
       if (configResponse.ok) {
         const authConfig = await configResponse.json();
         logger.log('🔧 Auth config:', authConfig);
-        noAuthEnabled = authConfig.noAuth;
+        noAuthEnabled = !authConfig.authRequired;
 
-        if (authConfig.noAuth) {
+        if (!authConfig.authRequired) {
           logger.log('🔓 No auth required, bypassing authentication');
           this.isAuthenticated = true;
           this.currentView = 'list';

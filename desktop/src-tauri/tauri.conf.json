@@ -7,25 +7,13 @@
   "productName": "TunnelForge",
   "version": "1.0.0",
   "identifier": "dev.tunnelforge.desktop",
-  "plugins": {
-    "opener": {
-      "scope": ["*"],
-      "validate": true
-    },
-    "shell": {
-      "open": true,
-      "scope": {
-        "allow": ["^https?://"],
-        "deny": ["^file://"]
-      }
-    }
-  },
+  "plugins": {},
   "bundle": {
     "active": true,
     "targets": "all",
     "icon": [
       "icons/32x32.png",
-      "icons/128x128.png", 
+      "icons/128x128.png",
       "icons/128x128@2x.png",
       "icons/icon.icns",
       "icons/icon.ico"
@@ -40,48 +28,7 @@
   "app": {
     "withGlobalTauri": false,
     "security": {
-      "csp": "default-src 'self'; connect-src 'self' https://*.tunnelforge.dev wss://*.tunnelforge.dev; img-src 'self' data: https:; style-src 'self' 'unsafe-inline'; script-src 'self'",
-      "dangerousDisableAssetCspModification": false,
-      "freezePrototype": true,
-      "pattern": {
-        "use_regex": true
-      },
-      "capabilities": [
-        {
-          "identifier": "main-capability",
-          "description": "Capability for the main window",
-          "windows": ["main"],
-          "permissions": [
-            "core:default",
-            "core:webview:default",
-            "core:window:default",
-            "core:window:allow-show",
-            "core:window:allow-hide",
-            "core:window:allow-close",
-            "core:window:allow-center",
-            "core:window:allow-set-focus",
-            "shell:default",
-            "shell:allow-open",
-            "opener:default"
-          ],
-          "platforms": ["linux", "windows", "macos"],
-          "scope": {
-            "url": {
-              "main": ["https://*.tunnelforge.dev"],
-              "asset": ["asset://localhost"]
-            },
-            "fs": {
-              "allow": ["$APP/*", "$CONFIG/*"],
-              "deny": ["**"]
-            },
-            "window": {
-              "create": false,
-              "center": true,
-              "requestUserAttention": true
-            }
-          }
-        }
-      ]
+      "csp": "default-src 'self'; connect-src 'self' https://*.tunnelforge.dev wss://*.tunnelforge.dev; img-src 'self' data: https:; style-src 'self' 'unsafe-inline'; script-src 'self'"
     },
     "windows": [],
     "trayIcon": {

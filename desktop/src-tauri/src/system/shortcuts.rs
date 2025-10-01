@@ -7,7 +7,7 @@ pub struct ShortcutManager;
 
 impl ShortcutManager {
     pub fn register_shortcuts() -> Result<(), String> {
-        add_log_entry("info", "Registering global shortcuts");
+        log::info!(""Registering global shortcuts");
         info!("Registering global shortcuts");
 
         // In a real implementation, this would register global hotkeys
@@ -17,7 +17,7 @@ impl ShortcutManager {
     }
 
     pub fn unregister_shortcuts() -> Result<(), String> {
-        add_log_entry("info", "Unregistering global shortcuts");
+        log::info!(""Unregistering global shortcuts");
         info!("Unregistering global shortcuts");
 
         // In a real implementation, this would unregister global hotkeys
@@ -26,24 +26,24 @@ impl ShortcutManager {
     }
 
     pub fn handle_shortcut(shortcut: &str) -> Result<(), String> {
-        add_log_entry("debug", &format!("Handling shortcut: {}", shortcut));
-        debug!("Handling shortcut: {}", shortcut);
+        log::debug!(""&format!("Handling shortcut: {}", shortcut)");
+        debug!("Handling shortcut: {}", shortcut");
 
         match shortcut {
             "show_window" => {
                 // Handle show window shortcut
-                add_log_entry("info", "Show window shortcut triggered");
+                log::info!(""Show window shortcut triggered");
             }
             "hide_window" => {
                 // Handle hide window shortcut
-                add_log_entry("info", "Hide window shortcut triggered");
+                log::info!(""Hide window shortcut triggered");
             }
             "toggle_server" => {
                 // Handle toggle server shortcut
-                add_log_entry("info", "Toggle server shortcut triggered");
+                log::info!(""Toggle server shortcut triggered");
             }
             _ => {
-                add_log_entry("warning", &format!("Unknown shortcut: {}", shortcut));
+                log::warn!("&format!("Unknown shortcut: {}", shortcut)");
             }
         }
 

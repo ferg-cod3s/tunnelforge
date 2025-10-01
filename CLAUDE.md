@@ -28,9 +28,10 @@ VibeTunnel is a modern cross-platform terminal multiplexer that allows users to 
 
 ### Branding and CLI naming (authoritative)
 - Project name: TunnelForge (formerly VibeTunnel). Use "TunnelForge" in new text. Do not mass-rename code without an explicit request; older names may still exist in code/tests.
-- CLI: Prefer `tf` for examples and references. `vt` remains a legacy alias; use it only where the codebase/scripts still require it.
+- CLI: **Use `tf` for all examples and references.** `vt` is a legacy alias maintained for backward compatibility only. All new code, documentation, and examples must use `tf`.
 - Logs: Use `./scripts/vtlog.sh` for now. If a `tflog.sh` alias exists in the future, prefer that. Avoid long-running follow mode in this environment.
-- Terminal titles: Prefer `tf title "…"`. If `tf` is not available on the machine, fall back to `vt title "…"`.
+- Terminal titles: Use `tf title "…"` - this is the standard command. `vt title "…"` works but is deprecated.
+- Migration guide: See `docs/reference/cli-migration.md` for complete migration documentation.
 
 
 ### Release Process

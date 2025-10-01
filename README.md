@@ -37,11 +37,14 @@
 
 ## 🚀 Status: Production Ready
 
-**Latest Update (2025-09-27)**: Cross-platform implementation complete! TunnelForge now supports Windows, Linux, and macOS with native desktop applications and comprehensive web interface.
+**Latest Update (2025-09-27)**: Cross-platform implementation complete! TunnelForge now supports Windows, Linux, and macOS with native Tauri desktop applications and comprehensive web interface.
 
 - ✅ **Go Server Backend** - Production-ready with WebSocket terminals
-- ✅ **Tauri Desktop Apps** - Native cross-platform applications  
+- ✅ **Tauri Desktop Apps** - Native cross-platform applications (replaces native macOS app)
 - ✅ **Bun Web Frontend** - Modern responsive interface
+- ✅ **Enhanced Logging** - Sentry integration for debugging and error tracking
+- ✅ **Comprehensive Testing** - E2E tests with CI/CD integration
+- ✅ **Custom Domains** - Cloudflare tunnel support with custom domains
 - ✅ **Packaging** - DEB, AppImage, MSI installers available
 - ✅ **CI/CD** - Automated builds and releases configured
 
@@ -76,12 +79,12 @@ npm install -g tunnelforge
 ### Basic Usage
 
 1. **Launch TunnelForge**: Lives in your menu bar (macOS) or run `tunnelforge` (Linux)
-2. **Use the `vt` command** to forward any terminal session:
-   ```bash
-   vt claude --dangerously-skip-permissions  # Monitor AI agents
-   vt npm run dev                            # Development servers
-   vt python script.py                      # Any command
-   ```
+2. **Use the `tf` command** to forward any terminal session:
+    ```bash
+    tf claude --dangerously-skip-permissions  # Monitor AI agents
+    tf npm run dev                            # Development servers
+    tf python script.py                      # Any command
+    ```
 3. **Access your dashboard** at [http://localhost:4020](http://localhost:4020)
 
 ## Key Features
@@ -97,10 +100,10 @@ npm install -g tunnelforge
 
 ## Architecture Status
 
-> **🔄 Refactoring in Progress**: TunnelForge is being refactored from Node.js + SwiftUI to Go + Bun + Tauri for better performance and cross-platform support.
+> **✅ Migration Complete**: TunnelForge has been successfully refactored to Go + Bun + Tauri for optimal performance and cross-platform support.
 
-**Current**: Node.js server (port 4020) + SwiftUI macOS app
-**Target**: Go server (port 4021) + Bun frontend (port 3001) + Tauri v2 desktop apps
+**Current**: Go server (port 4021) + Bun frontend (port 3001) + Tauri v2 desktop apps
+**Previous**: Node.js server (port 4020) + SwiftUI macOS app (deprecated)
 
 ## Documentation
 

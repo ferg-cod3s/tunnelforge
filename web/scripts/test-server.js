@@ -24,7 +24,7 @@ if (process.env.TUNNELFORGE_SEA === 'true' && fs.existsSync(nativeExecutable)) {
   // Fallback: build TypeScript files if needed
   console.log('Building server TypeScript files for tests...');
   try {
-    execSync('pnpm exec tsc -p tsconfig.server.json', { 
+    execSync('bunx tsc -p tsconfig.server.json', {
       stdio: 'inherit',
       cwd: projectRoot
     });
@@ -39,7 +39,7 @@ if (process.env.TUNNELFORGE_SEA === 'true' && fs.existsSync(nativeExecutable)) {
 }
 
 // Ensure native modules are available
-execSync('node scripts/ensure-native-modules.js', { 
+execSync('bun run scripts/ensure-native-modules.js', {
   stdio: 'inherit',
   cwd: projectRoot
 });
@@ -189,7 +189,7 @@ if (process.env.CI || process.env.WAIT_FOR_SERVER) {
       return;
     }
     
-    const waitChild = spawn('node', [path.join(projectRoot, 'scripts/wait-for-server.js')], {
+    const waitChild = spawn('bun', [path.join(projectRoot, 'scripts/wait-for-server.js')], {
       stdio: 'inherit',
       cwd: projectRoot,
       env: {

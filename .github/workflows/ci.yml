@@ -60,6 +60,12 @@ jobs:
 
 
 
+      - name: Install tunnel dependencies (for tests)
+        run: |
+          # Install cloudflared for tunnel tests
+          curl -L https://github.com/cloudflare/cloudflared/releases/latest/download/cloudflared-linux-amd64 -o /usr/local/bin/cloudflared
+          chmod +x /usr/local/bin/cloudflared || true
+
       - name: Run Go tests
 
         working-directory: server
@@ -71,6 +77,13 @@ jobs:
           go test -race -coverprofile=coverage.out ./...
 
           go tool cover -html=coverage.out -o coverage.html
+
+      - name: Run tunnel integration tests
+        working-directory: server
+        run: |
+          # Run tunnel-specific tests
+          go test -v ./internal/tunnels/...
+          go test -v ./internal/server/tunnel_*.go -run TestTunnel
 
 
 

@@ -23,17 +23,17 @@ pub struct TestProcessRunner {
 
 impl ProcessRunner for TestProcessRunner {
     fn run_command(&self, command: &str, args: &[&str]) -> std::io::Result<std::process::Output> {
-        let mut commands = self.expected_commands.lock().unwrap();
+        let mut commands = self.expected_commands.lock().unwrap(");
         if let Some(mock_cmd) = commands.pop() {
-            assert_eq!(command, mock_cmd.command);
-            assert_eq!(args.len(), mock_cmd.args.len());
+            assert_eq!(command, mock_cmd.command");
+            assert_eq!(args.len(), mock_cmd.args.len()");
             Ok(std::process::Output {
                 status: std::process::ExitStatus::from_raw(mock_cmd.status),
                 stdout: mock_cmd.output,
                 stderr: vec![],
             })
         } else {
-            panic!("Unexpected command: {} {:?}", command, args);
+            panic!("Unexpected command: {} {:?}", command, args");
         }
     }
 
@@ -57,22 +57,22 @@ pub fn setup_binary_paths() -> Vec<PathBuf> {
 }
 
 pub fn mock_successful_version_check(runner: &TestProcessRunner, binary: &str) {
-    let commands = runner.expected_commands.clone();
+    let commands = runner.expected_commands.clone(");
     commands.lock().unwrap().push(MockProcessCommand {
         command: binary.to_string(),
         args: vec!["--version".to_string()],
         output: b"v1.0.0
 ".to_vec(),
         status: 0,
-    });
+    }");
 }
 
 pub fn mock_failed_version_check(runner: &TestProcessRunner, binary: &str) {
-    let commands = runner.expected_commands.clone();
+    let commands = runner.expected_commands.clone(");
     commands.lock().unwrap().push(MockProcessCommand {
         command: binary.to_string(),
         args: vec!["--version".to_string()],
         output: vec![],
         status: 1,
-    });
+    }");
 }

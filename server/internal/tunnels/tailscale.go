@@ -122,3 +122,13 @@ func (t *tailscaleService) IsInstalled() bool {
 func (t *tailscaleService) GetType() TunnelType {
 	return TunnelTypeTailscale
 }
+
+// StartQuickTunnel starts a quick tunnel (not applicable for tailscale)
+func (t *tailscaleService) StartQuickTunnel(port int) error {
+	return t.Start(port)
+}
+
+// StartWithConfig starts with config (not applicable for tailscale)
+func (t *tailscaleService) StartWithConfig(port int, config *CloudflareConfig) error {
+	return fmt.Errorf("StartWithConfig not supported for tailscale")
+}

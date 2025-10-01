@@ -493,7 +493,7 @@ function validatePackageHybrid() {
     'lib/tunnelforge-cli',
     'lib/cli.js',
     'bin/tunnelforge',
-    'bin/vt',
+     'bin/tf',
     'scripts/postinstall.js',
     'public/index.html',
     'node-pty/package.json',
@@ -632,7 +632,7 @@ async function main() {
     // Scripts
     { src: 'scripts/postinstall-npm.js', dest: 'scripts/postinstall.js' },
     { src: 'scripts/node-pty-plugin.js', dest: 'scripts/node-pty-plugin.js' },
-    { src: 'scripts/install-vt-command.js', dest: 'scripts/install-vt-command.js' }
+     { src: 'scripts/install-tf-command.js', dest: 'scripts/install-tf-command.js' }
   ];
   
   function copyRecursive(src, dest) {
@@ -708,10 +708,10 @@ async function main() {
       main: 'lib/cli.js',
       
       // Bin scripts
-      bin: {
-        tunnelforge: './bin/tunnelforge',
-        vt: './bin/vt'
-      },
+       bin: {
+         tunnelforge: './bin/tunnelforge',
+         tf: './bin/tf'
+       },
       
       // Only runtime dependencies
       dependencies: Object.fromEntries(
@@ -797,7 +797,7 @@ child.on('exit', (code, signal) => {
   fs.writeFileSync(binVibetunnelPath, binVibetunnelContent, { mode: 0o755 });
   console.log('  ✓ Fixed bin/tunnelforge path');
   
-  // vt script doesn't need fixing - it dynamically finds the binary
+   // tf script doesn't need fixing - it dynamically finds the binary
   
   // Step 7: Copy README from web directory
   console.log('\n7️⃣ Copying README from web directory...\n');

@@ -7,6 +7,7 @@ import (
 	"mime/multipart"
 	"net/http"
 	"net/http/httptest"
+	"net/url"
 	"os"
 	"path/filepath"
 	"strings"
@@ -634,6 +635,133 @@ func TestFileSystemService_SortingAndFiltering(t *testing.T) {
 			actualFirst := response.Files[0].Name
 			if actualFirst != tt.firstFile {
 				t.Errorf("Expected first file to be %s, got %s", tt.firstFile, actualFirst)
+			}
+		})
+	}
+}
+
+func TestFileSystemService_PathEncoding(t *testing.T) {
+	tempDir, fs, cleanup := setupTestEnvironment(t)
+	defer cleanup()
+
+	// Create a test file with special characters that need encoding
+	testFileName := "test file with spaces & symbols.txt"
+	testFilePath := filepath.Join(tempDir, testFileName)
+	err := os.WriteFile(testFilePath, []byte("test content"), 0644)
+	if err != nil {
+		t.Fatal("Failed to create test file:", err)
+	}
+
+	tests := []struct {
+		name           string
+		encodedPath    string
+		expectedStatus int
+		shouldSucceed  bool
+	}{
+		{
+			name:           "Valid URL-encoded path",
+			encodedPath:    url.QueryEscape(testFileName),
+			expectedStatus: 200,
+			shouldSucceed:  true,
+		},
+		{
+			name:           "Valid URL-encoded path with subdirectory",
+			encodedPath:    url.QueryEscape(filepath.Join("subdir", testFileName)),
+			expectedStatus: 404, // Subdirectory doesn't exist
+			shouldSucceed:  false,
+		},
+		{
+			name:           "Path with percent encoding",
+			encodedPath:    "test%20file%20with%20spaces%20%26%20symbols.txt",
+			expectedStatus: 200,
+			shouldSucceed:  true,
+		},
+		{
+			name:           "Path with tilde expansion",
+			encodedPath:    "~/" + url.QueryEscape(testFileName),
+			expectedStatus: 200,
+			shouldSucceed:  true,
+		},
+		{
+			name:           "Directory traversal attempt (should fail)",
+			encodedPath:    url.QueryEscape("../../etc/passwd"),
+			expectedStatus: 400,
+			shouldSucceed:  false,
+		},
+		{
+			name:           "Path with Unicode characters",
+			encodedPath:    url.QueryEscape("测试文件.txt"),
+			expectedStatus: 200,
+			shouldSucceed:  true,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			// Test path validation directly
+			_, err := fs.validatePath(tt.encodedPath)
+			if tt.shouldSucceed && err != nil {
+				t.Errorf("Expected path validation to succeed for %s, but got error: %v", tt.encodedPath, err)
+			}
+			if !tt.shouldSucceed && err == nil {
+				t.Errorf("Expected path validation to fail for %s, but it succeeded", tt.encodedPath)
+			}
+
+			// Test ListDirectory with encoded path
+			req, err := http.NewRequest("GET", "/api/filesystem/ls", nil)
+			if err != nil {
+				t.Fatal(err)
+			}
+
+			q := req.URL.Query()
+			q.Add("path", tt.encodedPath)
+			req.URL.RawQuery = q.Encode()
+
+			rr := httptest.NewRecorder()
+			fs.ListDirectory(rr, req)
+
+			if rr.Code != tt.expectedStatus {
+				t.Errorf("Expected status code %d for path %s, got %d", tt.expectedStatus, tt.encodedPath, rr.Code)
+			}
+		})
+	}
+}
+
+func TestFileSystemService_CommonUserDirectories(t *testing.T) {
+	// Test the isCommonUserDirectory function
+	homeDir := os.Getenv("HOME")
+	if homeDir == "" {
+		t.Skip("HOME environment variable not set")
+	}
+
+	tests := []struct {
+		path        string
+		isCommon    bool
+	}{
+		{filepath.Join(homeDir, "Desktop"), true},
+		{filepath.Join(homeDir, "Documents"), true},
+		{filepath.Join(homeDir, "Downloads"), true},
+		{filepath.Join(homeDir, "Pictures"), true},
+		{filepath.Join(homeDir, "Music"), true},
+		{filepath.Join(homeDir, "Videos"), true},
+		{filepath.Join(homeDir, "src"), true},
+		{filepath.Join(homeDir, "dev"), true},
+		{filepath.Join(homeDir, "projects"), true},
+		{filepath.Join(homeDir, ".config"), true},
+		{filepath.Join(homeDir, ".local"), true},
+		{filepath.Join(homeDir, "Documents", "projects"), true},
+		{filepath.Join(homeDir, "src", "github"), true},
+		{"/etc/passwd", false},
+		{"/tmp", false},
+		{filepath.Join(homeDir, "random-dir"), false},
+		{filepath.Join(homeDir, "Documents", "deep", "nested"), false},
+	}
+
+	for _, tt := range tests {
+		t.Run(fmt.Sprintf("Path_%s", strings.ReplaceAll(tt.path, string(filepath.Separator), "_")), func(t *testing.T) {
+			result := isCommonUserDirectory(tt.path)
+			if result != tt.isCommon {
+				t.Errorf("isCommonUserDirectory(%s) = %v, want %v", tt.path, result, tt.isCommon)
 			}
 		})
 	}

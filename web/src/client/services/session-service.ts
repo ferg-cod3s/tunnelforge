@@ -179,58 +179,47 @@ export class SessionService {
    * - Server error occurs (500)
    * - Network request fails
    */
-   async createSession(sessionData: SessionCreateData): Promise<SessionCreateResult> {
-     const maxRetries = 3;
-     for (let attempt = 1; attempt <= maxRetries; attempt++) {
-       try {
-         const response = await fetch('/api/sessions', {
-           method: HttpMethod.POST,
-           headers: {
-             'Content-Type': 'application/json',
-             ...this.authClient.getAuthHeader(),
-           },
-           body: JSON.stringify(sessionData),
-         });
+  async createSession(sessionData: SessionCreateData): Promise<SessionCreateResult> {
+    const maxRetries = 3;
+    for (let attempt = 1; attempt <= maxRetries; attempt++) {
+      try {
+        const response = await fetch('/api/sessions', {
+          method: HttpMethod.POST,
+          headers: {
+            'Content-Type': 'application/json',
+            ...this.authClient.getAuthHeader(),
+          },
+          body: JSON.stringify(sessionData),
+        });
 
-         if (response.ok) {
-           const result = await response.json();
-           logger.log('Session created successfully:', result.sessionId);
-           return result;
-         }
-         
-         // Handle specific error cases
-         if (response.status === 503) {
-           // Server not ready, retry
-           await new Promise(resolve => setTimeout(resolve, 1000 * attempt));
-           continue;
-         }
-         
-         // Other errors
-         const error: SessionCreateError = await response.json();
-         throw new Error(error.details || error.error || 'Unknown error');
-       } catch (error) {
-         if (attempt === maxRetries) {
-           // Re-throw if it's already an Error with a message
-           if (error instanceof Error && error.message) {
-             throw error;
-           }
-           // Otherwise wrap it
-           logger.error('Error creating session:', error);
-           throw new Error('Failed to create session');
-         }
-         // Retry on network errors
-       }
-     }
-   }
-           if (error instanceof Error && error.message) {
-             throw error;
-           }
-           // Otherwise wrap it
-           logger.error('Error creating session:', error);
-           throw new Error('Failed to create session');
-         }
-         // Retry on network errors
-       }
-     }
-   }
+        if (response.ok) {
+          const result = await response.json();
+          logger.log('Session created successfully:', result.sessionId);
+          return result;
+        }
+
+        // Handle specific error cases
+        if (response.status === 503) {
+          // Server not ready, retry
+          await new Promise((resolve) => setTimeout(resolve, 1000 * attempt));
+          continue;
+        }
+
+        // Other errors
+        const error: SessionCreateError = await response.json();
+        throw new Error(error.details || error.error || 'Unknown error');
+      } catch (error) {
+        if (attempt === maxRetries) {
+          // Re-throw if it's already an Error with a message
+          if (error instanceof Error && error.message) {
+            throw error;
+          }
+          // Otherwise wrap it
+          logger.error('Error creating session:', error);
+          throw new Error('Failed to create session');
+        }
+        // Retry on network errors
+      }
+    }
+  }
 }

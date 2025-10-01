@@ -4,7 +4,7 @@ const path = require('path');
 console.log('Starting Bun development mode...');
 
 // Validate version sync first
-require('child_process').execSync('node scripts/validate-version-sync.js', { stdio: 'inherit' });
+require('child_process').execSync('bun run scripts/validate-version-sync.js', { stdio: 'inherit' });
 
 // Parse command line arguments using Node's built-in parseArgs
 const { parseArgs } = require('util');

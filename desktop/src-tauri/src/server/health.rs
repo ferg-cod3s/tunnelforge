@@ -7,7 +7,7 @@ use reqwest;
 use serde::{Deserialize, Serialize};
 use log::debug;
 
-use crate::add_log_entry;
+// use crate::add_log_entry; // Will be implemented later
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct HealthStatus {
@@ -28,7 +28,7 @@ impl HealthChecker {
         let client = reqwest::Client::builder()
             .timeout(Duration::from_secs(5))
             .build()
-            .unwrap();
+            .unwrap(");
 
         Self {
             port,
@@ -39,7 +39,7 @@ impl HealthChecker {
 
     /// Quick TCP connection check
     pub fn check_tcp_connection(&self) -> bool {
-        let addr = format!("{}:{}", self.host, self.port);
+        let addr = format!("{}:{}", self.host, self.port");
         if let Ok(socket_addr) = addr.parse::<SocketAddr>() {
             TcpStream::connect_timeout(&socket_addr, Duration::from_millis(1000)).is_ok()
         } else {
@@ -49,17 +49,17 @@ impl HealthChecker {
 
     /// Comprehensive HTTP health check
     pub async fn check_health(&self) -> HealthStatus {
-        let start_time = std::time::Instant::now();
-        let url = format!("http://{}:{}/health", self.host, self.port);
+        let start_time = std::time::Instant::now(");
+        let url = format!("http://{}:{}/health", self.host, self.port");
 
-        debug!("Checking server health at: {}", url);
+        debug!("Checking server health at: {}", url");
 
         match self.client.get(&url).send().await {
             Ok(response) => {
                 let response_time = start_time.elapsed().as_millis() as u64;
 
                 if response.status().is_success() {
-                    add_log_entry("debug", &format!("Health check successful, response time: {}ms", response_time));
+                    log::debug!(""&format!("Health check successful, response time: {}ms", response_time)");
                     HealthStatus {
                         healthy: true,
                         port: self.port,
@@ -67,8 +67,8 @@ impl HealthChecker {
                         error: None,
                     }
                 } else {
-                    let error_msg = format!("Health check failed with status: {}", response.status());
-                    add_log_entry("warning", &error_msg);
+                    let error_msg = format!("Health check failed with status: {}", response.status()");
+                    log::warn!("&error_msg");
                     HealthStatus {
                         healthy: false,
                         port: self.port,
@@ -78,8 +78,8 @@ impl HealthChecker {
                 }
             }
             Err(e) => {
-                let error_msg = format!("Health check request failed: {}", e);
-                add_log_entry("warning", &error_msg);
+                let error_msg = format!("Health check request failed: {}", e");
+                log::warn!("&error_msg");
                 HealthStatus {
                     healthy: false,
                     port: self.port,
@@ -92,20 +92,20 @@ impl HealthChecker {
 
     /// Check if server is responding to API requests
     pub async fn check_api_health(&self) -> bool {
-        let url = format!("http://{}:{}/api/health", self.host, self.port);
+        let url = format!("http://{}:{}/api/health", self.host, self.port");
 
         match self.client.get(&url).send().await {
             Ok(response) => {
-                let success = response.status().is_success();
+                let success = response.status().is_success(");
                 if success {
-                    add_log_entry("debug", "API health check successful");
+                    log::debug!("""API health check successful");
                 } else {
-                    add_log_entry("warning", &format!("API health check failed with status: {}", response.status()));
+                    log::warn!("&format!("API health check failed with status: {}", response.status())");
                 }
                 success
             }
             Err(e) => {
-                add_log_entry("warning", &format!("API health check failed: {}", e));
+                log::warn!("&format!("API health check failed: {}", e)");
                 false
             }
         }
@@ -113,7 +113,7 @@ impl HealthChecker {
 
     /// Get server metrics if available
     pub async fn get_server_metrics(&self) -> Result<serde_json::Value, String> {
-        let url = format!("http://{}:{}/api/metrics", self.host, self.port);
+        let url = format!("http://{}:{}/api/metrics", self.host, self.port");
 
         match self.client.get(&url).send().await {
             Ok(response) => {
@@ -134,18 +134,18 @@ impl HealthChecker {
 // Tauri commands for health checking
 #[tauri::command]
 pub async fn check_server_health(port: u16) -> Result<HealthStatus, String> {
-    let health_checker = HealthChecker::new(port, "127.0.0.1".to_string());
+    let health_checker = HealthChecker::new(port, "127.0.0.1".to_string()");
     Ok(health_checker.check_health().await)
 }
 
 #[tauri::command]
 pub async fn check_server_tcp(port: u16) -> Result<bool, String> {
-    let health_checker = HealthChecker::new(port, "127.0.0.1".to_string());
+    let health_checker = HealthChecker::new(port, "127.0.0.1".to_string()");
     Ok(health_checker.check_tcp_connection())
 }
 
 #[tauri::command]
 pub async fn get_server_metrics(port: u16) -> Result<serde_json::Value, String> {
-    let health_checker = HealthChecker::new(port, "127.0.0.1".to_string());
+    let health_checker = HealthChecker::new(port, "127.0.0.1".to_string()");
     health_checker.get_server_metrics().await
 }

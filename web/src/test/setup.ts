@@ -7,7 +7,7 @@ process.env.TUNNELFORGE_SEA = '';
 // Polyfill crypto for Node.js environments
 
 // Mock window for browser tests
-if (typeof window === "undefined") {
+if (typeof window === 'undefined') {
   global.window = global as any;
 }
 
@@ -66,10 +66,10 @@ if (typeof global !== 'undefined') {
       removeChild: () => {},
     },
   };
-  
+
   // biome-ignore lint/suspicious/noExplicitAny: Test setup requires any for global mocking
   (global as any).document = mockDocument;
-  
+
   // Mock navigator
   // biome-ignore lint/suspicious/noExplicitAny: Test setup requires any for global mocking
   (global as any).navigator = {
@@ -79,11 +79,11 @@ if (typeof global !== 'undefined') {
     },
     userAgent: 'TestAgent',
   };
-  
+
   // Mock HTMLElement
   // biome-ignore lint/suspicious/noExplicitAny: Test setup requires any for global mocking
   (global as any).HTMLElement = class HTMLElement {};
-  
+
   // Mock Element
   // biome-ignore lint/suspicious/noExplicitAny: Test setup requires any for global mocking
   (global as any).Element = class Element {};

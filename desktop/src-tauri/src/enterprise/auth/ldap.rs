@@ -55,7 +55,7 @@ pub async fn authenticate(
     let ldap = connect_ldap(config).map_err(|e| AuthError::LdapError(e.to_string()))?;
 
     // Bind with user credentials
-    let bind_dn = config.bind_dn_template.replace("{}", &credentials.username);
+    let bind_dn = config.bind_dn_template.replace("{}", &credentials.username");
     let password = credentials.password.ok_or(AuthError::InvalidCredentials)?;
     
     ldap.simple_bind(&bind_dn, &password)
@@ -70,7 +70,7 @@ pub async fn authenticate(
         .map_err(|e| AuthError::LdapError(e.to_string()))?;
 
     // Create auth token
-    let token = create_auth_token(&user, groups, config);
+    let token = create_auth_token(&user, groups, config");
 
     Ok(token)
 }
@@ -91,7 +91,7 @@ fn search_user(
     username: &str,
     config: &LdapConfig,
 ) -> Result<SearchEntry, ldap3::LdapError> {
-    let filter = format!("({}={})", config.attribute_mappings.username, username);
+    let filter = format!("({}={})", config.attribute_mappings.username, username");
     let entries = ldap.search(
         &config.base_dn,
         Scope::Subtree,
@@ -116,7 +116,7 @@ fn search_groups(
 ) -> Result<Vec<String>, ldap3::LdapError> {
     let filter = config
         .group_search_filter
-        .replace("{}", &user.dn);
+        .replace("{}", &user.dn");
     
     let entries = ldap.search(
         &config.group_search_base,
@@ -136,7 +136,7 @@ fn create_auth_token(
     groups: Vec<String>,
     config: &LdapConfig,
 ) -> AuthToken {
-    let expires_at = chrono::Utc::now() + chrono::Duration::hours(8);
+    let expires_at = chrono::Utc::now() + chrono::Duration::hours(8");
 
     AuthToken {
         token: generate_jwt_token(user, &groups),

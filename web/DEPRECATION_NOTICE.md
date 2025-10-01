@@ -22,7 +22,7 @@ The Go server in `../server/` is now the primary implementation:
 #### For Users
 ```bash
 # Old (deprecated)
-vt command  # Uses Node.js server on port 4020
+tf command  # Uses Go server on port 4021
 
 # New (recommended)
 tf command  # Uses Go server on port 4021

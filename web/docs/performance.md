@@ -12,9 +12,9 @@ Sessions created via `POST /api/sessions` are spawned directly within the server
 - **Reduced latency**: No inter-process communication overhead for terminal interactions
 - **Immediate responsiveness**: Direct memory access to PTY stdout/stdin
 
-### 2. External Sessions (vt-initiated)
+### 2. External Sessions (tf-initiated)
 
-Sessions started via the `vt` command run in a separate Node.js process with:
+Sessions started via the `tf` command run in a separate Node.js process with:
 
 - **File-based communication**: PTY stdout is written to disk files
 - **Command pipe interface**: Resize and input commands are passed through IPC
