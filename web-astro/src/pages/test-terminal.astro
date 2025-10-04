@@ -1,0 +1,156 @@
+---
+import Terminal from '../lib/components/Terminal.svelte';
+---
+
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Terminal Test - TunnelForge</title>
+  </head>
+  <body class="bg-gray-900 text-white min-h-screen">
+    <div class="container mx-auto p-8">
+      <h1 class="text-3xl font-bold mb-8">Terminal Component Test</h1>
+
+      <div class="grid grid-cols-1 lg:grid-cols-2 gap-8">
+        <!-- Basic Terminal -->
+        <div class="bg-gray-800 p-6 rounded-lg">
+          <h2 class="text-xl font-semibold mb-4">Basic Terminal</h2>
+           <div class="h-96 border border-gray-600 rounded">
+             <Terminal client:only="svelte"
+               sessionId="test-session-1"
+               cols={80}
+               rows={24}
+               fontSize={14}
+               theme="dark"
+             />
+           </div>
+        </div>
+
+        <!-- Terminal with Different Theme -->
+        <div class="bg-gray-800 p-6 rounded-lg">
+          <h2 class="text-xl font-semibold mb-4">Light Theme Terminal</h2>
+           <div class="h-96 border border-gray-600 rounded">
+             <Terminal client:only="svelte"
+               sessionId="test-session-2"
+               cols={80}
+               rows={24}
+               fontSize={14}
+               theme="light"
+             />
+           </div>
+        </div>
+
+        <!-- Terminal with Different Size -->
+        <div class="bg-gray-800 p-6 rounded-lg">
+          <h2 class="text-xl font-semibold mb-4">Small Terminal</h2>
+           <div class="h-64 border border-gray-600 rounded">
+             <Terminal client:only="svelte"
+               sessionId="test-session-3"
+               cols={60}
+               rows={16}
+               fontSize={12}
+               theme="auto"
+             />
+           </div>
+        </div>
+
+        <!-- Terminal with Large Font -->
+        <div class="bg-gray-800 p-6 rounded-lg">
+          <h2 class="text-xl font-semibold mb-4">Large Font Terminal</h2>
+           <div class="h-96 border border-gray-600 rounded">
+             <Terminal client:only="svelte"
+               sessionId="test-session-4"
+               cols={80}
+               rows={24}
+               fontSize={18}
+               theme="vscode-dark"
+             />
+           </div>
+        </div>
+      </div>
+
+      <!-- Controls -->
+      <div class="mt-8 bg-gray-800 p-6 rounded-lg">
+        <h2 class="text-xl font-semibold mb-4">Terminal Controls</h2>
+        <div class="flex gap-4">
+          <button
+            class="bg-blue-600 hover:bg-blue-700 px-4 py-2 rounded"
+            onclick="writeToTerminal('echo Hello World!')"
+          >
+            Write "Hello World"
+          </button>
+          <button
+            class="bg-green-600 hover:bg-green-700 px-4 py-2 rounded"
+            onclick="writeToTerminal('ls -la')"
+          >
+            Write "ls -la"
+          </button>
+          <button
+            class="bg-red-600 hover:bg-red-700 px-4 py-2 rounded"
+            onclick="clearTerminal()"
+          >
+            Clear Terminal
+          </button>
+        </div>
+      </div>
+    </div>
+  </body>
+</html>
+
+<script>
+  let terminalComponents = [];
+
+  function writeToTerminal(command) {
+    // Write to all terminal instances
+    terminalComponents.forEach(component => {
+      if (component && component.getTerminalAPI) {
+        const api = component.getTerminalAPI();
+        if (api && api.write) {
+          api.write(command + '\n');
+        }
+      }
+    });
+  }
+
+  function clearTerminal() {
+    // Clear all terminal instances
+    terminalComponents.forEach(component => {
+      if (component && component.getTerminalAPI) {
+        const api = component.getTerminalAPI();
+        if (api && api.clear) {
+          api.clear();
+        }
+      }
+    });
+  }
+
+  // Make functions available globally for button clicks
+  window.writeToTerminal = writeToTerminal;
+  window.clearTerminal = clearTerminal;
+
+  // Function to register terminal components
+  window.registerTerminal = (component) => {
+    terminalComponents.push(component);
+  };
+</script>
+
+<style>
+  /* Ensure terminal styling works */
+  :global(.terminal-container) {
+    font-family: ui-monospace, SFMono-Regular, "SF Mono", Consolas, "Liberation Mono", Menlo, monospace;
+  }
+
+  :global(.terminal-line) {
+    white-space: pre;
+    font-variant-ligatures: none;
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+  }
+
+  :global(.terminal-char) {
+    display: inline-block;
+    vertical-align: top;
+  }
+</style>
