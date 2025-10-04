@@ -1,4 +1,15 @@
 {
+  "workspaces": [
+    "web",
+    "desktop"
+  ],
+  "scripts": {
+    "dev": "./scripts/dev-full.sh",
+    "dev:web": "cd web && bun run dev",
+    "dev:server": "cd server && make dev-simple",
+    "build": "cd web && bun run build",
+    "test": "cd web && bun run test"
+  },
   "dependencies": {
     "@agentic-codeflow/cli": "^0.11.0"
   }
