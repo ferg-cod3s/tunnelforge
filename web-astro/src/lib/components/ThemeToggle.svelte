@@ -1,7 +1,9 @@
+<script lang="ts" context="module">
+export type Theme = 'light' | 'dark' | 'system';
+</script>
+
 <script lang="ts">
 import { onMount, onDestroy } from 'svelte';
-
-export type Theme = 'light' | 'dark' | 'system';
 
 let { theme = $bindable('system' as Theme) } = $props();
 
