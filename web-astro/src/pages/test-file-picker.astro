@@ -1,0 +1,185 @@
+---
+import FilePicker from '$lib/components/FilePicker.svelte';
+---
+
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>File Picker Test - TunnelForge</title>
+  </head>
+  <body class="bg-bg text-text min-h-screen">
+    <div class="container mx-auto px-4 py-8">
+      <h1 class="text-3xl font-bold text-primary mb-8">File Picker Component Test</h1>
+
+      <div class="space-y-6">
+        <!-- Test Controls -->
+        <div class="bg-elevated border border-border rounded-lg p-6">
+          <h2 class="text-xl font-semibold text-primary mb-4">Test Controls</h2>
+
+          <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <button
+              id="show-file-picker"
+              class="btn-primary"
+              onclick="showFilePicker()"
+            >
+              Show File Picker Dialog
+            </button>
+
+            <button
+              id="direct-file-select"
+              class="btn-secondary"
+              onclick="directFileSelect()"
+            >
+              Direct File Selection
+            </button>
+
+            <button
+              id="open-image-picker"
+              class="btn-secondary"
+              onclick="openImagePicker()"
+            >
+              Open Image Picker
+            </button>
+
+            <button
+              id="open-camera"
+              class="btn-secondary"
+              onclick="openCamera()"
+            >
+              Open Camera
+            </button>
+          </div>
+        </div>
+
+        <!-- Event Log -->
+        <div class="bg-elevated border border-border rounded-lg p-6">
+          <h2 class="text-xl font-semibold text-primary mb-4">Event Log</h2>
+          <div id="event-log" class="bg-bg border border-border rounded p-4 max-h-96 overflow-y-auto font-mono text-sm">
+            <div class="text-text-muted">Waiting for events...</div>
+          </div>
+          <button
+            class="btn-ghost text-sm mt-2"
+            onclick="clearEventLog()"
+          >
+            Clear Log
+          </button>
+        </div>
+
+        <!-- File Picker Component -->
+        <FilePicker
+          visible={false}
+          onfileselected={(detail) => handleFileSelected(detail)}
+          onfileerror={(detail) => handleFileError(detail)}
+          onfilecancel={() => handleFileCancel()}
+        />
+      </div>
+    </div>
+
+    <script>
+      let filePickerVisible = false;
+      let filePickerComponent;
+
+      // Initialize component reference
+      document.addEventListener('DOMContentLoaded', () => {
+        filePickerComponent = document.querySelector('file-picker');
+      });
+
+      function showFilePicker() {
+        filePickerVisible = true;
+        updateFilePickerVisibility();
+        logEvent('File picker dialog shown');
+      }
+
+      function directFileSelect() {
+        if (window.filePickerMethods) {
+          window.filePickerMethods.openFilePicker();
+          logEvent('Direct file selection opened');
+        } else {
+          logEvent('File picker methods not available', 'error');
+        }
+      }
+
+      function openImagePicker() {
+        if (window.filePickerMethods) {
+          window.filePickerMethods.openImagePicker();
+          logEvent('Image picker opened');
+        } else {
+          logEvent('File picker methods not available', 'error');
+        }
+      }
+
+      function openCamera() {
+        if (window.filePickerMethods) {
+          window.filePickerMethods.openCamera();
+          logEvent('Camera opened');
+        } else {
+          logEvent('File picker methods not available', 'error');
+        }
+      }
+
+      function updateFilePickerVisibility() {
+        // This would need to be implemented with proper Svelte component communication
+        // For now, we'll use the direct methods
+      }
+
+      function handleFileSelected(detail) {
+        logEvent(`File selected: ${detail.filename} (${detail.size} bytes)`, 'success');
+        console.log('File selected:', detail);
+      }
+
+      function handleFileError(detail) {
+        logEvent(`File error: ${detail}`, 'error');
+        console.error('File error:', detail);
+      }
+
+      function handleFileCancel() {
+        logEvent('File selection cancelled');
+        filePickerVisible = false;
+        updateFilePickerVisibility();
+      }
+
+      function logEvent(message, type = 'info') {
+        const eventLog = document.getElementById('event-log');
+        if (!eventLog) return;
+
+        const timestamp = new Date().toLocaleTimeString();
+        const colorClass = {
+          info: 'text-text',
+          success: 'text-status-success',
+          error: 'text-status-error',
+          warning: 'text-status-warning'
+        }[type] || 'text-text';
+
+        const logEntry = document.createElement('div');
+        logEntry.className = `py-1 ${colorClass}`;
+        logEntry.innerHTML = `<span class="text-text-muted">[${timestamp}]</span> ${message}`;
+
+        // Remove the "waiting" message if it exists
+        const waitingMessage = eventLog.querySelector('.text-text-muted');
+        if (waitingMessage) {
+          waitingMessage.remove();
+        }
+
+        eventLog.appendChild(logEntry);
+        eventLog.scrollTop = eventLog.scrollHeight;
+      }
+
+      function clearEventLog() {
+        const eventLog = document.getElementById('event-log');
+        if (eventLog) {
+          eventLog.innerHTML = '<div class="text-text-muted">Waiting for events...</div>';
+        }
+      }
+
+      // Global error handler for debugging
+      window.addEventListener('error', (e) => {
+        logEvent(`Global error: ${e.message}`, 'error');
+      });
+
+      window.addEventListener('unhandledrejection', (e) => {
+        logEvent(`Unhandled promise rejection: ${e.reason}`, 'error');
+      });
+    </script>
+  </body>
+</html>

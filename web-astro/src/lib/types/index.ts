@@ -62,6 +62,26 @@ export interface WebSocketMessage {
   timestamp?: string;
 }
 
+export interface UploadResponse {
+  success: boolean;
+  filename: string;
+  originalName: string;
+  size: number;
+  mimetype: string;
+  path: string;
+  relativePath: string;
+  error?: string;
+}
+
+export interface FileSelectedEvent {
+  path: string;
+  relativePath: string;
+  filename: string;
+  originalName: string;
+  size: number;
+  mimetype: string;
+}
+
 export interface AuthConfig {
   enableSSHKeys: boolean;
   disallowUserPassword: boolean;
