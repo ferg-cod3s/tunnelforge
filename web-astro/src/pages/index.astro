@@ -1,0 +1,33 @@
+---
+import BaseLayout from '../layouts/BaseLayout.astro';
+---
+
+<BaseLayout title="TunnelForge - Terminal Sharing">
+  <main>
+    <h1>TunnelForge</h1>
+    <p>Terminal sharing application with Astro and Svelte</p>
+
+    <!-- Test Svelte component -->
+    <div id="test-component">
+      <!-- Svelte component will be mounted here -->
+    </div>
+  </main>
+</BaseLayout>
+
+<style>
+  main {
+    margin: auto;
+    padding: 1.5rem;
+    max-width: 60ch;
+  }
+
+  h1 {
+    font-size: 3rem;
+    font-weight: 800;
+    margin: 0;
+  }
+
+  p {
+    color: #666;
+  }
+</style>
