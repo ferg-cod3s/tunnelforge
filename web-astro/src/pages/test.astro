@@ -1,0 +1,52 @@
+---
+import BaseLayout from '../layouts/BaseLayout.astro';
+import NotificationStatus from '../lib/components/NotificationStatus.svelte';
+---
+
+<BaseLayout title="TunnelForge - Svelte Test">
+  <main>
+    <h1>TunnelForge Svelte Component Test</h1>
+    <p>Testing the migrated NotificationStatus component</p>
+
+    <div class="component-demo">
+      <h2>Notification Status Component</h2>
+      <NotificationStatus
+        isSSEConnected={true}
+        notificationPermission="granted"
+        on:open-settings={() => console.log('Open settings clicked')}
+        client:load
+      />
+    </div>
+  </main>
+</BaseLayout>
+
+<style>
+  main {
+    margin: auto;
+    padding: 1.5rem;
+    max-width: 60ch;
+  }
+
+  h1 {
+    font-size: 3rem;
+    font-weight: 800;
+    margin: 0;
+  }
+
+  h2 {
+    font-size: 1.5rem;
+    margin-top: 2rem;
+    margin-bottom: 1rem;
+  }
+
+  .component-demo {
+    border: 1px solid #e5e7eb;
+    border-radius: 0.5rem;
+    padding: 1.5rem;
+    margin: 1rem 0;
+  }
+
+  p {
+    color: #666;
+  }
+</style>

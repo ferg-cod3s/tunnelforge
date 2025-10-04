@@ -1,0 +1,29 @@
+---
+import AuthLogin from '$lib/components/AuthLogin.svelte';
+---
+
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Test Auth Login - TunnelForge</title>
+  </head>
+  <body>
+    <AuthLogin
+      client:load
+      onauthsuccess={(detail) => {
+        console.log('Auth success:', detail);
+        alert('Auth successful! Check console for details.');
+      }}
+      onshowsshkeymanager={() => {
+        console.log('Show SSH key manager requested');
+        alert('SSH Key Manager clicked');
+      }}
+      onopensettings={() => {
+        console.log('Open settings requested');
+        alert('Settings clicked');
+      }}
+    />
+  </body>
+</html>
