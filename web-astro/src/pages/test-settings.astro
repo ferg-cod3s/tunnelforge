@@ -1,0 +1,42 @@
+---
+---
+
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Settings Test - TunnelForge</title>
+  </head>
+  <body>
+    <div id="app"></div>
+
+    <script>
+      import { mount } from 'svelte';
+      import Settings from '../lib/components/Settings.svelte';
+
+      // Mount the Settings component for testing
+      const settings = mount(Settings, {
+        target: document.getElementById('app')!,
+        props: {
+          visible: true,
+          onclose: () => {
+            console.log('Settings closed');
+          },
+          onsuccess: (detail) => {
+            console.log('Success:', detail.detail);
+          },
+          onerror: (detail) => {
+            console.error('Error:', detail.detail);
+          },
+          onnotificationsenabled: () => {
+            console.log('Notifications enabled');
+          },
+          onnotificationsdisabled: () => {
+            console.log('Notifications disabled');
+          }
+        }
+      });
+    </script>
+  </body>
+</html>
