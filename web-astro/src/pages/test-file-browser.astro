@@ -1,0 +1,179 @@
+---
+---
+
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>File Browser Test - TunnelForge</title>
+    <style>
+      body {
+        font-family: system-ui, -apple-system, sans-serif;
+        margin: 0;
+        padding: 20px;
+        background: #f5f5f5;
+      }
+      .container {
+        max-width: 1200px;
+        margin: 0 auto;
+        background: white;
+        border-radius: 8px;
+        box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+        padding: 20px;
+      }
+      .header {
+        margin-bottom: 20px;
+        padding-bottom: 20px;
+        border-bottom: 1px solid #e0e0e0;
+      }
+      .controls {
+        display: flex;
+        gap: 10px;
+        margin-bottom: 20px;
+        flex-wrap: wrap;
+      }
+      button {
+        padding: 8px 16px;
+        border: 1px solid #ccc;
+        border-radius: 4px;
+        background: white;
+        cursor: pointer;
+      }
+      button:hover {
+        background: #f0f0f0;
+      }
+      .status {
+        margin-top: 20px;
+        padding: 10px;
+        background: #f8f9fa;
+        border-radius: 4px;
+        font-family: monospace;
+      }
+      .file-browser-container {
+        border: 1px solid #e0e0e0;
+        border-radius: 4px;
+        min-height: 600px;
+      }
+    </style>
+  </head>
+  <body>
+    <div class="container">
+      <div class="header">
+        <h1>File Browser Component Test</h1>
+        <p>Test the migrated FileBrowser component from Lit to Svelte 5</p>
+      </div>
+
+      <div class="controls">
+        <button id="show-browser">Show File Browser</button>
+        <button id="hide-browser">Hide File Browser</button>
+        <button id="toggle-mode">Toggle Mode (Browse/Select)</button>
+        <button id="set-session">Set Test Session</button>
+        <button id="clear-session">Clear Session</button>
+      </div>
+
+      <div class="file-browser-container" id="file-browser-container">
+        <!-- FileBrowser component will be mounted here -->
+      </div>
+
+      <div class="status">
+        <h3>Event Log</h3>
+        <div id="event-log">No events yet...</div>
+      </div>
+    </div>
+
+    <script>
+      import { mount } from 'svelte';
+      import FileBrowser from '../lib/components/FileBrowser.svelte';
+
+      let fileBrowserComponent = null;
+      let visible = false;
+      let mode = 'browse';
+      let session = null;
+
+      const eventLog = document.getElementById('event-log');
+
+      function logEvent(message) {
+        const timestamp = new Date().toLocaleTimeString();
+        eventLog.innerHTML = `<div>${timestamp}: ${message}</div>` + eventLog.innerHTML;
+      }
+
+      function updateBrowser() {
+        if (fileBrowserComponent) {
+          fileBrowserComponent.$destroy();
+        }
+
+        const container = document.getElementById('file-browser-container');
+        container.innerHTML = '';
+
+        if (visible) {
+          fileBrowserComponent = mount(FileBrowser, {
+            target: container,
+            props: {
+              visible,
+              mode,
+              session,
+              oninsertpath: (detail) => {
+                logEvent(`Path inserted: ${detail.path} (${detail.type})`);
+              },
+              ondirectoryselected: (detail) => {
+                logEvent(`Directory selected: ${detail.path}`);
+              },
+              onbrowsercancel: () => {
+                logEvent('Browser cancelled');
+                visible = false;
+                updateBrowser();
+              }
+            }
+          });
+        }
+      }
+
+      // Event listeners
+      document.getElementById('show-browser').addEventListener('click', () => {
+        visible = true;
+        logEvent('Showing file browser');
+        updateBrowser();
+      });
+
+      document.getElementById('hide-browser').addEventListener('click', () => {
+        visible = false;
+        logEvent('Hiding file browser');
+        updateBrowser();
+      });
+
+      document.getElementById('toggle-mode').addEventListener('click', () => {
+        mode = mode === 'browse' ? 'select' : 'browse';
+        logEvent(`Mode changed to: ${mode}`);
+        updateBrowser();
+      });
+
+      document.getElementById('set-session').addEventListener('click', () => {
+        session = {
+          id: 'test-session-123',
+          name: 'Test Session',
+          status: 'running',
+          type: 'terminal',
+          createdAt: new Date().toISOString(),
+          updatedAt: new Date().toISOString(),
+          workingDir: '/home/user/projects',
+          metadata: {},
+          config: {
+            workingDirectory: '/home/user/projects'
+          }
+        };
+        logEvent('Test session set');
+        updateBrowser();
+      });
+
+      document.getElementById('clear-session').addEventListener('click', () => {
+        session = null;
+        logEvent('Session cleared');
+        updateBrowser();
+      });
+
+      // Initial setup
+      logEvent('File Browser test page loaded');
+    </script>
+  </body>
+</html>

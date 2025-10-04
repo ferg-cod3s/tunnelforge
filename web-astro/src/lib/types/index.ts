@@ -13,6 +13,7 @@ export interface Session {
     workingDirectory?: string;
     environment?: Record<string, string>;
   };
+  workingDir?: string;
 }
 
 export interface User {
@@ -94,4 +95,69 @@ export interface AuthResponse {
   userId?: string;
   authMethod?: 'ssh-key' | 'password' | 'no-auth';
   error?: string;
+}
+
+export type FileType = 'file' | 'directory';
+export type GitStatus = 'modified' | 'added' | 'deleted' | 'untracked' | 'unchanged';
+
+export interface FileInfo {
+  name: string;
+  path: string;
+  type: FileType;
+  size: number;
+  modified: string;
+  permissions?: string;
+  isGitTracked?: boolean;
+  gitStatus?: GitStatus;
+  isSymlink?: boolean;
+}
+
+export interface DirectoryListing {
+  path: string;
+  fullPath?: string;
+  gitStatus?: GitRepoStatus | null;
+  files: FileInfo[];
+  directories?: FileInfo[];
+  parent?: string;
+}
+
+export interface GitRepoStatus {
+  isGitRepo: boolean;
+  branch?: string;
+  modified: string[];
+  added: string[];
+  deleted: string[];
+  untracked: string[];
+}
+
+export interface FilePreview {
+  type: 'image' | 'text' | 'binary';
+  content?: string;
+  language?: string;
+  url?: string;
+  mimeType?: string;
+  size: number;
+  humanSize?: string;
+}
+
+export interface FileDiff {
+  path: string;
+  diff: string;
+  hasDiff: boolean;
+}
+
+export interface FileDiffContent {
+  path: string;
+  originalContent: string;
+  modifiedContent: string;
+  language?: string;
+}
+
+export interface FileBrowserEventDetail {
+  path: string;
+  type: FileType;
+}
+
+export interface DirectorySelectedEventDetail {
+  path: string;
 }
