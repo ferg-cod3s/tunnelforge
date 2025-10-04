@@ -1,19 +1,78 @@
 // Shared types for TunnelForge Astro/Svelte application
 
-export interface Session {
+export type SessionStatus = 'starting' | 'running' | 'exited';
+
+export interface SessionInfo {
   id: string;
+  sessionId?: string; // Alias for id (from Go server)
   name: string;
-  status: 'running' | 'stopped' | 'error';
-  type: 'terminal' | 'file-browser' | 'git' | 'custom';
-  createdAt: string;
-  updatedAt: string;
-  metadata?: Record<string, any>;
-  config?: {
-    command?: string;
-    workingDirectory?: string;
-    environment?: Record<string, string>;
+  command: string[];
+  workingDir: string;
+  status: SessionStatus;
+  exitCode?: number;
+  startedAt: string;
+  pid?: number;
+  initialCols?: number;
+  initialRows?: number;
+  lastClearOffset?: number;
+  version?: string; // TunnelForge version that created this session
+  gitRepoPath?: string; // Repository root path
+  gitBranch?: string; // Current branch name
+  gitAheadCount?: number; // Commits ahead of upstream
+  gitBehindCount?: number; // Commits behind upstream
+  gitHasChanges?: boolean; // Has uncommitted changes
+  gitIsWorktree?: boolean; // Is a worktree (not main repo)
+  gitMainRepoPath?: string; // Main repository path (same as gitRepoPath if not worktree)
+  gitModifiedCount?: number; // Number of modified files
+  gitUntrackedCount?: number; // Number of untracked files
+  gitStagedCount?: number; // Number of staged files
+  gitAddedCount?: number; // Number of added files
+  gitDeletedCount?: number; // Number of deleted files
+  attachedViaVT?: boolean;
+}
+
+export interface Session extends SessionInfo {
+  lastModified: string;
+  active?: boolean;
+  activityStatus?: {
+    isActive: boolean;
+    specificStatus?: {
+      app: string;
+      status: string;
+    };
   };
-  workingDir?: string;
+  source?: 'local' | 'remote';
+  remoteId?: string;
+  remoteName?: string;
+  remoteUrl?: string;
+}
+
+export interface Worktree {
+  path: string;
+  branch: string;
+  HEAD: string;
+  detached: boolean;
+  prunable?: boolean;
+  locked?: boolean;
+  lockedReason?: string;
+  commitsAhead?: number;
+  filesChanged?: number;
+  insertions?: number;
+  deletions?: number;
+  hasUncommittedChanges?: boolean;
+  isMainWorktree?: boolean;
+  isCurrentWorktree?: boolean;
+}
+
+export interface WorktreeListResponse {
+  worktrees: Worktree[];
+  baseBranch: string;
+  followBranch?: string;
+}
+
+export interface AuthClient {
+  getAuthHeader(): Record<string, string>;
+  fetch(url: string, options?: RequestInit): Promise<Response>;
 }
 
 export interface User {
