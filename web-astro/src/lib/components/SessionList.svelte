@@ -485,62 +485,62 @@
   let groupedSessions = $derived(groupSessionsByRepo(visibleSessions));
 </script>
 
-<div class="font-mono text-sm focus:outline-none focus:ring-2 focus:ring-accent-primary focus:ring-offset-2 focus:ring-offset-bg-primary rounded-lg" data-testid="session-list-container" tabindex="0">
-  <div class="p-4 pt-5">
+<div class="session-list-container" data-testid="session-list-container" tabindex="0">
+  <div class="session-list-content">
     {#if !hasActiveSessions && !hasIdleSessions && (!hasExitedSessions || hideExited)}
-      <div class="text-text-muted text-center py-8">
+      <div class="empty-state">
         {#if loading}
           Loading sessions...
         {:else if hideExited && sessionsList.length > 0}
-          <div class="space-y-4 max-w-2xl mx-auto text-left">
-            <div class="text-lg font-semibold text-text">
+          <div class="empty-message">
+            <div class="empty-title">
               No running sessions
             </div>
-            <div class="text-sm text-text-muted">
+            <div class="empty-description">
               There are exited sessions. Show them by toggling "Hide exited" above.
             </div>
           </div>
         {:else}
-          <div class="space-y-6 max-w-2xl mx-auto text-left">
-            <div class="text-lg font-semibold text-text">
+          <div class="welcome-message">
+            <div class="welcome-title">
               No terminal sessions yet!
             </div>
 
-            <div class="space-y-3">
-              <div class="text-sm text-text-muted">
+            <div class="welcome-section">
+              <div class="welcome-text">
                 Get started by using the
-                <code class="bg-bg-secondary px-2 py-1 rounded">tf</code> command
+                <code class="inline-code">tf</code> command
                 in your terminal:
               </div>
 
-              <div class="bg-bg-secondary p-4 rounded-lg font-mono text-xs space-y-2">
-                <div class="text-status-success">tf pnpm run dev</div>
-                <div class="text-text-muted pl-4"># Monitor your dev server</div>
+              <div class="code-examples">
+                <div class="code-line success">tf pnpm run dev</div>
+                <div class="code-comment"># Monitor your dev server</div>
 
-                <div class="text-status-success">tf claude --dangerously...</div>
-                <div class="text-text-muted pl-4"># Keep an eye on AI agents</div>
+                <div class="code-line success">tf claude --dangerously...</div>
+                <div class="code-comment"># Keep an eye on AI agents</div>
 
-                <div class="text-status-success">tf --shell</div>
-                <div class="text-text-muted pl-4"># Open an interactive shell</div>
+                <div class="code-line success">tf --shell</div>
+                <div class="code-comment"># Open an interactive shell</div>
 
-                <div class="text-status-success">tf python train.py</div>
-                <div class="text-text-muted pl-4"># Watch long-running scripts</div>
+                <div class="code-line success">tf python train.py</div>
+                <div class="code-comment"># Watch long-running scripts</div>
               </div>
             </div>
 
-            <div class="space-y-3 border-t border-border pt-4">
-              <div class="text-sm font-semibold text-text">
+            <div class="install-section">
+              <div class="install-title">
                 Haven't installed the CLI yet?
               </div>
-              <div class="text-sm text-text-muted space-y-1">
+              <div class="install-steps">
                 <div>→ Click the TunnelForge menu bar icon</div>
                 <div>→ Go to Settings → Advanced → Install CLI Tools</div>
               </div>
             </div>
 
-            <div class="text-xs text-text-muted mt-4">
+            <div class="install-note">
               Once installed, any command prefixed with
-              <code class="bg-bg-secondary px-1 rounded">tf</code> will appear
+              <code class="inline-code">tf</code> will appear
               here, accessible from any browser at localhost:4020.
             </div>
           </div>
@@ -549,16 +549,16 @@
     {:else}
       <!-- Active Sessions -->
       {#if hasActiveSessions}
-        <div class="mb-6 mt-2">
-          <h3 class="text-xs font-semibold text-text-muted uppercase tracking-wider mb-4">
-            Active <span class="text-text-dim">({activeSessions.length})</span>
+        <div class="sessions-section">
+          <h3 class="section-header">
+            Active <span class="session-count">({activeSessions.length})</span>
           </h3>
           {#each Array.from(groupedSessions) as [repoPath, repoSessions]}
-            <div class="{repoPath ? 'mb-6 mt-6' : 'mb-4'}">
+            <div class="repo-group" class:with-repo={repoPath}>
               {#if repoPath}
-                <div class="flex items-center gap-2 mb-3">
-                  <h4 class="text-sm font-medium text-text">{getRepoName(repoPath)}</h4>
-                  <div class="flex items-center gap-1">
+                <div class="repo-header">
+                  <h4 class="repo-name">{getRepoName(repoPath)}</h4>
+                  <div class="repo-controls">
                     <!-- Follow Mode Selector -->
                     {#if repoWorktrees.get(repoPath)?.length}
                       <div class="relative">
@@ -848,5 +848,183 @@
   .follow-dropdown,
   .worktree-dropdown {
     z-index: 50;
+  }
+
+  /* Session List Container */
+  .session-list-container {
+    font-family: var(--font-mono);
+    font-size: var(--font-size-sm);
+    border-radius: var(--radius-lg);
+  }
+
+  .session-list-container:focus {
+    outline: none;
+    box-shadow: 0 0 0 2px var(--color-primary);
+  }
+
+  .session-list-content {
+    padding: 1rem;
+    padding-top: 1.25rem;
+  }
+
+  /* Empty State */
+  .empty-state {
+    color: var(--color-text-muted);
+    text-align: center;
+    padding: 2rem 0;
+  }
+
+  .empty-message {
+    display: flex;
+    flex-direction: column;
+    gap: 1rem;
+    max-width: 42rem;
+    margin: 0 auto;
+    text-align: left;
+  }
+
+  .empty-title {
+    font-size: var(--font-size-lg);
+    font-weight: 600;
+    color: var(--color-text-primary);
+  }
+
+  .empty-description {
+    font-size: var(--font-size-sm);
+    color: var(--color-text-muted);
+  }
+
+  /* Welcome Message */
+  .welcome-message {
+    display: flex;
+    flex-direction: column;
+    gap: 1.5rem;
+    max-width: 42rem;
+    margin: 0 auto;
+    text-align: left;
+  }
+
+  .welcome-title {
+    font-size: var(--font-size-lg);
+    font-weight: 600;
+    color: var(--color-text-primary);
+  }
+
+  .welcome-section {
+    display: flex;
+    flex-direction: column;
+    gap: 0.75rem;
+  }
+
+  .welcome-text {
+    font-size: var(--font-size-sm);
+    color: var(--color-text-muted);
+  }
+
+  .inline-code {
+    background: var(--color-bg-secondary);
+    padding: 0.25rem 0.5rem;
+    border-radius: var(--radius-sm);
+    font-family: var(--font-mono);
+  }
+
+  .code-examples {
+    background: var(--color-bg-secondary);
+    padding: 1rem;
+    border-radius: var(--radius-lg);
+    font-family: var(--font-mono);
+    font-size: var(--font-size-xs);
+    display: flex;
+    flex-direction: column;
+    gap: 0.5rem;
+  }
+
+  .code-line {
+    color: var(--color-text-primary);
+  }
+
+  .code-line.success {
+    color: var(--color-status-success);
+  }
+
+  .code-comment {
+    color: var(--color-text-muted);
+    padding-left: 1rem;
+  }
+
+  .install-section {
+    display: flex;
+    flex-direction: column;
+    gap: 0.75rem;
+    border-top: 1px solid var(--color-border);
+    padding-top: 1rem;
+  }
+
+  .install-title {
+    font-size: var(--font-size-sm);
+    font-weight: 600;
+    color: var(--color-text-primary);
+  }
+
+  .install-steps {
+    font-size: var(--font-size-sm);
+    color: var(--color-text-muted);
+    display: flex;
+    flex-direction: column;
+    gap: 0.25rem;
+  }
+
+  .install-note {
+    font-size: var(--font-size-xs);
+    color: var(--color-text-muted);
+    margin-top: 1rem;
+  }
+
+  /* Sessions Section */
+  .sessions-section {
+    margin-bottom: 1.5rem;
+    margin-top: 0.5rem;
+  }
+
+  .section-header {
+    font-size: var(--font-size-xs);
+    font-weight: 600;
+    color: var(--color-text-muted);
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    margin-bottom: 1rem;
+  }
+
+  .session-count {
+    color: var(--color-text-dim);
+  }
+
+  /* Repo Group */
+  .repo-group {
+    margin-bottom: 1rem;
+  }
+
+  .repo-group.with-repo {
+    margin-bottom: 1.5rem;
+    margin-top: 1.5rem;
+  }
+
+  .repo-header {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    margin-bottom: 0.75rem;
+  }
+
+  .repo-name {
+    font-size: var(--font-size-sm);
+    font-weight: 500;
+    color: var(--color-text-primary);
+  }
+
+  .repo-controls {
+    display: flex;
+    align-items: center;
+    gap: 0.25rem;
   }
 </style>

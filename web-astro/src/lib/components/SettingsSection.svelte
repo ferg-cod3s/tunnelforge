@@ -8,14 +8,48 @@
   let { title, description, children }: Props = $props();
 </script>
 
-<div class="space-y-4">
-  <div class="flex items-center justify-between mb-3">
-    <h3 class="text-md font-bold text-primary">{title}</h3>
+<div class="settings-section">
+  <div class="section-header">
+    <h3 class="section-title">{title}</h3>
   </div>
 
   {#if description}
-    <p class="text-muted text-xs mb-3">{description}</p>
+    <p class="section-description">{description}</p>
   {/if}
 
-  {@render children?.()}
+  <div class="section-content">
+    {@render children?.()}
+  </div>
 </div>
+
+<style>
+  .settings-section {
+    display: flex;
+    flex-direction: column;
+    gap: var(--spacing-md);
+  }
+
+  .section-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: var(--spacing-sm);
+  }
+
+  .section-title {
+    font-size: var(--font-size-md);
+    font-weight: 700;
+    color: var(--color-text-primary);
+  }
+
+  .section-description {
+    color: var(--color-text-muted);
+    font-size: var(--font-size-xs);
+    margin-bottom: var(--spacing-sm);
+  }
+
+  .section-content {
+    display: flex;
+    flex-direction: column;
+  }
+</style>
