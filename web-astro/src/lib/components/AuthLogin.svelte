@@ -129,7 +129,7 @@
 
 <div class="auth-container">
   <button
-    class="absolute top-4 right-4 p-2 text-text-muted hover:text-primary transition-colors"
+    class="settings-button"
     onclick={handleOpenSettings}
     title="Settings"
   >
@@ -142,28 +142,23 @@
     </svg>
   </button>
 
-  <div class="w-full max-w-sm">
+  <div class="auth-content">
     <div class="auth-header">
-      <div class="flex flex-col items-center gap-2 sm:gap-3 mb-4 sm:mb-8">
-        <div style="filter: drop-shadow(0 0 15px rgb(var(--color-primary) / 0.4));">
+      <div class="header-inner">
+        <div class="icon-wrapper">
           <TerminalIcon size={$isMobile ? 48 : 56} />
         </div>
-        <h2 class="auth-title text-2xl sm:text-3xl mt-1 sm:mt-2">TunnelForge</h2>
-        <p class="auth-subtitle text-xs sm:text-sm">Please authenticate to continue</p>
+        <h2 class="auth-title">TunnelForge</h2>
+        <p class="auth-subtitle">Please authenticate to continue</p>
       </div>
     </div>
 
     {#if error}
-      <div
-        class="bg-status-error text-bg px-3 py-1.5 rounded mb-3 font-mono text-xs sm:text-sm"
-        data-testid="error-message"
-      >
+      <div class="message-box error-message" data-testid="error-message">
         {error}
         <button
-          onclick={() => {
-            error = '';
-          }}
-          class="ml-2 text-bg hover:text-primary"
+          onclick={() => { error = ''; }}
+          class="message-close"
           data-testid="error-close"
         >
           ✕
@@ -172,13 +167,11 @@
     {/if}
 
     {#if success}
-      <div class="bg-status-success text-bg px-3 py-1.5 rounded mb-3 font-mono text-xs sm:text-sm">
+      <div class="message-box success-message">
         {success}
         <button
-          onclick={() => {
-            success = '';
-          }}
-          class="ml-2 text-bg hover:text-primary"
+          onclick={() => { success = ''; }}
+          class="message-close"
         >
           ✕
         </button>
@@ -187,24 +180,21 @@
 
     <div class="auth-form">
       {#if !authConfig.disallowUserPassword}
-        <div class="p-5 sm:p-8">
-          <div class="flex flex-col items-center mb-4 sm:mb-6">
-            <div
-              class="w-24 h-24 sm:w-28 sm:h-28 rounded-full mb-3 sm:mb-4 overflow-hidden"
-              style="box-shadow: 0 0 25px rgb(var(--color-primary) / 0.3);"
-            >
+        <div class="password-section">
+          <div class="user-profile">
+            <div class="avatar-container">
               {#if userAvatar}
                 <img
                   src={userAvatar}
                   alt="User Avatar"
-                  class="w-full h-full object-cover"
+                  class="avatar-image"
                   width="80"
                   height="80"
                 />
               {:else}
-                <div class="w-full h-full bg-bg-secondary flex items-center justify-center">
+                <div class="avatar-placeholder">
                   <svg
-                    class="w-12 h-12 sm:w-14 sm:h-14 text-text-muted"
+                    class="avatar-icon"
                     fill="currentColor"
                     viewBox="0 0 20 20"
                   >
@@ -213,15 +203,15 @@
                 </div>
               {/if}
             </div>
-            <p class="text-primary text-base sm:text-lg font-medium">
+            <p class="welcome-text">
               Welcome back, {currentUserId || '...'}
             </p>
           </div>
-          <form onsubmit={handlePasswordLogin} class="space-y-3">
+          <form onsubmit={handlePasswordLogin} class="login-form">
             <div>
               <input
                 type="password"
-                class="input-field"
+                class="password-input"
                 data-testid="password-input"
                 placeholder="System Password"
                 bind:value={loginPassword}
@@ -231,7 +221,7 @@
             </div>
             <button
               type="submit"
-              class="btn-primary w-full py-3 sm:py-4 mt-2"
+              class="login-button"
               data-testid="password-submit"
               disabled={loading || !loginPassword}
             >
@@ -242,23 +232,21 @@
       {/if}
 
       {#if authConfig.disallowUserPassword}
-        <div class="ssh-key-item p-6 sm:p-8">
-          <div class="flex flex-col items-center mb-4 sm:mb-6">
-            <div
-              class="w-16 h-16 sm:w-20 sm:h-20 rounded-full mb-2 sm:mb-3 overflow-hidden border-2 border-border"
-            >
+        <div class="ssh-only-section">
+          <div class="ssh-user-profile">
+            <div class="ssh-avatar-container">
               {#if userAvatar}
                 <img
                   src={userAvatar}
                   alt="User Avatar"
-                  class="w-full h-full object-cover"
+                  class="avatar-image"
                   width="80"
                   height="80"
                 />
               {:else}
-                <div class="w-full h-full bg-bg-secondary flex items-center justify-center">
+                <div class="avatar-placeholder">
                   <svg
-                    class="w-8 h-8 sm:w-10 sm:h-10 text-text-muted"
+                    class="ssh-avatar-icon"
                     fill="currentColor"
                     viewBox="0 0 20 20"
                   >
@@ -267,29 +255,29 @@
                 </div>
               {/if}
             </div>
-            <p class="text-primary text-xs sm:text-sm">
+            <p class="ssh-welcome-text">
               {currentUserId ? `Welcome back, ${currentUserId}` : 'Please authenticate to continue'}
             </p>
-            <p class="text-text-muted text-xs mt-1 sm:mt-2">SSH key authentication required</p>
+            <p class="ssh-required-text">SSH key authentication required</p>
           </div>
         </div>
       {/if}
 
       {#if authConfig.enableSSHKeys}
         {#if !authConfig.disallowUserPassword}
-          <div class="auth-divider py-2 sm:py-3">
+          <div class="auth-divider">
             <span>or</span>
           </div>
         {/if}
 
-        <div class="ssh-key-item p-6 sm:p-8">
-          <div class="flex items-center justify-between mb-3 sm:mb-4">
-            <div class="flex items-center gap-2">
-              <div class="w-2 h-2 rounded-full bg-primary"></div>
-              <span class="font-mono text-xs sm:text-sm">SSH Key Management</span>
+        <div class="ssh-section">
+          <div class="ssh-header">
+            <div class="ssh-title-group">
+              <div class="ssh-indicator"></div>
+              <span class="ssh-title">SSH Key Management</span>
             </div>
             <button
-              class="btn-ghost text-xs"
+              class="manage-keys-button"
               data-testid="manage-keys"
               onclick={handleShowSSHKeyManager}
             >
@@ -297,18 +285,18 @@
             </button>
           </div>
 
-          <div class="space-y-3">
-            <div class="bg-bg border border-border rounded p-3">
-              <p class="text-text-muted text-xs mb-2">
+          <div class="ssh-content">
+            <div class="ssh-info-box">
+              <p class="ssh-info-text">
                 Generate SSH keys for browser-based authentication
               </p>
-              <p class="text-text-muted text-xs">
+              <p class="ssh-info-text">
                 💡 SSH keys work in both browser and terminal
               </p>
             </div>
 
             <button
-              class="btn-secondary w-full py-2.5 sm:py-3 text-sm sm:text-base"
+              class="ssh-login-button"
               data-testid="ssh-login"
               onclick={handleSSHKeyAuth}
               disabled={loading}
@@ -321,3 +309,408 @@
     </div>
   </div>
 </div>
+
+<style>
+  .auth-container {
+    position: relative;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    min-height: 100vh;
+    padding: var(--spacing-md);
+  }
+
+  .settings-button {
+    position: absolute;
+    top: 1rem;
+    right: 1rem;
+    padding: var(--spacing-sm);
+    color: var(--color-text-muted);
+    transition: color var(--transition-base);
+    background: transparent;
+    border: none;
+    cursor: pointer;
+  }
+
+  .settings-button:hover {
+    color: var(--color-primary);
+  }
+
+  .auth-content {
+    width: 100%;
+    max-width: 24rem;
+  }
+
+  .auth-header {
+    margin-bottom: var(--spacing-md);
+  }
+
+  .header-inner {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: var(--spacing-sm);
+    margin-bottom: var(--spacing-lg);
+  }
+
+  .icon-wrapper {
+    filter: drop-shadow(0 0 15px rgba(255, 107, 53, 0.4));
+  }
+
+  .auth-title {
+    font-size: 1.5rem;
+    margin-top: var(--spacing-xs);
+  }
+
+  .auth-subtitle {
+    font-size: var(--font-size-xs);
+    color: var(--color-text-muted);
+  }
+
+  .message-box {
+    padding: 0.75rem;
+    border-radius: var(--radius-sm);
+    margin-bottom: var(--spacing-sm);
+    font-family: var(--font-mono);
+    font-size: var(--font-size-xs);
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+  }
+
+  .error-message {
+    background: var(--color-status-error);
+    color: var(--color-bg);
+  }
+
+  .success-message {
+    background: var(--color-status-success);
+    color: var(--color-bg);
+  }
+
+  .message-close {
+    margin-left: var(--spacing-sm);
+    color: var(--color-bg);
+    background: transparent;
+    border: none;
+    cursor: pointer;
+    transition: color var(--transition-base);
+  }
+
+  .message-close:hover {
+    color: var(--color-primary);
+  }
+
+  .auth-form {
+    background: var(--color-bg-elevated);
+    border-radius: var(--radius-lg);
+    overflow: hidden;
+  }
+
+  .password-section {
+    padding: 1.25rem;
+  }
+
+  .user-profile {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    margin-bottom: var(--spacing-md);
+  }
+
+  .avatar-container {
+    width: 6rem;
+    height: 6rem;
+    border-radius: var(--radius-full);
+    margin-bottom: var(--spacing-sm);
+    overflow: hidden;
+    box-shadow: 0 0 25px rgba(255, 107, 53, 0.3);
+  }
+
+  .avatar-image {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+  }
+
+  .avatar-placeholder {
+    width: 100%;
+    height: 100%;
+    background: var(--color-bg-secondary);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
+
+  .avatar-icon {
+    width: 3rem;
+    height: 3rem;
+    color: var(--color-text-muted);
+  }
+
+  .welcome-text {
+    color: var(--color-primary);
+    font-size: var(--font-size-md);
+    font-weight: 500;
+  }
+
+  .login-form {
+    display: flex;
+    flex-direction: column;
+    gap: var(--spacing-sm);
+  }
+
+  .password-input {
+    width: 100%;
+    padding: var(--spacing-md);
+    background: var(--color-bg-tertiary);
+    border: 1px solid var(--color-border);
+    border-radius: var(--radius-md);
+    font-size: var(--font-size-sm);
+    transition: border-color var(--transition-base);
+  }
+
+  .password-input:focus {
+    outline: none;
+    border-color: var(--color-primary);
+  }
+
+  .password-input:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+  }
+
+  .login-button {
+    width: 100%;
+    padding: 0.75rem;
+    margin-top: var(--spacing-sm);
+    background: var(--color-primary);
+    color: white;
+    border: none;
+    border-radius: var(--radius-md);
+    font-size: var(--font-size-sm);
+    font-weight: 500;
+    cursor: pointer;
+    transition: all var(--transition-base);
+  }
+
+  .login-button:hover:not(:disabled) {
+    opacity: 0.9;
+    transform: translateY(-1px);
+  }
+
+  .login-button:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+  }
+
+  .ssh-only-section {
+    padding: 1.5rem;
+  }
+
+  .ssh-user-profile {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    margin-bottom: var(--spacing-md);
+  }
+
+  .ssh-avatar-container {
+    width: 4rem;
+    height: 4rem;
+    border-radius: var(--radius-full);
+    margin-bottom: var(--spacing-sm);
+    overflow: hidden;
+    border: 2px solid var(--color-border);
+  }
+
+  .ssh-avatar-icon {
+    width: 2rem;
+    height: 2rem;
+    color: var(--color-text-muted);
+  }
+
+  .ssh-welcome-text {
+    color: var(--color-primary);
+    font-size: var(--font-size-xs);
+  }
+
+  .ssh-required-text {
+    color: var(--color-text-muted);
+    font-size: var(--font-size-xs);
+    margin-top: var(--spacing-xs);
+  }
+
+  .auth-divider {
+    padding: var(--spacing-sm) 0;
+    text-align: center;
+    color: var(--color-text-muted);
+    font-size: var(--font-size-sm);
+  }
+
+  .ssh-section {
+    padding: 1.5rem;
+  }
+
+  .ssh-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: var(--spacing-sm);
+  }
+
+  .ssh-title-group {
+    display: flex;
+    align-items: center;
+    gap: var(--spacing-sm);
+  }
+
+  .ssh-indicator {
+    width: 0.5rem;
+    height: 0.5rem;
+    border-radius: var(--radius-full);
+    background: var(--color-primary);
+  }
+
+  .ssh-title {
+    font-family: var(--font-mono);
+    font-size: var(--font-size-xs);
+  }
+
+  .manage-keys-button {
+    background: transparent;
+    border: none;
+    color: var(--color-primary);
+    font-size: var(--font-size-xs);
+    cursor: pointer;
+    transition: opacity var(--transition-base);
+  }
+
+  .manage-keys-button:hover {
+    opacity: 0.8;
+  }
+
+  .ssh-content {
+    display: flex;
+    flex-direction: column;
+    gap: var(--spacing-sm);
+  }
+
+  .ssh-info-box {
+    background: var(--color-bg);
+    border: 1px solid var(--color-border);
+    border-radius: var(--radius-sm);
+    padding: var(--spacing-sm);
+  }
+
+  .ssh-info-text {
+    color: var(--color-text-muted);
+    font-size: var(--font-size-xs);
+    margin-bottom: var(--spacing-xs);
+  }
+
+  .ssh-info-text:last-child {
+    margin-bottom: 0;
+  }
+
+  .ssh-login-button {
+    width: 100%;
+    padding: 0.625rem;
+    background: var(--color-bg-secondary);
+    color: var(--color-text-primary);
+    border: 1px solid var(--color-border);
+    border-radius: var(--radius-md);
+    font-size: var(--font-size-sm);
+    cursor: pointer;
+    transition: all var(--transition-base);
+  }
+
+  .ssh-login-button:hover:not(:disabled) {
+    background: var(--color-bg-tertiary);
+    border-color: var(--color-primary);
+  }
+
+  .ssh-login-button:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+  }
+
+  /* Responsive adjustments */
+  @media (min-width: 640px) {
+    .auth-title {
+      font-size: 1.875rem;
+      margin-top: var(--spacing-sm);
+    }
+
+    .auth-subtitle {
+      font-size: var(--font-size-sm);
+    }
+
+    .message-box {
+      font-size: var(--font-size-sm);
+    }
+
+    .password-section {
+      padding: 2rem;
+    }
+
+    .avatar-container {
+      width: 7rem;
+      height: 7rem;
+      margin-bottom: var(--spacing-md);
+    }
+
+    .avatar-icon {
+      width: 3.5rem;
+      height: 3.5rem;
+    }
+
+    .welcome-text {
+      font-size: var(--font-size-lg);
+    }
+
+    .login-button {
+      padding: 1rem;
+    }
+
+    .ssh-only-section {
+      padding: 2rem;
+    }
+
+    .ssh-avatar-container {
+      width: 5rem;
+      height: 5rem;
+      margin-bottom: var(--spacing-sm);
+    }
+
+    .ssh-avatar-icon {
+      width: 2.5rem;
+      height: 2.5rem;
+    }
+
+    .ssh-welcome-text {
+      font-size: var(--font-size-sm);
+    }
+
+    .ssh-required-text {
+      margin-top: var(--spacing-sm);
+    }
+
+    .auth-divider {
+      padding: var(--spacing-sm) 0;
+    }
+
+    .ssh-section {
+      padding: 2rem;
+    }
+
+    .ssh-title {
+      font-size: var(--font-size-sm);
+    }
+
+    .ssh-login-button {
+      padding: 0.75rem;
+      font-size: var(--font-size-md);
+    }
+  }
+</style>

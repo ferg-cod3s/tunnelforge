@@ -179,8 +179,7 @@
 {#if visible}
   <!-- svelte-ignore a11y_click_events_have_key_events -->
   <div
-    class="fixed inset-0 bg-bg/80 backdrop-blur-sm flex items-center justify-center animate-fade-in"
-    style="z-index: 110;"
+    class="picker-backdrop"
     onclick={handleCancel}
     onkeydown={(e) => {
       if (e.key === 'Escape') {
@@ -192,46 +191,44 @@
     aria-labelledby="file-picker-title"
     tabindex="-1"
   >
-    <div
-      class="bg-elevated border border-border/50 rounded-xl shadow-2xl p-8 m-4 max-w-sm w-full animate-scale-in"
-    >
-      <h3 id="file-picker-title" class="text-xl font-bold text-primary mb-6">
+    <div class="picker-dialog">
+      <h3 id="file-picker-title" class="picker-title">
         Select File
       </h3>
 
       {#if uploading}
-        <div class="mb-6">
-          <div class="flex items-center justify-between mb-3">
-            <span class="text-sm text-text-muted font-mono">Uploading...</span>
-            <span class="text-sm text-primary font-mono font-medium">{Math.round(uploadProgress)}%</span>
+        <div class="upload-progress-container">
+          <div class="upload-status">
+            <span class="upload-label">Uploading...</span>
+            <span class="upload-percentage">{Math.round(uploadProgress)}%</span>
           </div>
-          <div class="w-full bg-bg-secondary rounded-full h-2 overflow-hidden">
+          <div class="progress-bar-track">
             <div
-              class="bg-gradient-to-r from-primary to-primary-light h-2 rounded-full transition-all duration-300 shadow-glow-sm"
+              class="progress-bar-fill"
               style="width: {uploadProgress}%"
             ></div>
           </div>
         </div>
       {:else}
-        <div class="space-y-4">
+        <div class="picker-actions">
           <button
             id="file-picker-choose-button"
             onclick={handleFileClick}
-            class="w-full bg-primary text-bg font-medium py-4 px-6 rounded-lg flex items-center justify-center gap-3 transition-all duration-200 hover:bg-primary-light hover:shadow-glow active:scale-95"
+            class="choose-file-button"
           >
-            <svg class="w-5 h-5" fill="currentColor" viewBox="0 0 20 20">
+            <svg class="button-icon" fill="currentColor" viewBox="0 0 20 20">
               <path fill-rule="evenodd" d="M4 4a2 2 0 00-2 2v8a2 2 0 002 2h12a2 2 0 002-2V6a2 2 0 00-2-2h-5L9 2H4z" clip-rule="evenodd"/>
             </svg>
-            <span class="font-mono">Choose File</span>
+            <span>Choose File</span>
           </button>
         </div>
       {/if}
 
-      <div class="mt-6 pt-6 border-t border-border/50">
+      <div class="picker-footer">
         <button
           id="file-picker-cancel-button"
           onclick={handleCancel}
-          class="w-full bg-bg-secondary border border-border/50 text-primary font-mono py-3 px-6 rounded-lg transition-all duration-200 hover:bg-surface hover:border-primary active:scale-95"
+          class="cancel-button"
           disabled={uploading}
         >
           Cancel
@@ -240,3 +237,156 @@
     </div>
   </div>
 {/if}
+
+<style>
+  .picker-backdrop {
+    position: fixed;
+    inset: 0;
+    background: rgba(var(--color-bg-rgb, 250 250 250), 0.8);
+    backdrop-filter: blur(4px);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    z-index: 110;
+    animation: fadeIn var(--transition-base);
+  }
+
+  .picker-dialog {
+    background: var(--color-bg-elevated);
+    border: 1px solid rgba(var(--color-border-rgb, 229 229 229), 0.5);
+    border-radius: var(--radius-xl);
+    box-shadow: var(--shadow-2xl, 0 25px 50px -12px rgba(0, 0, 0, 0.25));
+    padding: var(--spacing-xl);
+    margin: var(--spacing-md);
+    max-width: 24rem;
+    width: 100%;
+    animation: scaleIn 0.2s ease-out;
+  }
+
+  @keyframes scaleIn {
+    from {
+      opacity: 0;
+      transform: scale(0.95);
+    }
+    to {
+      opacity: 1;
+      transform: scale(1);
+    }
+  }
+
+  .picker-title {
+    font-size: var(--font-size-xl, 1.25rem);
+    font-weight: 700;
+    color: var(--color-primary);
+    margin-bottom: 1.5rem;
+  }
+
+  .upload-progress-container {
+    margin-bottom: 1.5rem;
+  }
+
+  .upload-status {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: 0.75rem;
+  }
+
+  .upload-label {
+    font-size: var(--font-size-sm);
+    color: var(--color-text-muted);
+    font-family: var(--font-mono);
+  }
+
+  .upload-percentage {
+    font-size: var(--font-size-sm);
+    color: var(--color-primary);
+    font-family: var(--font-mono);
+    font-weight: 500;
+  }
+
+  .progress-bar-track {
+    width: 100%;
+    background: var(--color-bg-secondary);
+    border-radius: var(--radius-full);
+    height: 0.5rem;
+    overflow: hidden;
+  }
+
+  .progress-bar-fill {
+    background: linear-gradient(to right, var(--color-primary), var(--color-accent-green));
+    height: 0.5rem;
+    border-radius: var(--radius-full);
+    transition: width 0.3s ease;
+    box-shadow: 0 0 8px rgba(255, 107, 53, 0.4);
+  }
+
+  .picker-actions {
+    display: flex;
+    flex-direction: column;
+    gap: var(--spacing-md);
+  }
+
+  .choose-file-button {
+    width: 100%;
+    background: var(--color-primary);
+    color: white;
+    font-weight: 500;
+    padding: var(--spacing-md) 1.5rem;
+    border: none;
+    border-radius: var(--radius-lg);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 0.75rem;
+    cursor: pointer;
+    transition: all var(--transition-base);
+    font-family: var(--font-mono);
+  }
+
+  .choose-file-button:hover {
+    opacity: 0.9;
+    box-shadow: 0 0 12px rgba(255, 107, 53, 0.5);
+  }
+
+  .choose-file-button:active {
+    transform: scale(0.95);
+  }
+
+  .button-icon {
+    width: 1.25rem;
+    height: 1.25rem;
+  }
+
+  .picker-footer {
+    margin-top: 1.5rem;
+    padding-top: 1.5rem;
+    border-top: 1px solid rgba(var(--color-border-rgb, 229 229 229), 0.5);
+  }
+
+  .cancel-button {
+    width: 100%;
+    background: var(--color-bg-secondary);
+    border: 1px solid rgba(var(--color-border-rgb, 229 229 229), 0.5);
+    color: var(--color-primary);
+    font-family: var(--font-mono);
+    padding: 0.75rem 1.5rem;
+    border-radius: var(--radius-lg);
+    cursor: pointer;
+    transition: all var(--transition-base);
+  }
+
+  .cancel-button:hover:not(:disabled) {
+    background: var(--color-bg-tertiary);
+    border-color: var(--color-primary);
+  }
+
+  .cancel-button:active:not(:disabled) {
+    transform: scale(0.95);
+  }
+
+  .cancel-button:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+  }
+</style>

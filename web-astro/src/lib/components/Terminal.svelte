@@ -237,10 +237,10 @@
   }
 </script>
 
-<div class="relative w-full h-full p-0 m-0">
+<div class="terminal-wrapper">
   <div
     id="{TERMINAL_IDS.TERMINAL_CONTAINER}"
-    class="terminal-container w-full h-full overflow-hidden p-0 m-0"
+    class="terminal-container"
     class:font-size={`${fontSize}px`}
     class:line-height={`${fontSize * 1.2}px`}
     tabindex="0"
@@ -250,9 +250,23 @@
 </div>
 
 <style>
+  /* Terminal wrapper */
+  .terminal-wrapper {
+    position: relative;
+    width: 100%;
+    height: 100%;
+    padding: 0;
+    margin: 0;
+  }
+
   /* Dynamic terminal sizing */
   .terminal-container {
     font-family: ui-monospace, SFMono-Regular, "SF Mono", Consolas, "Liberation Mono", Menlo, monospace;
+    width: 100%;
+    height: 100%;
+    overflow: hidden;
+    padding: 0;
+    margin: 0;
   }
 
   .terminal-line {

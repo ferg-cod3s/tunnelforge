@@ -345,7 +345,7 @@
 {#if visible}
   <!-- svelte-ignore a11y_click_events_have_key_events -->
   <div
-    class="fixed inset-0 bg-bg/80 backdrop-blur-sm flex items-center justify-center z-50"
+    class="settings-backdrop"
     onclick={handleBackdropClick}
     onkeydown={(e) => {
       if (e.key === 'Escape') {
@@ -357,47 +357,49 @@
     aria-labelledby="settings-title"
     tabindex="-1"
   >
-    <div
-      class="modal-content font-mono text-sm w-full max-w-[calc(100vw-1rem)] sm:max-w-md lg:max-w-2xl mx-2 sm:mx-4 max-h-[calc(100vh-2rem)] overflow-hidden flex flex-col"
-    >
+    <div class="settings-modal">
       <!-- Header -->
-      <div class="p-4 pb-4 border-b border-border/50 relative flex-shrink-0">
-        <h2 id="settings-title" class="text-primary text-lg font-bold">Settings</h2>
+      <div class="settings-header">
+        <h2 id="settings-title" class="settings-title">Settings</h2>
         <button
-          class="absolute top-4 right-4 text-text-muted hover:text-primary transition-colors p-1"
+          class="close-button"
           onclick={handleClose}
           title="Close"
           aria-label="Close settings"
         >
-          <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <svg class="close-icon" fill="none" stroke="currentColor" viewBox="0 0 24 24">
             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
           </svg>
         </button>
       </div>
 
       <!-- Tabs -->
-      <div class="border-b border-border/50 flex-shrink-0">
-        <div class="flex">
+      <div class="tabs-container">
+        <div class="tabs-list">
           <button
-            class="px-4 py-2 text-sm font-medium border-b-2 transition-colors {activeTab === 'general' ? 'border-primary text-primary' : 'border-transparent text-text-muted hover:text-primary'}"
+            class="tab-button"
+            class:active={activeTab === 'general'}
             onclick={() => activeTab = 'general'}
           >
             General
           </button>
           <button
-            class="px-4 py-2 text-sm font-medium border-b-2 transition-colors {activeTab === 'notifications' ? 'border-primary text-primary' : 'border-transparent text-text-muted hover:text-primary'}"
+            class="tab-button"
+            class:active={activeTab === 'notifications'}
             onclick={() => activeTab = 'notifications'}
           >
             Notifications
           </button>
           <button
-            class="px-4 py-2 text-sm font-medium border-b-2 transition-colors {activeTab === 'domains' ? 'border-primary text-primary' : 'border-transparent text-text-muted hover:text-primary'}"
+            class="tab-button"
+            class:active={activeTab === 'domains'}
             onclick={() => activeTab = 'domains'}
           >
             Domains
           </button>
           <button
-            class="px-4 py-2 text-sm font-medium border-b-2 transition-colors {activeTab === 'tunnels' ? 'border-primary text-primary' : 'border-transparent text-text-muted hover:text-primary'}"
+            class="tab-button"
+            class:active={activeTab === 'tunnels'}
             onclick={() => activeTab = 'tunnels'}
           >
             Tunnels
@@ -680,10 +682,10 @@
       </div>
 
       <!-- Footer -->
-      <div class="p-4 pt-3 border-t border-border/50 flex-shrink-0">
-        <div class="flex items-center justify-between text-xs font-mono">
-          <span class="text-muted">v{VERSION}</span>
-          <a href="/logs" class="text-primary hover:text-primary-hover transition-colors" target="_blank">
+      <div class="settings-footer">
+        <div class="footer-content">
+          <span class="version-text">v{VERSION}</span>
+          <a href="/logs" class="logs-link" target="_blank">
             View Logs
           </a>
         </div>
@@ -691,3 +693,145 @@
     </div>
   </div>
 {/if}
+
+<style>
+  /* Backdrop */
+  .settings-backdrop {
+    position: fixed;
+    inset: 0;
+    background: rgba(var(--color-bg-rgb, 250 250 250), 0.8);
+    backdrop-filter: blur(4px);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    z-index: 50;
+  }
+
+  /* Modal container */
+  .settings-modal {
+    font-family: var(--font-mono);
+    font-size: var(--font-size-sm);
+    width: 100%;
+    max-width: calc(100vw - 1rem);
+    margin: 0 0.5rem;
+    max-height: calc(100vh - 2rem);
+    overflow: hidden;
+    display: flex;
+    flex-direction: column;
+    background: var(--color-bg-elevated);
+    border-radius: var(--radius-lg);
+    box-shadow: var(--shadow-lg);
+  }
+
+  @media (min-width: 640px) {
+    .settings-modal {
+      max-width: 28rem;
+      margin: 0 1rem;
+    }
+  }
+
+  @media (min-width: 1024px) {
+    .settings-modal {
+      max-width: 42rem;
+    }
+  }
+
+  /* Header */
+  .settings-header {
+    padding: 1rem;
+    padding-bottom: 1rem;
+    border-bottom: 1px solid rgba(var(--color-border-rgb, 229 229 229), 0.5);
+    position: relative;
+    flex-shrink: 0;
+  }
+
+  .settings-title {
+    color: var(--color-primary);
+    font-size: var(--font-size-lg);
+    font-weight: 700;
+  }
+
+  .close-button {
+    position: absolute;
+    top: 1rem;
+    right: 1rem;
+    color: var(--color-text-muted);
+    transition: color var(--transition-base);
+    padding: 0.25rem;
+    background: none;
+    border: none;
+    cursor: pointer;
+  }
+
+  .close-button:hover {
+    color: var(--color-primary);
+  }
+
+  .close-icon {
+    width: 1.5rem;
+    height: 1.5rem;
+  }
+
+  /* Tabs */
+  .tabs-container {
+    border-bottom: 1px solid rgba(var(--color-border-rgb, 229 229 229), 0.5);
+    flex-shrink: 0;
+  }
+
+  .tabs-list {
+    display: flex;
+  }
+
+  .tab-button {
+    padding: 0.5rem 1rem;
+    font-size: var(--font-size-sm);
+    font-weight: 500;
+    border-bottom: 2px solid transparent;
+    transition: all var(--transition-base);
+    color: var(--color-text-muted);
+    background: none;
+    border-left: none;
+    border-right: none;
+    border-top: none;
+    cursor: pointer;
+  }
+
+  .tab-button:hover {
+    color: var(--color-primary);
+  }
+
+  .tab-button.active {
+    border-bottom-color: var(--color-primary);
+    color: var(--color-primary);
+  }
+
+  /* Footer */
+  .settings-footer {
+    padding: 1rem;
+    padding-top: 0.75rem;
+    border-top: 1px solid rgba(var(--color-border-rgb, 229 229 229), 0.5);
+    flex-shrink: 0;
+  }
+
+  .footer-content {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    font-size: var(--font-size-xs);
+    font-family: var(--font-mono);
+  }
+
+  .version-text {
+    color: var(--color-text-muted);
+  }
+
+  .logs-link {
+    color: var(--color-primary);
+    transition: color var(--transition-base);
+    text-decoration: none;
+  }
+
+  .logs-link:hover {
+    opacity: 0.8;
+  }
+</style>

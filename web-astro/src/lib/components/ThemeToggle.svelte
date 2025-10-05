@@ -87,7 +87,7 @@ const tooltip = $derived.by(() => {
 
 <button
   onclick={cycleTheme}
-  class="bg-bg-tertiary border border-border rounded-lg p-2 font-mono text-muted transition-all duration-200 hover:text-primary hover:bg-surface-hover hover:border-primary hover:shadow-sm flex-shrink-0"
+  class="theme-toggle"
   title={tooltip}
   aria-label="Toggle theme"
 >
@@ -95,3 +95,32 @@ const tooltip = $derived.by(() => {
     <path fill-rule="evenodd" d={icon} clip-rule="evenodd" />
   </svg>
 </button>
+
+<style>
+  .theme-toggle {
+    background: var(--color-bg-tertiary);
+    border: 1px solid var(--color-border);
+    border-radius: var(--radius-lg);
+    padding: var(--spacing-sm);
+    font-family: var(--font-mono);
+    color: var(--color-text-muted);
+    transition: all var(--transition-base);
+    flex-shrink: 0;
+    cursor: pointer;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+  }
+
+  .theme-toggle:hover {
+    color: var(--color-primary);
+    background: var(--color-bg-secondary);
+    border-color: var(--color-primary);
+    box-shadow: var(--shadow-sm);
+  }
+
+  .theme-toggle:focus {
+    outline: none;
+    box-shadow: 0 0 0 2px var(--color-bg), 0 0 0 4px var(--color-primary);
+  }
+</style>

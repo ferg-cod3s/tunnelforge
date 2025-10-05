@@ -551,8 +551,7 @@
 {#if visible}
   <!-- svelte-ignore a11y_click_events_have_key_events -->
   <div
-    class="fixed inset-0 bg-bg/80 backdrop-blur-sm flex items-center justify-center"
-    style="z-index: 1100;"
+    class="browser-backdrop"
     onclick={handleCancel}
     onkeydown={(e) => {
       if (e.key === 'Escape') {
@@ -565,12 +564,12 @@
     tabindex="-1"
   >
     <div
-      class="fixed inset-0 bg-bg flex flex-col"
+      class="browser-container"
       onclick={(e) => e.stopPropagation()}
     >
       {#if isMobile && mobileView === 'preview'}
-        <div class="absolute top-1/2 left-2 -translate-y-1/2 text-text-muted opacity-50">
-          <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+        <div class="mobile-swipe-indicator">
+          <svg class="swipe-icon" fill="none" stroke="currentColor" viewBox="0 0 24 24">
             <path
               stroke-linecap="round"
               stroke-linejoin="round"
@@ -581,20 +580,17 @@
         </div>
       {/if}
       <div
-        class="w-full h-full flex flex-col overflow-hidden"
+        class="browser-content"
         data-testid="file-browser"
       >
-        <!-- Compact Header (like session-view) -->
-        <div
-          class="flex items-center justify-between px-3 py-2 border-b border-border/50 text-sm min-w-0 bg-bg-secondary"
-          style="padding-top: max(0.5rem, env(safe-area-inset-top)); padding-left: max(0.75rem, env(safe-area-inset-left)); padding-right: max(0.75rem, env(safe-area-inset-right));"
-        >
-          <div class="flex items-center gap-3 min-w-0 flex-1">
+        <!-- Compact Header -->
+        <div class="browser-header">
+          <div class="header-left">
             <button
-              class="text-text-muted hover:text-primary font-mono text-xs px-2 py-1 flex-shrink-0 transition-colors flex items-center gap-1"
+              class="back-button"
               onclick={handleCancel}
             >
-              <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <svg class="back-icon" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path
                   stroke-linecap="round"
                   stroke-linejoin="round"
@@ -604,7 +600,7 @@
               </svg>
               <span>Back</span>
             </button>
-            <div class="text-primary min-w-0 flex-1 overflow-hidden flex items-center gap-2">
+            <div class="path-container">
               {#if editingPath}
                 <input
                   bind:this={pathInputRef}
@@ -612,12 +608,12 @@
                   value={pathInputValue}
                   oninput={handlePathInput}
                   onkeydown={handlePathKeyDown}
-                  class="bg-bg border border-border/50 rounded px-2 py-1 text-status-info text-xs sm:text-sm font-mono w-full min-w-0 focus:outline-none focus:border-primary"
+                  class="path-input"
                   placeholder="Enter path and press Enter"
                 />
               {:else}
                 <div
-                  class="text-status-info text-xs sm:text-sm overflow-hidden text-ellipsis whitespace-nowrap font-mono cursor-pointer hover:bg-light rounded px-1 py-1 -mx-1"
+                  class="path-display"
                   title="{currentFullPath || currentPath || 'File Browser'} (click to edit)"
                   onclick={handlePathClick}
                   role="button"
@@ -627,17 +623,15 @@
                 </div>
               {/if}
               {#if gitStatus?.branch}
-                <span class="text-text-muted text-xs flex items-center gap-1 font-mono flex-shrink-0">
+                <span class="git-branch">
                   {@html UIIcons.git} {gitStatus.branch}
                 </span>
               {/if}
             </div>
           </div>
-          <div class="flex items-center gap-2 text-xs flex-shrink-0 ml-2">
+          <div class="header-right">
             {#if errorMessage}
-              <div
-                class="bg-status-error/20 border border-status-error text-status-error px-2 py-1 rounded text-xs"
-              >
+              <div class="error-badge">
                 {errorMessage}
               </div>
             {/if}
@@ -645,25 +639,27 @@
         </div>
 
         <!-- Main content -->
-        <div class="flex-1 flex overflow-hidden">
+        <div class="browser-main">
           <!-- File list -->
           <div
-            class="{isMobile && mobileView === 'preview' ? 'hidden' : ''} {isMobile ? 'w-full' : 'w-80'} bg-bg-secondary border-r border-border/50 flex flex-col"
+            class="file-list-panel"
+            class:hidden={isMobile && mobileView === 'preview'}
+            class:mobile-full={isMobile}
           >
             <!-- File list header with toggles -->
-            <div
-              class="bg-bg-secondary border-b border-border/50 p-3 flex items-center justify-between"
-            >
-              <div class="flex gap-2">
+            <div class="file-list-header">
+              <div class="filter-buttons">
                 <button
-                  class="btn-secondary text-xs px-2 py-1 font-mono {gitFilter === 'changed' ? 'bg-primary text-bg' : ''}"
+                  class="filter-button"
+                  class:active={gitFilter === 'changed'}
                   onclick={toggleGitFilter}
                   title="Show only Git changes"
                 >
                   Git Changes
                 </button>
                 <button
-                  class="btn-secondary text-xs px-2 py-1 font-mono {showHidden ? 'bg-primary text-bg' : ''}"
+                  class="filter-button"
+                  class:active={showHidden}
                   onclick={toggleHidden}
                   title="Show hidden files"
                 >
@@ -673,40 +669,36 @@
             </div>
 
             <!-- File list content -->
-            <div
-              class="flex-1 overflow-y-auto overflow-x-auto scrollbar-thin scrollbar-thumb-white/20 scrollbar-track-transparent hover:scrollbar-thumb-white/30"
-            >
+            <div class="file-list-content">
               {#if loading}
-                <div class="flex items-center justify-center h-full text-text-muted">
+                <div class="loading-state">
                   Loading...
                 </div>
               {:else}
                 {#if currentFullPath !== '/'}
                   <div
-                    class="p-3 hover:bg-light cursor-pointer transition-colors flex items-center gap-2 border-b border-border/50"
+                    class="file-item parent-dir"
                     onclick={handleParentClick}
                     role="button"
                     tabindex="0"
                   >
                     {@html getParentDirectoryIcon()}
-                    <span class="text-text-muted">..</span>
+                    <span class="file-name muted">..</span>
                   </div>
                 {/if}
                 {#each files as file}
                   <div
-                    class="p-3 hover:bg-light cursor-pointer transition-colors flex items-center gap-2
-                    {selectedFile?.path === file.path
-                      ? 'bg-light border-l-2 border-primary'
-                      : ''}"
+                    class="file-item"
+                    class:selected={selectedFile?.path === file.path}
                     onclick={() => handleFileClick(file)}
                     role="button"
                     tabindex="0"
                   >
-                    <span class="flex-shrink-0 relative">
+                    <span class="file-icon-container">
                       {@html getFileIcon(file.name, file.type)}
                       {#if file.isSymlink}
                         <svg
-                          class="w-3 h-3 text-text-muted absolute -bottom-1 -right-1">
+                          class="symlink-indicator"
                           fill="currentColor"
                           viewBox="0 0 20 20"
                         >
@@ -719,11 +711,12 @@
                       {/if}
                     </span>
                     <span
-                      class="flex-1 text-sm whitespace-nowrap {file.type === 'directory' ? 'text-status-info' : 'text-text'}"
+                      class="file-name"
+                      class:directory={file.type === 'directory'}
                       title="{file.name}{file.isSymlink ? ' (symlink)' : ''}"
                       >{file.name}</span
                     >
-                    <span class="flex-shrink-0">{@html renderGitStatusBadge(file.gitStatus)}</span>
+                    <span class="git-status-badge">{@html renderGitStatusBadge(file.gitStatus)}</span>
                   </div>
                 {/each}
               {/if}
@@ -732,23 +725,26 @@
 
           <!-- Preview pane -->
           <div
-            class="{isMobile && mobileView === 'list' ? 'hidden' : ''} {isMobile ? 'w-full' : 'flex-1'} bg-bg flex flex-col overflow-hidden"
+            class="preview-pane"
+            class:hidden={isMobile && mobileView === 'list'}
+            class:mobile-full={isMobile}
           >
             {#if selectedFile}
               <div
-                class="bg-bg-secondary border-b border-border/50 p-3 {isMobile ? 'space-y-2' : 'flex items-center justify-between'}"
+                class="preview-header"
+                class:mobile={isMobile}
               >
-                <div class="flex items-center gap-2 {isMobile ? 'min-w-0' : ''}">
+                <div class="file-info" class:mobile={isMobile}>
                   {#if isMobile}
                     <button
                       onclick={() => {
                         mobileView = 'list';
                       }}
-                      class="text-text-muted hover:text-primary transition-colors flex-shrink-0"
+                      class="mobile-back-button"
                       title="Back to files"
                     >
                       <svg
-                        class="w-5 h-5"
+                        class="back-icon"
                         fill="none"
                         stroke="currentColor"
                         viewBox="0 0 24 24"
@@ -762,11 +758,11 @@
                       </svg>
                     </button>
                   {/if}
-                  <span class="flex-shrink-0 relative">
+                  <span class="file-icon-container">
                     {@html getFileIcon(selectedFile.name, selectedFile.type)}
                     {#if selectedFile.isSymlink}
                       <svg
-                        class="w-3 h-3 text-muted absolute -bottom-1 -right-1"
+                        class="symlink-indicator"
                         fill="currentColor"
                         viewBox="0 0 20 20"
                       >
@@ -778,17 +774,18 @@
                       </svg>
                     {/if}
                   </span>
-                  <span class="font-mono text-sm {isMobile ? 'truncate' : ''}"
+                  <span class="file-name" class:truncate={isMobile}
                     >{selectedFile.name}{selectedFile.isSymlink ? ' →' : ''}</span
                   >
                   {@html renderGitStatusBadge(selectedFile.gitStatus)}
                 </div>
                 <div
-                  class="{isMobile ? 'grid grid-cols-2 gap-2' : 'flex gap-2 flex-shrink-0'}"
+                  class="action-buttons"
+                  class:mobile-grid={isMobile}
                 >
                   {#if selectedFile.type === 'file'}
                     <button
-                      class="btn-secondary text-xs px-2 py-1 font-mono"
+                      class="action-button secondary"
                       onclick={() => selectedFile && handleCopyToClipboard(selectedFile.path)}
                       title="Copy path to clipboard (⌘C)"
                     >
@@ -796,7 +793,7 @@
                     </button>
                     {#if mode === 'browse'}
                       <button
-                        class="btn-primary text-xs px-2 py-1 font-mono"
+                        class="action-button primary"
                         onclick={insertPathIntoTerminal}
                         title="Insert path into terminal (Enter)"
                       >
@@ -806,11 +803,9 @@
                   {/if}
                   {#if selectedFile.gitStatus && selectedFile.gitStatus !== 'unchanged'}
                     <button
-                      class="btn-secondary text-xs px-2 py-1 font-mono {showDiff ? 'bg-primary text-bg' : ''} {isMobile &&
-                      selectedFile.type === 'file' &&
-                      mode === 'browse'
-                        ? ''
-                        : 'col-span-2'}"
+                      class="action-button secondary"
+                      class:active={showDiff}
+                      class:full-width={isMobile && selectedFile.type === 'file' && mode === 'browse'}
                       onclick={toggleDiff}
                     >
                       {showDiff ? 'View File' : 'View Diff'}
@@ -819,18 +814,18 @@
                 </div>
               </div>
             {/if}
-            <div class="flex-1 overflow-hidden">
+            <div class="preview-content">
               {@html renderPreview()}
             </div>
           </div>
         </div>
 
         {#if mode === 'select'}
-          <div class="p-4 border-t border-border/50 flex gap-4">
-            <button class="btn-ghost font-mono flex-1" onclick={handleCancel}>
+          <div class="footer-actions">
+            <button class="footer-button ghost" onclick={handleCancel}>
               Cancel
             </button>
-            <button class="btn-primary font-mono flex-1" onclick={handleSelect}>
+            <button class="footer-button primary" onclick={handleSelect}>
               Select Directory
             </button>
           </div>
@@ -839,3 +834,464 @@
     </div>
   </div>
 {/if}
+
+<style>
+  /* Backdrop */
+  .browser-backdrop {
+    position: fixed;
+    inset: 0;
+    background: rgba(var(--color-bg-rgb, 250 250 250), 0.8);
+    backdrop-filter: blur(4px);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    z-index: 1100;
+  }
+
+  /* Container */
+  .browser-container {
+    position: fixed;
+    inset: 0;
+    background: var(--color-bg);
+    display: flex;
+    flex-direction: column;
+  }
+
+  /* Mobile swipe indicator */
+  .mobile-swipe-indicator {
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    height: 1.5rem;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: var(--color-bg-secondary);
+    border-bottom: 1px solid rgba(var(--color-border-rgb, 229 229 229), 0.5);
+    z-index: 10;
+  }
+
+  .swipe-icon {
+    width: 1.25rem;
+    height: 1.25rem;
+    color: var(--color-text-muted);
+  }
+
+  /* Content wrapper */
+  .browser-content {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+  }
+
+  /* Header */
+  .browser-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 0.5rem 0.75rem;
+    border-bottom: 1px solid rgba(var(--color-border-rgb, 229 229 229), 0.5);
+    background: var(--color-bg-secondary);
+  }
+
+  .header-left {
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+    min-width: 0;
+    flex: 1;
+  }
+
+  .back-button {
+    display: flex;
+    align-items: center;
+    gap: 0.25rem;
+    color: var(--color-text-muted);
+    transition: color var(--transition-base);
+    font-family: var(--font-mono);
+    font-size: var(--font-size-xs);
+    background: none;
+    border: none;
+    cursor: pointer;
+    padding: 0;
+  }
+
+  .back-button:hover {
+    color: var(--color-primary);
+  }
+
+  .back-icon {
+    width: 1rem;
+    height: 1rem;
+  }
+
+  .path-container {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    min-width: 0;
+    flex: 1;
+  }
+
+  .path-input {
+    width: 100%;
+    padding: 0.25rem 0.5rem;
+    background: var(--color-bg);
+    border: 1px solid var(--color-border);
+    border-radius: var(--radius-sm);
+    font-family: var(--font-mono);
+    font-size: var(--font-size-xs);
+    color: var(--color-text-primary);
+  }
+
+  .path-input:focus {
+    outline: none;
+    border-color: var(--color-primary);
+  }
+
+  .path-display {
+    cursor: pointer;
+    padding: 0.25rem 0.5rem;
+    border-radius: var(--radius-sm);
+    transition: background var(--transition-base);
+    font-family: var(--font-mono);
+    font-size: var(--font-size-xs);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+
+  .path-display:hover {
+    background: var(--color-bg-tertiary);
+  }
+
+  .git-branch {
+    display: flex;
+    align-items: center;
+    gap: 0.25rem;
+    color: var(--color-text-muted);
+    font-family: var(--font-mono);
+    font-size: var(--font-size-xs);
+    flex-shrink: 0;
+  }
+
+  .header-right {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+  }
+
+  .error-badge {
+    padding: 0.25rem 0.5rem;
+    background: rgba(var(--color-status-error-rgb, 239 68 68), 0.1);
+    color: var(--color-status-error);
+    border-radius: var(--radius-sm);
+    font-size: var(--font-size-xs);
+  }
+
+  /* Main content */
+  .browser-main {
+    flex: 1;
+    display: flex;
+    overflow: hidden;
+  }
+
+  /* File list panel */
+  .file-list-panel {
+    width: 20rem;
+    background: var(--color-bg-secondary);
+    border-right: 1px solid rgba(var(--color-border-rgb, 229 229 229), 0.5);
+    display: flex;
+    flex-direction: column;
+  }
+
+  .file-list-panel.mobile-full {
+    width: 100%;
+  }
+
+  .file-list-panel.hidden {
+    display: none;
+  }
+
+  .file-list-header {
+    background: var(--color-bg-secondary);
+    border-bottom: 1px solid rgba(var(--color-border-rgb, 229 229 229), 0.5);
+    padding: 0.75rem;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+  }
+
+  .filter-buttons {
+    display: flex;
+    gap: 0.5rem;
+  }
+
+  .filter-button {
+    padding: 0.25rem 0.5rem;
+    font-family: var(--font-mono);
+    font-size: var(--font-size-xs);
+    background: var(--color-bg);
+    border: 1px solid var(--color-border);
+    border-radius: var(--radius-sm);
+    color: var(--color-text-primary);
+    cursor: pointer;
+    transition: all var(--transition-base);
+  }
+
+  .filter-button:hover {
+    background: var(--color-bg-tertiary);
+  }
+
+  .filter-button.active {
+    background: var(--color-primary);
+    color: var(--color-bg);
+    border-color: var(--color-primary);
+  }
+
+  .file-list-content {
+    flex: 1;
+    overflow-y: auto;
+    overflow-x: auto;
+  }
+
+  /* Custom scrollbar */
+  .file-list-content::-webkit-scrollbar {
+    width: 0.5rem;
+  }
+
+  .file-list-content::-webkit-scrollbar-track {
+    background: transparent;
+  }
+
+  .file-list-content::-webkit-scrollbar-thumb {
+    background: rgba(255, 255, 255, 0.2);
+    border-radius: var(--radius-sm);
+  }
+
+  .file-list-content::-webkit-scrollbar-thumb:hover {
+    background: rgba(255, 255, 255, 0.3);
+  }
+
+  .loading-state {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    height: 100%;
+    color: var(--color-text-muted);
+  }
+
+  .file-item {
+    padding: 0.75rem;
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    cursor: pointer;
+    transition: background var(--transition-base);
+    border-bottom: 1px solid rgba(var(--color-border-rgb, 229 229 229), 0.5);
+  }
+
+  .file-item:hover {
+    background: rgba(var(--color-bg-elevated-rgb, 255 255 255), 0.3);
+  }
+
+  .file-item.selected {
+    background: rgba(var(--color-bg-elevated-rgb, 255 255 255), 0.3);
+    border-left: 2px solid var(--color-primary);
+  }
+
+  .file-item.parent-dir {
+    border-bottom: 1px solid rgba(var(--color-border-rgb, 229 229 229), 0.5);
+  }
+
+  .file-icon-container {
+    flex-shrink: 0;
+    position: relative;
+  }
+
+  .symlink-indicator {
+    width: 0.75rem;
+    height: 0.75rem;
+    color: var(--color-text-muted);
+    position: absolute;
+    bottom: -0.25rem;
+    right: -0.25rem;
+  }
+
+  .file-name {
+    flex: 1;
+    font-size: var(--font-size-sm);
+    white-space: nowrap;
+    color: var(--color-text-primary);
+  }
+
+  .file-name.directory {
+    color: var(--color-status-info);
+  }
+
+  .file-name.muted {
+    color: var(--color-text-muted);
+  }
+
+  .file-name.truncate {
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+
+  .git-status-badge {
+    flex-shrink: 0;
+  }
+
+  /* Preview pane */
+  .preview-pane {
+    flex: 1;
+    background: var(--color-bg);
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+  }
+
+  .preview-pane.mobile-full {
+    width: 100%;
+  }
+
+  .preview-pane.hidden {
+    display: none;
+  }
+
+  .preview-header {
+    background: var(--color-bg-secondary);
+    border-bottom: 1px solid rgba(var(--color-border-rgb, 229 229 229), 0.5);
+    padding: 0.75rem;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+  }
+
+  .preview-header.mobile {
+    flex-direction: column;
+    gap: 0.5rem;
+  }
+
+  .file-info {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+  }
+
+  .file-info.mobile {
+    min-width: 0;
+    width: 100%;
+  }
+
+  .mobile-back-button {
+    color: var(--color-text-muted);
+    transition: color var(--transition-base);
+    background: none;
+    border: none;
+    cursor: pointer;
+    padding: 0;
+    flex-shrink: 0;
+  }
+
+  .mobile-back-button:hover {
+    color: var(--color-primary);
+  }
+
+  .action-buttons {
+    display: flex;
+    gap: 0.5rem;
+    flex-shrink: 0;
+  }
+
+  .action-buttons.mobile-grid {
+    display: grid;
+    grid-template-columns: repeat(2, 1fr);
+    gap: 0.5rem;
+    width: 100%;
+  }
+
+  .action-button {
+    padding: 0.25rem 0.5rem;
+    font-family: var(--font-mono);
+    font-size: var(--font-size-xs);
+    border-radius: var(--radius-sm);
+    cursor: pointer;
+    transition: all var(--transition-base);
+    border: 1px solid var(--color-border);
+  }
+
+  .action-button.secondary {
+    background: var(--color-bg);
+    color: var(--color-text-primary);
+  }
+
+  .action-button.secondary:hover {
+    background: var(--color-bg-tertiary);
+  }
+
+  .action-button.secondary.active {
+    background: var(--color-primary);
+    color: var(--color-bg);
+    border-color: var(--color-primary);
+  }
+
+  .action-button.primary {
+    background: var(--color-primary);
+    color: white;
+    border-color: var(--color-primary);
+  }
+
+  .action-button.primary:hover {
+    opacity: 0.9;
+  }
+
+  .action-button.full-width {
+    grid-column: span 2;
+  }
+
+  .preview-content {
+    flex: 1;
+    overflow: hidden;
+  }
+
+  /* Footer actions */
+  .footer-actions {
+    padding: 1rem;
+    border-top: 1px solid rgba(var(--color-border-rgb, 229 229 229), 0.5);
+    display: flex;
+    gap: 1rem;
+  }
+
+  .footer-button {
+    flex: 1;
+    padding: 0.75rem;
+    font-family: var(--font-mono);
+    border-radius: var(--radius-md);
+    cursor: pointer;
+    transition: all var(--transition-base);
+    font-size: var(--font-size-sm);
+  }
+
+  .footer-button.ghost {
+    background: transparent;
+    border: 1px solid var(--color-border);
+    color: var(--color-text-primary);
+  }
+
+  .footer-button.ghost:hover {
+    background: var(--color-bg-secondary);
+  }
+
+  .footer-button.primary {
+    background: var(--color-primary);
+    color: white;
+    border: 1px solid var(--color-primary);
+  }
+
+  .footer-button.primary:hover {
+    opacity: 0.9;
+  }
+</style>
