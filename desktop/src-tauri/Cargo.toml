@@ -33,8 +33,10 @@ serde_json = { version = "1.0", features = ["preserve_order"] }
 
 # Error handling and utilities
 anyhow = "1.0"
- dirs = "5.0"
+dirs = "5.0"
 chrono = { version = "0.4", features = ["serde", "std"] }
+base64 = "0.22"  # Updated from 0.21
+rand = "0.8"
 
 # Error tracking and logging
 sentry = { version = "0.32", features = ["tracing", "tower", "reqwest"] }
@@ -42,19 +44,19 @@ tracing = "0.1"
 tracing-subscriber = { version = "0.3", features = ["env-filter", "json"] }
 
 # Network security focused dependencies
-reqwest = { version = "0.11", features = ["json", "rustls-tls"], default-features = false }
-tungstenite = { version = "0.20", features = ["rustls-tls-native-roots"], default-features = false }
- tokio-tungstenite = { version = "0.20", features = ["rustls-tls-native-roots", "connect"], default-features = false }
+reqwest = { version = "0.12", features = ["json", "rustls-tls"], default-features = false }  # Updated from 0.11
+tungstenite = { version = "0.24", features = ["rustls-tls-native-roots"], default-features = false }  # Updated from 0.20
+tokio-tungstenite = { version = "0.24", features = ["rustls-tls-native-roots", "connect"], default-features = false }  # Updated from 0.20
 futures-util = "0.3"
 
- # Security-focused dependencies
- ring = "0.17"  # Cryptographic operations
- data-encoding = "2.4"  # Safe data encoding
- zeroize = { version = "1.6", features = ["derive"] }  # Secure memory wiping
- secrecy = "0.8"  # Secret value handling
- rustls = "0.21"  # TLS implementation
- webpki-roots = "0.25"  # TLS root certificates
- pbkdf2 = "0.12"  # Password-based key derivation
+# Security-focused dependencies
+ring = "0.17"  # Cryptographic operations
+data-encoding = "2.6"  # Safe data encoding - Updated from 2.4
+zeroize = { version = "1.8", features = ["derive"] }  # Secure memory wiping - Updated from 1.6
+secrecy = "0.10"  # Secret value handling - Updated from 0.8
+rustls = "0.23"  # TLS implementation - Updated from 0.21
+webpki-roots = "0.26"  # TLS root certificates - Updated from 0.25
+pbkdf2 = "0.12"  # Password-based key derivation
 
 # Windows-specific dependencies with security features
 [target.'cfg(windows)'.dependencies]

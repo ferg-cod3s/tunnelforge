@@ -16,7 +16,8 @@ pub trait PlatformIntegration {
 // Import modules
 mod config;
 mod linux_platform;
-mod security;
+mod cloudflare_service; // Cloudflare tunnel integration
+// mod security; // Temporarily disabled due to secrecy crate API changes
 
 // Application state structure
 #[derive(Debug)]
