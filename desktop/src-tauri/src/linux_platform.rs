@@ -39,7 +39,7 @@ X-GNOME-Autostart-enabled=true
 Hidden=false
 "#,
                 exe_path.display()
-            ");
+            );
 
             std::fs::write(&desktop_file, desktop_entry)?;
             log::info!("Created Linux autostart desktop entry");
