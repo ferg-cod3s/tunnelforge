@@ -3,6 +3,19 @@ const path = require('path');
 
 console.log('Starting Bun development mode...');
 
+// Load environment variables from .env.development if it exists
+const envFile = path.join(process.cwd(), '..', '.env.development');
+const fs = require('fs');
+if (fs.existsSync(envFile)) {
+  require('dotenv').config({ path: envFile });
+  console.log('📝 Loaded environment from .env.development');
+}
+// Validate Sentry DSN
+if (!process.env.SENTRY_SERVER_DSN) {
+  console.warn("⚠️  Warning: SENTRY_SERVER_DSN not set - Sentry error reporting disabled for Bun server");
+  console.warn("   Set SENTRY_SERVER_DSN in .env.development for error tracking");
+}
+
 // Validate version sync first
 require('child_process').execSync('bun run scripts/validate-version-sync.js', { stdio: 'inherit' });
 
@@ -29,24 +42,24 @@ const { values } = parseArgs({
 const env = { ...process.env };
 
 if (values.port) {
-  env.PORT = values.port;
-} else {
-  env.PORT = '3001'; // Default port for Bun server
+  env.WEB_PORT = values.port;
+} else if (!env.WEB_PORT) {
+  env.WEB_PORT = '3001'; // Default port for Bun server
 }
 
 if (values.bind) {
   env.HOST = values.bind;
-} else {
+} else if (!env.HOST) {
   env.HOST = '0.0.0.0'; // Default bind
 }
 
 if (values['go-server-url']) {
   env.GO_SERVER_URL = values['go-server-url'];
-} else {
-  env.GO_SERVER_URL = 'http://localhost:4022'; // Default Go server URL
+} else if (!env.GO_SERVER_URL) {
+  env.GO_SERVER_URL = 'http://localhost:4021'; // FIXED: Default Go server URL (was 4022)
 }
 
-console.log(`🚇 Bun server will start on http://${env.HOST}:${env.PORT}`);
+console.log(`🚇 Bun server will start on http://${env.HOST}:${env.WEB_PORT}`);
 console.log(`🔗 Proxying API requests to: ${env.GO_SERVER_URL}`);
 
 // Start the Bun server with hot reload

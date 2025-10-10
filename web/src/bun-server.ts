@@ -1,15 +1,20 @@
 // Bun Server for TunnelForge - Serves original frontend, proxies to Go backend
 // This replaces the Node.js server but keeps all the frontend intact
 
+// Initialize Sentry for backend error tracking
+import { initServerSentry } from './server/sentry.js';
+
+initServerSentry();
+
 const server = Bun.serve({
-  port: Number(process.env.PORT) || 3001,
+  port: Number(process.env.WEB_PORT || process.env.PORT) || 3001,
   hostname: process.env.HOST || '0.0.0.0',
   idleTimeout: 120, // 120 seconds timeout to prevent request timeouts
 
   // WebSocket connections should connect directly to Go server
   // No WebSocket handler needed in Bun proxy
 
-  async fetch(req: Request, server): Promise<Response> {
+  async fetch(req: Request, _server): Promise<Response> {
     const url = new URL(req.url);
     const GO_SERVER_URL = process.env.GO_SERVER_URL || 'http://localhost:4021';
 
@@ -101,9 +106,11 @@ const server = Bun.serve({
 
         // For network access, point directly to Go server using the same host but Go server port
         const goServerPort = new URL(GO_SERVER_URL).port;
-        const wsHost = requestHost.includes('192.168.68.53')
-          ? `192.168.68.53:${goServerPort}`
-          : `localhost:${goServerPort}`;
+        // If request is from network (not localhost), use the same host for WebSocket
+        const isLocalhost = requestHost.includes('localhost') || requestHost.includes('127.0.0.1');
+        const wsHost = isLocalhost
+          ? `localhost:${goServerPort}`
+          : requestHost.replace(/:\d+$/, `:${goServerPort}`);
 
         // Merge Go server config with client-specific settings
         const config = {
@@ -131,20 +138,70 @@ const server = Bun.serve({
         const requestHost = req.headers.get('host') || 'localhost:3001';
         const protocol = req.url.startsWith('https') ? 'wss' : 'ws';
         const goServerPort = new URL(GO_SERVER_URL).port;
-        const wsHost = requestHost.includes('192.168.68.53')
-          ? `192.168.68.53:${goServerPort}`
-          : `localhost:${goServerPort}`;
+        const isLocalhost = requestHost.includes('localhost') || requestHost.includes('127.0.0.1');
+        const wsHost = isLocalhost
+          ? `localhost:${goServerPort}`
+          : requestHost.replace(/:\d+$/, `:${goServerPort}`);
 
-        return new Response(JSON.stringify({
-          authRequired: false,
-          websocketUrl: `${protocol}://${wsHost}`,
-          features: { directWebSocket: true, streamingEnabled: true },
-          origin: `${req.url.startsWith('https') ? 'https' : 'http'}://${requestHost}`,
-        }), {
+        return new Response(
+          JSON.stringify({
+            authRequired: false,
+            websocketUrl: `${protocol}://${wsHost}`,
+            features: { directWebSocket: true, streamingEnabled: true },
+            origin: `${req.url.startsWith('https') ? 'https' : 'http'}://${requestHost}`,
+          }),
+          {
+            headers: {
+              'Content-Type': 'application/json',
+              'Access-Control-Allow-Origin': '*',
+              'Cache-Control': 'no-cache',
+            },
+          }
+        );
+      }
+    }
+
+    // Handle client-side console logs
+    if (url.pathname === '/api/client-logs' && req.method === 'POST') {
+      try {
+        const body = await req.json();
+        const logs = body.logs || [];
+
+        // Write logs to console with [BROWSER] prefix
+        for (const log of logs) {
+          const timestamp = new Date(log.timestamp).toISOString();
+          const prefix = `[BROWSER ${log.level.toUpperCase()}]`;
+          const message = `${prefix} [${timestamp}] ${log.message}`;
+
+          switch (log.level) {
+            case 'error':
+              console.error(message);
+              break;
+            case 'warn':
+              console.warn(message);
+              break;
+            case 'debug':
+              console.debug(message);
+              break;
+            default:
+              console.log(message);
+          }
+        }
+
+        return new Response(JSON.stringify({ success: true, count: logs.length }), {
+          status: 200,
           headers: {
             'Content-Type': 'application/json',
             'Access-Control-Allow-Origin': '*',
-            'Cache-Control': 'no-cache',
+          },
+        });
+      } catch (error) {
+        console.error('Failed to process client logs:', error);
+        return new Response(JSON.stringify({ error: 'Failed to process logs' }), {
+          status: 500,
+          headers: {
+            'Content-Type': 'application/json',
+            'Access-Control-Allow-Origin': '*',
           },
         });
       }
@@ -445,19 +502,23 @@ const server = Bun.serve({
         const response = await fetch(proxyUrl, proxyOptions);
         console.log(`🔗 Response status: ${response.status}`);
 
-        // Create new response with CORS headers and proper decompression handling
+        // CRITICAL FIX: Only consume response body ONCE to avoid "Body already used" error
+        // We must handle the body carefully and never call response.json(), response.text(),
+        // or response.arrayBuffer() more than once
         let responseBody: BodyInit;
         const originalHeaders = new Headers(response.headers);
-        const contentEncoding = originalHeaders.get('content-encoding');
+        const contentType = originalHeaders.get('content-type');
 
-        // Get response body
+        // Step 1: Get the raw response body (ONLY ONCE!)
         const rawBody = await response.arrayBuffer();
-        // Try to gunzip if it looks like gzip
+
+        // Step 2: Try to decompress if gzipped (Bun.gunzipSync handles non-gzipped gracefully)
+        let decompressedBody: Uint8Array;
         try {
-          responseBody = Bun.gunzipSync(new Uint8Array(rawBody));
+          decompressedBody = Bun.gunzipSync(new Uint8Array(rawBody));
           console.log(`🔓 Decompressed gzipped response`);
-        } catch {
-          responseBody = rawBody;
+        } catch (e) {
+          decompressedBody = new Uint8Array(rawBody);
           console.log(`📄 Using raw response body`);
         }
 
@@ -468,17 +529,16 @@ const server = Bun.serve({
         headers.set('Access-Control-Allow-Methods', 'GET, POST, PUT, DELETE, OPTIONS');
         headers.set('Access-Control-Allow-Headers', 'Content-Type, Authorization');
 
-        // Handle response body
-        if (response.headers.get('content-type')?.includes('application/json')) {
-          // For JSON responses, parse and re-stringify to ensure proper encoding
+        // Step 3: Handle JSON responses with transformation if needed
+        if (contentType?.includes('application/json')) {
+          // For JSON responses, parse and potentially transform the data
           try {
+            // Decode the decompressed body to text, then parse JSON
+            const text = new TextDecoder().decode(decompressedBody);
             let jsonData;
-            if (contentEncoding === 'gzip') {
-              const decompressedText = new TextDecoder().decode(responseBody as Uint8Array);
-              jsonData = JSON.parse(decompressedText);
-            } else {
-              jsonData = await response.json();
-            }
+
+            // Parse JSON from the text (never call response.json()!)
+            jsonData = JSON.parse(text);
             // Special handling for session creation response format translation
             if (
               req.method === 'POST' &&
@@ -532,12 +592,16 @@ const server = Bun.serve({
             headers.set('Content-Type', 'application/json');
           } catch (error) {
             console.error('Failed to parse JSON response:', error);
-            // Use the raw body if JSON parsing fails
-            responseBody = new TextDecoder().decode(responseBody);
+            // Fallback: use raw text if JSON parsing fails
+            responseBody = new TextDecoder().decode(decompressedBody);
+            headers.set('Content-Type', 'text/plain');
           }
         } else {
-          // For other responses, use the already fetched body
-          // responseBody is already set above
+          // For non-JSON responses (images, HTML, etc.), use the decompressed body
+          responseBody = decompressedBody;
+          if (contentType) {
+            headers.set('Content-Type', contentType);
+          }
         }
 
         console.log(`✅ Go server responded: ${response.status} ${response.statusText}`);
