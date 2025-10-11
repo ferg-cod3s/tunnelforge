@@ -7,7 +7,16 @@
   "productName": "TunnelForge",
   "version": "1.0.0",
   "identifier": "dev.tunnelforge.desktop",
-  "plugins": {},
+  "plugins": {
+    "updater": {
+      "active": true,
+      "endpoints": [
+        "https://releases.tunnelforge.dev/desktop/{{current_version}}/{{target}}/{{arch}}"
+      ],
+      "dialog": true,
+      "pubkey": "dW50cnVzdGVkIGNvbW1lbnQ6IG1pbmlzaWduIHB1YmxpYyBrZXk6IEJBNTZDMzczNUIwQ0I4NUUKUldSZXVBeGJjOE5XdXRHQ0VRTnJPVFZXemxkZnQrTzRQalgxTmdza0pjZzJkN3ZlayswOWFHTG0K"
+    }
+  },
   "bundle": {
     "active": true,
     "targets": "all",
