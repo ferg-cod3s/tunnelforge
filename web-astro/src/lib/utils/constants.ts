@@ -1,0 +1,1 @@
+export const DEFAULT_REPOSITORY_BASE_PATH = '~/'; // Default path for repositories
