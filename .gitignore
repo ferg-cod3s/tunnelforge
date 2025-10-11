@@ -213,3 +213,4 @@ server/vibetunnel
 
 # Temp directories
 server/$HOME/
+.tauri/
