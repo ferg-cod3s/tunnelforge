@@ -5,6 +5,13 @@ export interface AppPreferences {
   useBinaryMode: boolean;
 }
 
+export interface TerminalPreferences {
+  fontSize: number;
+  maxColumns: number | 'unlimited';
+  theme: string;
+  lineHeight: number;
+}
+
 export interface NotificationPreferences {
   enabled: boolean;
   sessionExit: boolean;
@@ -39,6 +46,13 @@ export interface MediaQueryState {
 const DEFAULT_APP_PREFERENCES: AppPreferences = {
   useDirectKeyboard: true,
   useBinaryMode: false,
+};
+
+const DEFAULT_TERMINAL_PREFERENCES: TerminalPreferences = {
+  fontSize: 14,
+  maxColumns: 120,
+  theme: 'auto',
+  lineHeight: 1.2,
 };
 
 const DEFAULT_NOTIFICATION_PREFERENCES: NotificationPreferences = {
@@ -78,6 +92,32 @@ export function saveAppPreferences(preferences: AppPreferences): void {
     );
   } catch (error) {
     console.error('Failed to save app preferences:', error);
+  }
+}
+
+// Terminal preferences
+export function getTerminalPreferences(): TerminalPreferences {
+  try {
+    const stored = localStorage.getItem('tunnelforge_terminal_preferences');
+    if (stored) {
+      return { ...DEFAULT_TERMINAL_PREFERENCES, ...JSON.parse(stored) };
+    }
+  } catch (error) {
+    console.error('Failed to load terminal preferences:', error);
+  }
+  return DEFAULT_TERMINAL_PREFERENCES;
+}
+
+export function saveTerminalPreferences(preferences: TerminalPreferences): void {
+  try {
+    localStorage.setItem('tunnelforge_terminal_preferences', JSON.stringify(preferences));
+    window.dispatchEvent(
+      new CustomEvent('terminal-preferences-changed', {
+        detail: preferences,
+      })
+    );
+  } catch (error) {
+    console.error('Failed to save terminal preferences:', error);
   }
 }
 

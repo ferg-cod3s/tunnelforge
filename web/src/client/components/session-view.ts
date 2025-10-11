@@ -249,6 +249,11 @@ export class SessionView extends LitElement {
     // Listen for binary mode changes
     window.addEventListener('terminal-binary-mode-changed', this.handleBinaryModeChange);
 
+    // Listen for open-settings event from notification-status component
+    this.addEventListener('open-settings', () => {
+      this.uiStateManager.setShowWidthSelector(true);
+    });
+
     // Initialize connection manager
     this.connectionManager = new ConnectionManager(
       (sessionId: string) => {
