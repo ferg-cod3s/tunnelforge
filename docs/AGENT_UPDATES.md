@@ -1,4 +1,76 @@
 
+### 2025-10-11: Windows Config Fix & Code Signing Preparation
+
+**Agent**: Claude Code  
+**Task**: Fix Windows Tauri configuration and prepare for production code signing
+
+**Work Completed**:
+
+1. **Windows Bundle Configuration** (`windows/src-tauri/tauri.conf.json`):
+   - ✅ Added missing `bundle` section (MSI/NSIS installer settings)
+   - ✅ Added Windows-specific configuration:
+     - Certificate thumbprint placeholder
+     - SHA256 digest algorithm
+     - WiX MSI installer language (en-US)
+     - NSIS installer settings (perMachine installation)
+   - ✅ Added `plugins.updater` configuration
+   - ✅ Configured updater endpoint: `https://releases.tunnelforge.dev/windows/{{current_version}}/{{target}}/{{arch}}`
+
+2. **Tauri Updater Keypair Generation**:
+   - ✅ Generated new keypair using `bunx @tauri-apps/cli signer generate`
+   - ✅ Private key stored in `.tauri/tunnelforge.key` (gitignored)
+   - ✅ Public key: `dW50cnVzdGVkIGNvbW1lbnQ6IG1pbmlzaWduIHB1YmxpYyBrZXk6IEJBNTZDMzczNUIwQ0I4NUUKUldSZXVBeGJjOE5XdXRHQ0VRTnJPVFZXemxkZnQrTzRQalgxTmdza0pjZzJkN3ZlayswOWFHTG0K`
+   - ✅ Updated all platform configs with new public key
+
+3. **Platform Config Updates**:
+   - ✅ `windows/src-tauri/tauri.conf.json` - Added bundle + updater config
+   - ✅ `linux/src-tauri/tauri.conf.json` - Updated updater public key
+   - ✅ `desktop/src-tauri/tauri.conf.json` - Added updater plugin config
+
+4. **Documentation Created**:
+   - ✅ `docs/CODE_SIGNING_REQUIREMENTS.md` (comprehensive guide):
+     - Platform-specific certificate requirements
+     - Vendor comparison (DigiCert, Sectigo, SSL.com)
+     - Pricing analysis ($300-700 for first year)
+     - Acquisition timeline (2-3 weeks)
+     - Business verification document requirements
+     - Security best practices
+     - Troubleshooting guide
+
+5. **Git Housekeeping**:
+   - ✅ Added `.tauri/` to `.gitignore` (protects private key)
+   - ✅ Committed config changes
+   - ✅ All changes pushed to repository
+
+**Impact**:
+- **Windows**: Now has complete bundle configuration for MSI/NSIS packages
+- **All Platforms**: Configured for secure auto-updates with updater keypair
+- **Documentation**: Team has clear roadmap for certificate acquisition
+- **Security**: Private signing key properly excluded from git
+
+**Current Status**:
+- ✅ Tauri configurations: **100% complete** for unsigned builds
+- ⏳ Code signing certificates: **0/3 acquired** (blocked by purchase/enrollment)
+- ✅ Technical infrastructure: **Ready for signing** once certificates obtained
+
+**Next Steps**:
+1. Acquire Windows code signing certificate (1-2 weeks, $199-599)
+2. Enroll in Apple Developer Program (immediate-2 days, $99/year)
+3. Configure GitHub Secrets with certificates
+4. Test local signed builds
+5. Deploy CI/CD with signing enabled
+
+**Files Modified**:
+- `windows/src-tauri/tauri.conf.json` - Added bundle/updater config
+- `linux/src-tauri/tauri.conf.json` - Updated public key
+- `desktop/src-tauri/tauri.conf.json` - Added updater config
+- `.gitignore` - Added `.tauri/` directory
+- `docs/CODE_SIGNING_REQUIREMENTS.md` - New comprehensive guide
+
+**Timeline Impact**: On track for Week 1 goals - Windows config fixed, updater keys generated, documentation complete
+
+---
+
 ### 2025-01-27: File Browser Endpoints Testing & Validation
 
 **Agent**: Claude Code  
