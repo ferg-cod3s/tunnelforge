@@ -511,7 +511,7 @@ export class Terminal extends LitElement {
   private async setupTerminal() {
     try {
       // Get user preference for scrollback size (default to optimized value)
-      const prefs = TerminalPreferencesManager.getInstance();
+      const _prefs = TerminalPreferencesManager.getInstance();
       const scrollbackLines = this.getOptimizedScrollback();
 
       // Apply mobile-optimized font sizing
@@ -1839,7 +1839,7 @@ export class Terminal extends LitElement {
       // Try to use WebGL addon if available
       if (WebglAddon) {
         try {
-          const webglAddon = new WebglAddon();
+          const _webglAddon = new WebglAddon();
           // Note: We can't call loadAddon on headless terminal, but we keep the logic for future use
           logger.debug('[Terminal] WebGL addon would be loaded (headless mode - addon ready)');
           addonsLoaded.push('WebGL (ready)');
@@ -1864,7 +1864,7 @@ export class Terminal extends LitElement {
       // Try to use Canvas addon if WebGL failed
       if (CanvasAddon && (!WebglAddon || addonErrors.some((e) => e.addon.includes('WebGL')))) {
         try {
-          const canvasAddon = new CanvasAddon();
+          const _canvasAddon = new CanvasAddon();
           // Note: We can't call loadAddon on headless terminal, but we keep the logic for future use
           logger.debug('[Terminal] Canvas addon would be loaded (headless mode - addon ready)');
           addonsLoaded.push('Canvas (ready)');

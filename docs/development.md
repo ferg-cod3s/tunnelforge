@@ -478,27 +478,27 @@ describe('BufferAggregator', () => {
 **WebSocket reconnection** - Implemented in `ios/TunnelForge/Services/BufferWebSocketClient.swift`
 **Terminal resizing** - Handled in both Swift and TypeScript terminal components
 
-### TunnelForge CLI Wrapper (vt)
+### TunnelForge CLI Wrapper (tf)
 
-The `tf` command is a bash wrapper script that allows users to run commands through TunnelForge's terminal forwarding. It's installed at `/usr/local/bin/vt` when the Mac app is built.
+The `tf` command is a bash wrapper script that allows users to run commands through TunnelForge's terminal forwarding. It's installed at `/usr/local/bin/tf` when the Mac app is built.
 
-**Source location**: `mac/TunnelForge/vt`
+**Source location**: `web/bin/tf`
 
 **Usage**:
 ```bash
 # Run a command through TunnelForge
-vt ls -la
+tf ls -la
 
 # Run an aliased command (e.g., if 'claude' is an alias)
 tf claude --version
 
 # Launch interactive shell
-vt --shell
-vt -i
+tf --shell
+tf -i
 
 # Run command without shell wrapping (bypass alias resolution)
-vt --no-shell-wrap command
-vt -S command
+tf --no-shell-wrap command
+tf -S command
 ```
 
 **How it works**:
@@ -559,7 +559,7 @@ cargo tauri dev
 ```bash
 # Test current Node.js implementation
 cd web
-pnpm test
+bun test
 
 # Test current SwiftUI app
 cd mac

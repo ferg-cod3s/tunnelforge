@@ -207,60 +207,8 @@ const server = Bun.serve({
       }
     }
 
-    // Handle missing file system endpoints with stub implementations
-    if (url.pathname === '/api/fs/preview') {
-      const path = url.searchParams.get('path');
-      return new Response(
-        JSON.stringify({
-          error: 'File preview not yet implemented',
-          message: 'This feature is coming soon',
-          path: path,
-        }),
-        {
-          status: 501, // Not Implemented
-          headers: {
-            'Content-Type': 'application/json',
-            'Access-Control-Allow-Origin': '*',
-          },
-        }
-      );
-    }
 
-    if (url.pathname === '/api/fs/diff') {
-      const path = url.searchParams.get('path');
-      return new Response(
-        JSON.stringify({
-          error: 'File diff not yet implemented',
-          message: 'This feature is coming soon',
-          path: path,
-        }),
-        {
-          status: 501, // Not Implemented
-          headers: {
-            'Content-Type': 'application/json',
-            'Access-Control-Allow-Origin': '*',
-          },
-        }
-      );
-    }
 
-    if (url.pathname === '/api/fs/diff-content') {
-      const path = url.searchParams.get('path');
-      return new Response(
-        JSON.stringify({
-          error: 'File diff-content not yet implemented',
-          message: 'This feature is coming soon',
-          path: path,
-        }),
-        {
-          status: 501, // Not Implemented
-          headers: {
-            'Content-Type': 'application/json',
-            'Access-Control-Allow-Origin': '*',
-          },
-        }
-      );
-    }
 
     if (url.pathname === '/api/files/upload') {
       return new Response(

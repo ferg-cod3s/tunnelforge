@@ -60,6 +60,7 @@ export type SessionStatus = 'starting' | 'running' | 'exited';
  */
 export interface SessionInfo {
   id: string;
+  sessionId?: string; // Alias for id (from Go server)
   name: string;
   command: string[];
   workingDir: string;

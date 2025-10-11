@@ -43,12 +43,10 @@ func NewLogService() *LogService {
 		Dsn:         getSentryDSN(),
 		Environment: getEnv("SENTRY_ENVIRONMENT", "development"),
 		Release:     getEnv("SENTRY_RELEASE", "dev"),
+		EnableLogs:  true, // Enable logs to be sent to Sentry
 		// Set TracesSampleRate to 1.0 to capture 100% of transactions for performance monitoring.
 		// We recommend adjusting this value in production,
 		TracesSampleRate: 1.0,
-		// Set ProfilesSampleRate to profile 100% of sampled transactions.
-		// We recommend adjusting this value in production,
-		ProfilesSampleRate: 1.0,
 	})
 	if err != nil {
 		log.Printf("Sentry initialization failed: %v", err)
@@ -59,9 +57,9 @@ func NewLogService() *LogService {
 
 // getSentryDSN retrieves Sentry DSN from environment or returns empty string for development
 func getSentryDSN() string {
-	dsn := os.Getenv("SENTRY_DSN")
+	dsn := os.Getenv("SENTRY_GO_DSN")
 	if dsn == "" {
-		log.Println("SENTRY_DSN not set, Sentry error reporting disabled")
+		log.Println("SENTRY_GO_DSN not set, Sentry error reporting disabled")
 	}
 	return dsn
 }

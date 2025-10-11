@@ -1,4 +1,13 @@
 #!/bin/bash
+# Load environment from .env.development if it exists
+ENV_FILE="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/../.env.development"
+if [ -f "$ENV_FILE" ]; then
+    echo "📝 Loading environment from .env.development"
+    set -a
+    source "$ENV_FILE"
+    set +a
+fi
+echo ""
 
 # TunnelForge Go Server - Quick Start Script
 

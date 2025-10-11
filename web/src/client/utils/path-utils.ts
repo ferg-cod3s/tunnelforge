@@ -3,6 +3,16 @@
  */
 
 /**
+ * Pre-compiled regex pattern for matching home directories
+ * Matches:
+ * - macOS: /Users/username
+ * - Linux: /home/username
+ * - Root: /root
+ * - Windows: C:\Users\username or C:/Users/username (case-insensitive)
+ */
+const HOME_PATTERN = /^(\/Users\/[^/]+|\/home\/[^/]+|\/root|[A-Za-z]:[/\\]Users[/\\][^/\\]+)/;
+
+/**
  * Format a file path for display by replacing the home directory with ~
  *
  * Handles common home directory patterns across different platforms:

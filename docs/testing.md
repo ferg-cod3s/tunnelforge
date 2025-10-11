@@ -310,29 +310,29 @@ xcodebuild test -project mac/TunnelForge.xcodeproj -scheme TunnelForge -only-tes
 
 ```bash
 # Run all unit tests
-cd web && pnpm run test
+cd web && bun run test
 
 # Run with coverage
-pnpm run test:coverage
+bun run test:coverage
 
 # Run E2E tests
-pnpm run test:e2e
+bun run test:e2e
 ```
 
 ### Playwright Tests
 
 ```bash
 # Install browsers (first time)
-cd web && pnpm exec playwright install
+cd web && bun x playwright install
 
 # Run all Playwright tests
-pnpm run test:playwright
+bun run test:playwright
 
 # Run with UI mode
-pnpm exec playwright test --ui
+bun x playwright test --ui
 
 # Debug specific test
-pnpm exec playwright test --debug tests/session-management.spec.ts
+bun x playwright test --debug tests/session-management.spec.ts
 ```
 
 ## Test Organization
@@ -406,7 +406,7 @@ use: {
 ### Use Debug Mode
 ```bash
 # Run with headed browser and inspector
-pnpm exec playwright test --debug
+bun x playwright test --debug
 ```
 
 ### Add Strategic Logging

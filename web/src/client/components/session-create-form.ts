@@ -30,7 +30,6 @@ import { ServerConfigService } from '../services/server-config-service.js';
 import { type SessionCreateData, SessionService } from '../services/session-service.js';
 import { parseCommand } from '../utils/command-utils.js';
 import { createLogger } from '../utils/logger.js';
-import { formatPathForDisplay } from '../utils/path-utils.js';
 import {
   getSessionFormValue,
   loadSessionFormData,
@@ -436,7 +435,9 @@ export class SessionCreateForm extends LitElement {
   }
 
   private handleDirectorySelected(e: CustomEvent) {
-    this.workingDir = formatPathForDisplay(e.detail);
+    // Keep absolute path - don't format for display when storing the working directory
+    // The server needs the absolute path to create the session
+    this.workingDir = e.detail;
     this.showFileBrowser = false;
     // Check Git repository after directory selection
     this.checkGitRepository();
@@ -471,7 +472,9 @@ export class SessionCreateForm extends LitElement {
         (wt) => wt.branch === this.selectedWorktree
       );
       if (selectedWorktreeInfo?.path) {
-        effectiveWorkingDir = formatPathForDisplay(selectedWorktreeInfo.path);
+        // Use the absolute path directly - don't format for display
+        // The server needs the absolute path, not the display format
+        effectiveWorkingDir = selectedWorktreeInfo.path;
         effectiveBranch = this.selectedWorktree;
         logger.log(
           `Using worktree path: ${effectiveWorkingDir} for branch: ${this.selectedWorktree}`
@@ -775,7 +778,8 @@ export class SessionCreateForm extends LitElement {
   }
 
   private handleSelectRepository(repoPath: string) {
-    this.workingDir = formatPathForDisplay(repoPath);
+    // Keep absolute path - server needs it for session creation
+    this.workingDir = repoPath;
     this.showRepositoryDropdown = false;
     // Check Git repository after selection
     this.checkGitRepository();
@@ -807,7 +811,8 @@ export class SessionCreateForm extends LitElement {
   }
 
   private handleSelectCompletion(suggestion: string) {
-    this.workingDir = formatPathForDisplay(suggestion);
+    // Keep absolute path - server needs it for session creation
+    this.workingDir = suggestion;
     this.showCompletions = false;
     this.completions = [];
     this.selectedCompletionIndex = -1;

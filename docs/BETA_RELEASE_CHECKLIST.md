@@ -22,10 +22,50 @@
   - Session creation < 1ms
   - 50+ concurrent sessions stable
 - [x] Security audit passed
-  - JWT authentication
-  - CSRF protection
-  - Rate limiting
-  - Input validation
+  - JWT authentication implemented
+  - CSRF protection available
+  - Rate limiting enabled
+  - Input validation present
+
+### 1.1. Security Configuration ⚠️ CRITICAL
+
+- [ ] **Production Security Hardening**
+  - [ ] Review `docs/SECURITY_CONFIGURATION.md`
+  - [ ] Copy `.env.production.example` to `.env`
+  - [ ] Generate secure `JWT_SECRET` (256-bit)
+  - [ ] Generate secure `CSRF_SECRET` (256-bit)
+  - [ ] Set `ENABLE_AUTH=true`
+  - [ ] Set `AUTH_REQUIRED=true`
+  - [ ] Set `ALLOW_LOCAL_BYPASS=false`
+  - [ ] Configure `ALLOWED_ORIGINS` (no wildcards)
+  - [ ] Enable `ENABLE_CSRF=true`
+  - [ ] Configure rate limits for production use
+  - [ ] Set `LOG_LEVEL=warn` or `error`
+  
+- [ ] **Security Verification**
+  - [ ] Verify auth cannot be bypassed
+  - [ ] Test rate limiting works
+  - [ ] Verify CSRF protection active
+  - [ ] Test CORS restrictions enforced
+  - [ ] Confirm secrets not committed to git
+  - [ ] Review server startup without `--no-auth` flag
+  - [ ] Validate all default credentials changed
+  
+- [ ] **Production Deployment Requirements**
+  - [ ] HTTPS/TLS configured (reverse proxy)
+  - [ ] Firewall rules in place
+  - [ ] IP whitelisting configured (if needed)
+  - [ ] Security monitoring enabled
+  - [ ] Incident response plan documented
+  
+**⚠️ WARNING**: TunnelForge ships with INSECURE DEFAULTS. Authentication is DISABLED by default for development convenience. You MUST follow the security hardening steps before beta release.
+
+**Action**: Before any beta deployment:
+1. Read `docs/SECURITY_CONFIGURATION.md` completely
+2. Apply production configuration from `.env.production.example`
+3. Generate and secure all secrets
+4. Test authentication is working and required
+5. Never run with `--no-auth` flag in production
 
 ### 2. Infrastructure Setup
 
@@ -182,13 +222,29 @@ For each platform, verify:
 
 We're excited to announce the first beta release of TunnelForge!
 
+## ⚠️ Security Notice
+
+**IMPORTANT**: TunnelForge ships with insecure defaults for development convenience.
+
+**Before production use or network exposure:**
+1. Enable authentication: `ENABLE_AUTH=true`, `AUTH_REQUIRED=true`
+2. Generate secure secrets: `JWT_SECRET`, `CSRF_SECRET` (256-bit)
+3. Disable local bypass: `ALLOW_LOCAL_BYPASS=false`
+4. Configure CORS: Set `ALLOWED_ORIGINS` to your domain(s)
+5. Use HTTPS/TLS: Place behind reverse proxy with valid SSL certificate
+
+📖 **Full Security Guide**: [docs/SECURITY_CONFIGURATION.md](https://github.com/tunnelforge/tunnelforge/blob/main/docs/SECURITY_CONFIGURATION.md)
+
+**For local development only**: Use `.env.development.example`  
+**For production/beta**: Use `.env.production.example`
+
 ## 🚀 What's New
 
 - **Cross-Platform Support**: Native apps for Windows, Linux, and macOS
 - **Tunnel Integration**: Built-in support for Cloudflare, ngrok, and Tailscale
 - **Real-Time Sessions**: WebSocket-based terminal sessions
 - **High Performance**: Sub-millisecond API responses
-- **Security**: JWT authentication, CSRF protection, rate limiting
+- **Security**: JWT authentication, CSRF protection, rate limiting (configure before deployment)
 
 ## 📦 Installation
 

@@ -72,7 +72,7 @@
 - WebSocket-based terminal communication
 - Session management and PTY handling
 - iOS companion app
-- CLI tools (vt command)
+- CLI tools (tf command)
 
 **🔄 What's Actively Being Implemented (Target)**:
 - Go server backend (port 4021) - Significantly complete

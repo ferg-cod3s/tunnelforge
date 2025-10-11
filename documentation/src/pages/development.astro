@@ -189,25 +189,25 @@ bun run typecheck</code></pre>
     <section class="cli-wrapper">
       <h2>TunnelForge CLI Wrapper (tf)</h2>
       
-      <p>The <code>tf</code> command is a bash wrapper script that allows users to run commands through TunnelForge's terminal forwarding. It's installed at <code>/usr/local/bin/vt</code> when the Mac app is built.</p>
+      <p>The <code>tf</code> command is a bash wrapper script that allows users to run commands through TunnelForge's terminal forwarding. It's installed at <code>/usr/local/bin/tf</code> when the Mac app is built.</p>
       
       <h3>Source Location</h3>
-      <p><code>mac/TunnelForge/vt</code></p>
+      <p><code>web/bin/tf</code></p>
       
       <h3>Usage</h3>
       <pre><code># Run a command through TunnelForge
-vt ls -la
+tf ls -la
 
 # Run an aliased command (e.g., if 'claude' is an alias)
 tf claude --version
 
 # Launch interactive shell
-vt --shell
-vt -i
+tf --shell
+tf -i
 
 # Run command without shell wrapping (bypass alias resolution)
-vt --no-shell-wrap command
-vt -S command</code></pre>
+tf --no-shell-wrap command
+tf -S command</code></pre>
       
       <h3>How it Works</h3>
       <ol>

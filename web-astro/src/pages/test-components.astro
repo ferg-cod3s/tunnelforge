@@ -1,0 +1,186 @@
+---
+import BaseLayout from '../layouts/BaseLayout.astro';
+import ModalWrapper from '../lib/components/ModalWrapper.svelte';
+import InlineEdit from '../lib/components/InlineEdit.svelte';
+import ClickablePath from '../lib/components/ClickablePath.svelte';
+import GitStatusBadge from '../lib/components/GitStatusBadge.svelte';
+import type { Session } from '../lib/types/index';
+
+// Mock session data for testing
+const mockSession: Session = {
+  id: 'test-session-1',
+  name: 'Test Session',
+  command: ['bash'],
+  workingDir: '/home/user/projects/tunnelforge',
+  status: 'running',
+  startedAt: new Date().toISOString(),
+  lastModified: new Date().toISOString(),
+  gitRepoPath: '/home/user/projects/tunnelforge',
+  gitBranch: 'feature/lit-to-svelte',
+  gitAheadCount: 3,
+  gitBehindCount: 1,
+  gitModifiedCount: 5,
+  gitAddedCount: 2,
+  gitDeletedCount: 1,
+  gitHasChanges: true,
+  gitIsWorktree: false,
+  active: true,
+};
+---
+
+<BaseLayout title="Component Tests">
+  <div class="min-h-screen bg-bg-primary p-8">
+    <h1 class="text-3xl font-bold text-primary mb-8">New Svelte Components Test Page</h1>
+
+    <div class="space-y-8">
+      <!-- Modal Wrapper Test -->
+      <section class="card p-6">
+        <h2 class="text-2xl font-bold text-primary mb-4">ModalWrapper</h2>
+        <p class="text-muted mb-4">Reusable modal with backdrop, escape key handling, and auto-focus</p>
+
+        <button
+          id="openModal"
+          class="px-4 py-2 bg-accent text-white rounded hover:bg-accent/80"
+        >
+          Open Modal
+        </button>
+
+        <ModalWrapper
+          client:load
+          id="testModal"
+          ariaLabel="Test Modal"
+          contentClass="modal-content font-mono text-sm w-full max-w-md bg-bg-secondary border border-border rounded-lg p-6"
+        >
+          <h3 class="text-xl font-bold text-primary mb-4">Test Modal</h3>
+          <p class="text-muted mb-4">Click outside, press Escape, or use the Close button.</p>
+          <div class="flex gap-2">
+            <button
+              class="px-4 py-2 bg-accent text-white rounded hover:bg-accent/80"
+              id="closeModal"
+            >
+              Close
+            </button>
+            <button
+              class="px-4 py-2 bg-bg-tertiary text-primary border border-border rounded hover:bg-surface-hover"
+            >
+              Cancel
+            </button>
+          </div>
+        </ModalWrapper>
+      </section>
+
+      <!-- Inline Edit Test -->
+      <section class="card p-6">
+        <h2 class="text-2xl font-bold text-primary mb-4">InlineEdit</h2>
+        <p class="text-muted mb-4">Inline text editing with save/cancel, keyboard shortcuts (Enter/Esc)</p>
+
+        <div class="bg-bg-secondary p-4 rounded border border-border">
+          <div class="text-sm text-muted mb-2">Click the text to edit:</div>
+          <InlineEdit
+            client:load
+            value="Edit me! Click the pencil icon"
+            placeholder="Enter new value..."
+          />
+        </div>
+      </section>
+
+      <!-- Clickable Path Test -->
+      <section class="card p-6">
+        <h2 class="text-2xl font-bold text-primary mb-4">ClickablePath</h2>
+        <p class="text-muted mb-4">Path display with copy-to-clipboard functionality</p>
+
+        <div class="bg-bg-secondary p-4 rounded border border-border space-y-2">
+          <div class="text-sm text-muted">Click to copy path:</div>
+          <ClickablePath
+            client:load
+            path="/home/user/projects/tunnelforge/web-astro/src"
+          />
+          <ClickablePath
+            client:load
+            path="~/Documents/important-project/src/components"
+          />
+        </div>
+      </section>
+
+      <!-- Git Status Badge Test -->
+      <section class="card p-6">
+        <h2 class="text-2xl font-bold text-primary mb-4">GitStatusBadge</h2>
+        <p class="text-muted mb-4">Git repository status display with branch, changes, and commits</p>
+
+        <div class="bg-bg-secondary p-4 rounded border border-border space-y-4">
+          <div>
+            <div class="text-sm text-muted mb-2">Normal mode:</div>
+            <GitStatusBadge client:load session={mockSession} />
+          </div>
+
+          <div>
+            <div class="text-sm text-muted mb-2">Detailed mode:</div>
+            <GitStatusBadge client:load session={mockSession} detailed={true} />
+          </div>
+
+          <div>
+            <div class="text-sm text-muted mb-2">Clean repository (no changes):</div>
+            <GitStatusBadge
+              client:load
+              session={{
+                ...mockSession,
+                gitModifiedCount: 0,
+                gitAddedCount: 0,
+                gitDeletedCount: 0,
+                gitAheadCount: 0,
+                gitBehindCount: 0,
+                gitHasChanges: false,
+              }}
+            />
+          </div>
+
+          <div>
+            <div class="text-sm text-muted mb-2">Worktree:</div>
+            <GitStatusBadge
+              client:load
+              session={{
+                ...mockSession,
+                gitBranch: 'worktree/feature',
+                gitIsWorktree: true,
+              }}
+            />
+          </div>
+        </div>
+      </section>
+
+      <!-- Summary Section -->
+      <section class="card p-6 bg-bg-tertiary">
+        <h2 class="text-2xl font-bold text-primary mb-4">✅ Migration Progress</h2>
+        <div class="space-y-2 text-sm">
+          <p class="text-muted">New components migrated today:</p>
+          <ul class="list-disc list-inside space-y-1 text-muted ml-4">
+            <li>ModalWrapper - Reusable modal system</li>
+            <li>InlineEdit - Inline text editing</li>
+            <li>ClickablePath - Path display with copy</li>
+            <li>GitStatusBadge - Git status information</li>
+          </ul>
+          <p class="text-primary font-semibold mt-4">Total migrated: 21 of 55 components (38%)</p>
+        </div>
+      </section>
+    </div>
+  </div>
+
+  <script>
+    // Modal wrapper test
+    const modal = document.getElementById('testModal') as any;
+    const openBtn = document.getElementById('openModal');
+    const closeBtn = document.getElementById('closeModal');
+
+    openBtn?.addEventListener('click', () => {
+      modal.visible = true;
+    });
+
+    closeBtn?.addEventListener('click', () => {
+      modal.visible = false;
+    });
+
+    modal?.addEventListener('close', () => {
+      modal.visible = false;
+    });
+  </script>
+</BaseLayout>

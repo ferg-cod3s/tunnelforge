@@ -1,0 +1,60 @@
+---
+import BaseLayout from '../layouts/BaseLayout.astro';
+import ModalWrapper from '../lib/components/ModalWrapper.svelte';
+---
+
+<BaseLayout title="Modal Test">
+  <div class="min-h-screen bg-bg-primary p-8">
+    <h1 class="text-3xl font-bold text-primary mb-6">Modal Component Test</h1>
+
+    <div class="space-y-4">
+      <button
+        id="openModal"
+        class="px-4 py-2 bg-accent text-white rounded hover:bg-accent/80"
+      >
+        Open Modal
+      </button>
+
+      <ModalWrapper
+        client:load
+        id="testModal"
+        ariaLabel="Test Modal"
+        contentClass="modal-content font-mono text-sm w-full max-w-md bg-bg-secondary border border-border rounded-lg p-6"
+      >
+        <h2 class="text-xl font-bold text-primary mb-4">Test Modal</h2>
+        <p class="text-muted mb-4">This is a test modal. Click outside or press Escape to close.</p>
+        <div class="flex gap-2">
+          <button
+            class="px-4 py-2 bg-accent text-white rounded hover:bg-accent/80"
+            id="closeModal"
+          >
+            Close
+          </button>
+          <button
+            class="px-4 py-2 bg-bg-tertiary text-primary border border-border rounded hover:bg-surface-hover"
+          >
+            Cancel
+          </button>
+        </div>
+      </ModalWrapper>
+    </div>
+  </div>
+
+  <script>
+    const modal = document.getElementById('testModal') as any;
+    const openBtn = document.getElementById('openModal');
+    const closeBtn = document.getElementById('closeModal');
+
+    openBtn?.addEventListener('click', () => {
+      modal.visible = true;
+    });
+
+    closeBtn?.addEventListener('click', () => {
+      modal.visible = false;
+    });
+
+    modal?.addEventListener('close', () => {
+      modal.visible = false;
+    });
+  </script>
+</BaseLayout>

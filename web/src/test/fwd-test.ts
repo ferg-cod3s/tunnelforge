@@ -5,10 +5,19 @@
  * Tests PTY spawning, terminal raw mode, stdin/stdout forwarding
  */
 
-import * as fs from 'fs';
 import * as pty from 'node-pty';
-import { which } from 'node-pty/lib/utils';
+import { execSync } from 'child_process';
+import * as fs from 'fs';
 import * as path from 'path';
+
+// Simple which implementation since node-pty doesn't have it
+function which(command: string): string | null {
+  try {
+    return execSync(`which ${command}`, { encoding: 'utf-8' }).trim();
+  } catch {
+    return null;
+  }
+}
 
 // Terminal state restoration
 let originalStdinRawMode = false;

@@ -9,7 +9,6 @@
 
 import { aTimeout, expect, fixture, html } from '@open-wc/testing';
 import type { Terminal as TerminalType } from '../terminal.js';
-import { Terminal } from '../terminal.js';
 
 // Mock window and navigator properties for mobile testing
 const mockMobile = (width: number, devicePixelRatio = 1, hardwareConcurrency = 4) => {

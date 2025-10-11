@@ -1,5 +1,8 @@
-import { test, expect } from '@playwright/test';
-import { createTestSession, cleanupTestSession } from '../playwright/helpers/session-lifecycle.helper';
+import { expect, test } from '@playwright/test';
+import {
+  cleanupTestSession,
+  createTestSession,
+} from '../playwright/helpers/session-lifecycle.helper';
 
 test.describe('Session Management E2E Tests', () => {
   let sessionId: string;
@@ -29,7 +32,9 @@ test.describe('Session Management E2E Tests', () => {
     await page.locator('[data-testid="create-session-submit"]').click();
 
     // Should show the new session
-    await expect(page.locator('[data-testid="session-card"]:has-text("Test Session")')).toBeVisible();
+    await expect(
+      page.locator('[data-testid="session-card"]:has-text("Test Session")')
+    ).toBeVisible();
   });
 
   test('should display session status correctly', async ({ page }) => {
@@ -47,7 +52,9 @@ test.describe('Session Management E2E Tests', () => {
     await page.goto('/');
 
     // Find and click stop button on a running session
-    const stopButton = page.locator('[data-testid="session-card"]:has([data-testid="session-status"]:has-text("running")) [data-testid="stop-btn"]');
+    const stopButton = page.locator(
+      '[data-testid="session-card"]:has([data-testid="session-status"]:has-text("running")) [data-testid="stop-btn"]'
+    );
     if (await stopButton.isVisible()) {
       await stopButton.click();
 
@@ -64,7 +71,9 @@ test.describe('Session Management E2E Tests', () => {
     await page.goto('/');
 
     // Find a stopped session and restart it
-    const restartButton = page.locator('[data-testid="session-card"]:has([data-testid="session-status"]:has-text("stopped")) [data-testid="restart-btn"]');
+    const restartButton = page.locator(
+      '[data-testid="session-card"]:has([data-testid="session-status"]:has-text("stopped")) [data-testid="restart-btn"]'
+    );
     if (await restartButton.isVisible()) {
       await restartButton.click();
 
@@ -117,7 +126,7 @@ test.describe('Session Management E2E Tests', () => {
     await page.reload();
 
     // Session should still be visible (or properly cleaned up)
-    const sessionCard = page.locator('[data-testid="session-card"]:has-text("Cleanup Test")');
+    const _sessionCard = page.locator('[data-testid="session-card"]:has-text("Cleanup Test")');
     // Either the session is still there or it's properly cleaned up
     // We just check that the page loads without errors
     await expect(page.locator('body')).toBeVisible();
@@ -129,11 +138,15 @@ test.describe('Session Management E2E Tests', () => {
     // Try to create a session with invalid command
     await page.locator('[data-testid="create-session-btn"]').click();
     await page.locator('[data-testid="session-name-input"]').fill('Error Test');
-    await page.locator('[data-testid="session-command-input"]').fill('invalid_command_that_does_not_exist');
+    await page
+      .locator('[data-testid="session-command-input"]')
+      .fill('invalid_command_that_does_not_exist');
     await page.locator('[data-testid="create-session-submit"]').click();
 
     // Should handle the error gracefully
     // Either show error message or handle it in the UI
-    await expect(page.locator('[data-testid="session-form"], [data-testid="error-message"]')).toBeVisible();
+    await expect(
+      page.locator('[data-testid="session-form"], [data-testid="error-message"]')
+    ).toBeVisible();
   });
 });

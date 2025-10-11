@@ -59,7 +59,7 @@ TunnelForge is a cross-platform terminal sharing and remote access solution that
 #### Terminal Forwarding
 - **Description**: Forward any terminal command through web interface
 - **Acceptance Criteria**:
-  - `vt` command wraps any CLI tool
+  - `tf` command wraps any CLI tool
   - Real-time output streaming
   - Input handling with special keys
   - Session persistence

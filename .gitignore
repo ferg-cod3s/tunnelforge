@@ -200,3 +200,16 @@ server/go*.tar.gz
 server/go*.zip
 server/go/pkg/mod/cache/download/**/*.zip
 server/go/pkg/mod/cache/download/**/*.tar.gz
+
+# PID files
+*.pid
+
+# Backup files
+*.backup
+
+# Build artifacts
+server/server
+server/vibetunnel
+
+# Temp directories
+server/$HOME/

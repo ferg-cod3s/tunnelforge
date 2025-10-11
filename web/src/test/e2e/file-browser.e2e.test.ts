@@ -1,5 +1,8 @@
-import { test, expect } from '@playwright/test';
-import { createTestSession, cleanupTestSession } from '../playwright/helpers/session-lifecycle.helper';
+import { expect, test } from '@playwright/test';
+import {
+  cleanupTestSession,
+  createTestSession,
+} from '../playwright/helpers/session-lifecycle.helper';
 
 test.describe('File Browser E2E Tests', () => {
   let sessionId: string;
@@ -62,14 +65,16 @@ test.describe('File Browser E2E Tests', () => {
     });
 
     // Click download on a file
-    await page.locator('[data-testid="file-item"]:has-text("test.txt") [data-testid="download-btn"]').click();
+    await page
+      .locator('[data-testid="file-item"]:has-text("test.txt") [data-testid="download-btn"]')
+      .click();
 
     // Should trigger download (we can't easily test the actual download in Playwright)
     // But we can check that the download was initiated
   });
 
   test('should handle directory creation', async ({ page }) => {
-    const newDirName = 'test-directory-' + Date.now();
+    const newDirName = `test-directory-${Date.now()}`;
 
     // Click create directory button
     await page.locator('[data-testid="create-dir-btn"]').click();
@@ -79,7 +84,7 @@ test.describe('File Browser E2E Tests', () => {
     await page.locator('[data-testid="create-dir-submit"]').click();
 
     // Should show the new directory
-    await expect(page.locator('[data-testid="file-item"]:has-text("' + newDirName + '")')).toBeVisible();
+    await expect(page.locator(`[data-testid="file-item"]:has-text("${newDirName}")`)).toBeVisible();
   });
 
   test('should handle file deletion', async ({ page }) => {
@@ -89,7 +94,9 @@ test.describe('File Browser E2E Tests', () => {
     });
 
     // Select a file and delete it
-    await page.locator('[data-testid="file-item"]:has-text("test.txt") [data-testid="select-file"]').click();
+    await page
+      .locator('[data-testid="file-item"]:has-text("test.txt") [data-testid="select-file"]')
+      .click();
     await page.locator('[data-testid="delete-btn"]').click();
     await page.locator('[data-testid="confirm-delete"]').click();
 
@@ -102,10 +109,12 @@ test.describe('File Browser E2E Tests', () => {
     const encodedPath = encodeURIComponent('test file with spaces & symbols.txt');
 
     // Navigate to a path with special characters
-    await page.goto('/files?path=' + encodedPath);
+    await page.goto(`/files?path=${encodedPath}`);
 
     // Should handle the encoded path correctly
-    await expect(page.locator('[data-testid="current-path"]')).toContainText('test file with spaces & symbols.txt');
+    await expect(page.locator('[data-testid="current-path"]')).toContainText(
+      'test file with spaces & symbols.txt'
+    );
   });
 
   test('should show appropriate error messages for invalid paths', async ({ page }) => {

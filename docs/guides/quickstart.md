@@ -64,8 +64,8 @@ Settings → Debug → Use Development Server
 
 # Or run manually
 cd web
-pnpm install
-pnpm dev
+bun install
+bun dev
 ```
 
 Benefits:

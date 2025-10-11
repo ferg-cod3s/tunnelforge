@@ -71,7 +71,7 @@ test.describe('Core User Journey - Terminal Interaction', () => {
       );
       promptAppeared = true;
       console.log('✅ Shell prompt detected!');
-    } catch (error) {
+    } catch (_error) {
       console.log('⚠️ Shell prompt timeout, checking terminal content...');
 
       // Get terminal content for debugging
@@ -125,7 +125,7 @@ test.describe('Core User Journey - Terminal Interaction', () => {
           { timeout: 8000 }
         );
         console.log('✅ Real-time interaction confirmed!');
-      } catch (error) {
+      } catch (_error) {
         console.log('⚠️ Command output timeout - may indicate WebSocket streaming issue');
 
         // Check if WebSocket connections are established

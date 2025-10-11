@@ -8,6 +8,17 @@
         "@playwright/mcp@latest"
       ],
       "env": {}
+    },
+    "sentry": {
+      "type": "stdio",
+      "command": "npx",
+      "args": [
+        "-y",
+        "@sentry/mcp-server@latest"
+      ],
+      "env": {
+        "SENTRY_HOST": "sentry.fergify.work"
+      }
     }
   }
 }

@@ -47,7 +47,6 @@ export class VibeTerminalBuffer extends LitElement {
   private resizeObserver: ResizeObserver | null = null;
   private unsubscribe: (() => void) | null = null;
   private lastTextSnapshot: string | null = null;
-  private lastBufferSnapshot: BufferSnapshot | null = null;
   private renderedElements: Map<number, HTMLElement> = new Map();
 
   // Adaptive debouncing properties
@@ -386,7 +385,7 @@ export class VibeTerminalBuffer extends LitElement {
     // Update scroll handling
     if (!this.container.onscroll) {
       this.container.onscroll = () => {
-        this.virtualScrollTop = this.container!.scrollTop;
+        this.virtualScrollTop = this.container?.scrollTop;
         // Throttle re-rendering during scroll
         if (!this.updateTimeout) {
           this.updateTimeout = setTimeout(() => {

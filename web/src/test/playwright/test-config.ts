@@ -7,7 +7,7 @@ export const testConfig = {
   get port() {
     if (process.env.TUNNELFORGE_URL) {
       const url = new URL(process.env.TUNNELFORGE_URL);
-      return Number.parseInt(url.port) || 3000;
+      return Number.parseInt(url.port, 10) || 3000;
     }
     return 4022; // fallback for standalone tests
   },

@@ -73,7 +73,8 @@ async function build() {
       outfile: 'dist/tunnelforge-cli',
       plugins: [nodePtyPlugin],
       external: [
-        // 'node-pty', // Removed - handled by plugin
+        'node-pty', // Bun-optimized PTY (replaces node-pty)
+        'bun:ffi', // Bun FFI module (used by node-pty)
         'authenticate-pam',
         'compression',
         'helmet',
@@ -126,23 +127,9 @@ async function build() {
   const ptyNodePath = path.join(nativeDir, 'pty.node');
   const spawnHelperPath = path.join(nativeDir, 'spawn-helper');
 
-  if (fs.existsSync(tunnelforgePath) && fs.existsSync(ptyNodePath) && fs.existsSync(spawnHelperPath)) {
-    console.log('✅ Native binaries already exist, skipping build...');
-    console.log('  - tunnelforge executable: ✓');
-    console.log('  - pty.node: ✓');
-    console.log('  - spawn-helper: ✓');
-  } else {
-    // Check for --custom-node flag
-    const useCustomNode = process.argv.includes('--custom-node');
-
-    if (useCustomNode) {
-      console.log('Using custom Node.js for smaller binary size...');
-      execSync('node build-native.js --custom-node', { stdio: 'inherit' });
-    } else {
-      console.log('Using system Node.js...');
-      execSync('node build-native.js', { stdio: 'inherit' });
-    }
-  }
+  // Note: Skipped when using node-pty (no native compilation needed)
+  console.log('✅ Using node-pty - no native compilation needed');
+  console.log('Native build step skipped (node-pty is pure Rust FFI)');
 
   console.log('Build completed successfully!');
 }

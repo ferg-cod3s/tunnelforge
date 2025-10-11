@@ -1,7 +1,7 @@
 /**
  * Connection Manager for Session View
  *
- * Handles SSE stream connections, reconnection logic, and error handling
+ * Handles WebSocket connections, reconnection logic, and error handling
  * for terminal sessions.
  */
 
@@ -14,11 +14,10 @@ import type { Terminal } from '../terminal.js';
 const logger = createLogger('connection-manager');
 
 export interface StreamConnection {
-  eventSource: EventSource;
+  ws: WebSocket;
   disconnect: () => void;
-  errorHandler?: EventListener;
+  errorHandler?: () => void;
   sessionExitHandler?: EventListener;
-  sessionUpdateHandler?: EventListener;
 }
 
 export class ConnectionManager {
@@ -45,147 +44,184 @@ export class ConnectionManager {
     this.isConnected = connected;
   }
 
-  connectToStream(): void {
+  async connectToStream(): Promise<void> {
+    console.log('[ConnectionManager] connectToStream called', {
+      hasTerminal: !!this.terminal,
+      hasSession: !!this.session,
+      sessionId: this.session?.id,
+      isConnected: this.isConnected,
+    });
+
     if (!this.terminal || !this.session) {
       logger.warn(`Cannot connect to stream - missing terminal or session`);
+      console.error('[ConnectionManager] Missing terminal or session!', {
+        terminal: this.terminal,
+        session: this.session,
+      });
       return;
     }
 
     // Don't connect if we're already disconnected
     if (!this.isConnected) {
       logger.warn(`Component already disconnected, not connecting to stream`);
+      console.warn('[ConnectionManager] Already disconnected');
       return;
     }
 
-    logger.log(`Connecting to stream for session ${this.session.id}`);
+    logger.log(`Connecting to WebSocket for session ${this.session.id}`);
+    console.log('[ConnectionManager] Starting WebSocket connection');
 
     // Clean up existing connection
     this.cleanupStreamConnection();
 
-    // Get auth client from the main app
+    // Get auth token
     const user = authClient.getCurrentUser();
 
-    // Build stream URL with auth token as query parameter (EventSource doesn't support headers)
-    let streamUrl = `/api/sessions/${this.session.id}/stream`;
-    if (user?.token) {
-      streamUrl += `?token=${encodeURIComponent(user.token)}`;
-    }
+    // Get WebSocket URL from config (which points to Go server on port 4021)
+    try {
+      const config = await fetch('/api/config').then((r) => r.json());
+      console.log('[ConnectionManager] Config fetched:', config);
 
-    // Use CastConverter to connect terminal to stream with reconnection tracking
-    const connection = CastConverter.connectToStream(this.terminal, streamUrl);
-
-    // Listen for session-exit events from the terminal
-    const handleSessionExit = (event: Event) => {
-      const customEvent = event as CustomEvent;
-      const sessionId = customEvent.detail?.sessionId || this.session?.id;
-
-      logger.log(`Received session-exit event for session ${sessionId}`);
-
-      if (sessionId) {
-        this.onSessionExit(sessionId);
+      let wsUrl = config.websocketUrl;
+      wsUrl = `${wsUrl}/ws?sessionId=${this.session.id}`;
+      if (user?.token) {
+        wsUrl += `&token=${encodeURIComponent(user.token)}`;
       }
-    };
 
-    this.terminal.addEventListener('session-exit', handleSessionExit);
+      logger.log(`Connecting to: ${wsUrl}`);
+      console.log('[ConnectionManager] WebSocket URL:', wsUrl);
 
-    // Listen for session-update events from SSE (git status updates)
-    const handleSessionUpdate = (event: MessageEvent) => {
-      try {
-        const data = JSON.parse(event.data);
-        logger.debug('Received session-update event:', data);
+      // Create WebSocket connection
+      const ws = new WebSocket(wsUrl);
+      ws.binaryType = 'arraybuffer';
+      console.log('[ConnectionManager] WebSocket created, adding handlers');
 
-        if (
-          data.type === 'git-status-update' &&
-          this.session &&
-          data.sessionId === this.session.id
-        ) {
-          // Update session with new git status
-          const updatedSession = {
-            ...this.session,
-            gitModifiedCount: data.gitModifiedCount,
-            gitAddedCount: data.gitAddedCount,
-            gitDeletedCount: data.gitDeletedCount,
-            gitAheadCount: data.gitAheadCount,
-            gitBehindCount: data.gitBehindCount,
-          };
+      // Listen for session-exit events from the terminal
+      const handleSessionExit = (event: Event) => {
+        const customEvent = event as CustomEvent;
+        const sessionId = customEvent.detail?.sessionId || this.session?.id;
 
-          this.session = updatedSession;
-          this.onSessionUpdate(updatedSession);
+        logger.log(`Received session-exit event for session ${sessionId}`);
+
+        if (sessionId) {
+          this.onSessionExit(sessionId);
         }
-      } catch (error) {
-        logger.error('Failed to parse session-update event:', error);
-      }
-    };
+      };
 
-    // Add named event listener for session-update events
-    connection.eventSource.addEventListener('session-update', handleSessionUpdate);
+      this.terminal.addEventListener('session-exit', handleSessionExit);
 
-    // Wrap the connection to track reconnections
-    const originalEventSource = connection.eventSource;
-    let lastErrorTime = 0;
-    const reconnectThreshold = 3; // Max reconnects before giving up
-    const reconnectWindow = 5000; // 5 second window
+      let lastErrorTime = 0;
+      const reconnectThreshold = 3; // Max reconnects before giving up
+      const reconnectWindow = 5000; // 5 second window
 
-    const handleError = () => {
-      const now = Date.now();
+      const handleError = () => {
+        const now = Date.now();
 
-      // Reset counter if enough time has passed since last error
-      if (now - lastErrorTime > reconnectWindow) {
+        // Reset counter if enough time has passed since last error
+        if (now - lastErrorTime > reconnectWindow) {
+          this.reconnectCount = 0;
+        }
+
+        this.reconnectCount++;
+        lastErrorTime = now;
+
+        logger.log(`WebSocket error #${this.reconnectCount} for session ${this.session?.id}`);
+        console.error('[ConnectionManager] WebSocket error, reconnect count:', this.reconnectCount);
+
+        // If we've had too many reconnects, mark session as exited
+        if (this.reconnectCount >= reconnectThreshold) {
+          logger.warn(
+            `session ${this.session?.id} marked as exited due to excessive reconnections`
+          );
+
+          if (this.session && this.session.status !== 'exited') {
+            const exitedSession = { ...this.session, status: 'exited' as const };
+            this.session = exitedSession;
+            this.onSessionUpdate(exitedSession);
+
+            // Disconnect and load final snapshot
+            this.cleanupStreamConnection();
+            requestAnimationFrame(() => {
+              this.loadSessionSnapshot();
+            });
+          }
+        }
+      };
+
+      ws.onopen = () => {
+        logger.log(`WebSocket connected for session ${this.session?.id}`);
+        console.log('[ConnectionManager] WebSocket CONNECTED successfully!');
         this.reconnectCount = 0;
-      }
+      };
 
-      this.reconnectCount++;
-      lastErrorTime = now;
+      ws.onmessage = (event) => {
+        if (typeof event.data === 'string') {
+          // JSON messages (control messages)
+          try {
+            const message = JSON.parse(event.data);
+            console.log('[ConnectionManager] Received JSON message:', message);
 
-      logger.log(`stream error #${this.reconnectCount} for session ${this.session?.id}`);
-
-      // If we've had too many reconnects, mark session as exited
-      if (this.reconnectCount >= reconnectThreshold) {
-        logger.warn(`session ${this.session?.id} marked as exited due to excessive reconnections`);
-
-        if (this.session && this.session.status !== 'exited') {
-          const exitedSession = { ...this.session, status: 'exited' as const };
-          this.session = exitedSession;
-          this.onSessionUpdate(exitedSession);
-
-          // Disconnect the stream and load final snapshot
-          this.cleanupStreamConnection();
-
-          // Load final snapshot
-          requestAnimationFrame(() => {
-            this.loadSessionSnapshot();
-          });
+            if (message.type === 'session-exit') {
+              logger.log('Session exit message received');
+              this.terminal?.dispatchEvent(
+                new CustomEvent('session-exit', {
+                  detail: {
+                    exitCode: message.exitCode,
+                    sessionId: this.session?.id,
+                  },
+                  bubbles: true,
+                })
+              );
+            }
+          } catch (error) {
+            logger.error('Failed to parse WebSocket message:', error);
+          }
+        } else {
+          // Binary data (terminal output)
+          const text = new TextDecoder().decode(event.data);
+          console.log('[ConnectionManager] Received terminal output, length:', text.length);
+          this.terminal?.write(text);
         }
-      }
-    };
+      };
 
-    // Override the error handler
-    originalEventSource.addEventListener('error', handleError);
+      ws.onerror = (error) => {
+        logger.error('WebSocket error:', error);
+        console.error('[ConnectionManager] WebSocket onerror triggered:', error);
+        handleError();
+      };
 
-    // Store the connection with error handler reference and session-exit handler
-    this.streamConnection = {
-      ...connection,
-      errorHandler: handleError as EventListener,
-      sessionExitHandler: handleSessionExit as EventListener,
-      sessionUpdateHandler: handleSessionUpdate as EventListener,
-    };
+      ws.onclose = () => {
+        logger.log(`WebSocket closed for session ${this.session?.id}`);
+        console.warn('[ConnectionManager] WebSocket onclose triggered');
+        handleError();
+      };
+
+      // Store the connection
+      this.streamConnection = {
+        ws,
+        disconnect: () => {
+          if (ws.readyState === WebSocket.OPEN || ws.readyState === WebSocket.CONNECTING) {
+            ws.close();
+          }
+        },
+        errorHandler: handleError,
+        sessionExitHandler: handleSessionExit as EventListener,
+      };
+
+      console.log('[ConnectionManager] WebSocket connection setup complete');
+    } catch (error) {
+      console.error('[ConnectionManager] Error setting up WebSocket:', error);
+      logger.error('Failed to setup WebSocket connection:', error);
+    }
   }
 
   cleanupStreamConnection(): void {
     if (this.streamConnection) {
-      logger.log('Cleaning up stream connection');
+      logger.log('Cleaning up WebSocket connection');
 
       // Remove session-exit event listener if it exists
       if (this.streamConnection.sessionExitHandler && this.terminal) {
         this.terminal.removeEventListener('session-exit', this.streamConnection.sessionExitHandler);
-      }
-
-      // Remove session-update event listener if it exists
-      if (this.streamConnection.sessionUpdateHandler && this.streamConnection.eventSource) {
-        this.streamConnection.eventSource.removeEventListener(
-          'session-update',
-          this.streamConnection.sessionUpdateHandler
-        );
       }
 
       this.streamConnection.disconnect();

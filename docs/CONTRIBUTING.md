@@ -30,10 +30,10 @@ We love your input! We want to make contributing to TunnelForge as easy and tran
    ```bash
    # Install Node.js dependencies
    cd web
-   pnpm install
+   bun install
 
    # Start the development server (keep this running)
-   pnpm run dev
+   bun run dev
    ```
 
 3. **Open the Xcode project**
@@ -55,25 +55,25 @@ The web server (Node.js/TypeScript) runs in development mode with hot reloading:
 
 ```bash
 cd web
-pnpm run dev  # Keep this running in a separate terminal
+bun run dev  # Keep this running in a separate terminal
 ```
 
 **Custom Port Configuration** (if port 4020 is already in use):
 ```bash
 # Option 1: Run server directly with custom port (cleanest approach)
-pnpm run dev:server --port 4021
+bun run dev:server --port 4021
 
 # Option 2: Using environment variable
-PORT=4021 pnpm run dev
+PORT=4021 bun run dev
 
 # Option 3: Using the full dev command with arguments (requires --)
-pnpm run dev -- --port 4021
+bun run dev -- --port 4021
 ```
 
 **Development Commands**:
-- `pnpm run dev` - Run everything (server, client watcher, CSS, assets)
-- `pnpm run dev:server` - Run just the server (accepts --port directly!)
-- `pnpm run dev:client` - Run just client-side watchers
+- `bun run dev` - Run everything (server, client watcher, CSS, assets)
+- `bun run dev:server` - Run just the server (accepts --port directly!)
+- `bun run dev:client` - Run just client-side watchers
 
 **Important**: Never manually build the web project - the development server handles all compilation automatically.
 
@@ -118,15 +118,15 @@ swiftlint
 Run before committing:
 ```bash
 cd web
-pnpm run precommit   # Runs format + lint fixes + typecheck in one command
+bun run precommit   # Runs format + lint fixes + typecheck in one command
 ```
 
 Or run individually if needed:
 ```bash
-pnpm run format      # Format with Biome
-pnpm run lint        # Check with Biome + TypeScript
-pnpm run lint:fix    # Auto-fix Biome issues
-pnpm run typecheck   # Check TypeScript types only
+bun run format      # Format with Biome
+bun run lint        # Check with Biome + TypeScript
+bun run lint:fix    # Auto-fix Biome issues
+bun run typecheck   # Check TypeScript types only
 ```
 
 ### Important Rules
@@ -187,7 +187,7 @@ We use Vitest for Node.js testing:
 
 ```bash
 cd web
-pnpm run test
+bun run test
 ```
 
 ### Writing Tests
@@ -217,7 +217,7 @@ pnpm run test
 4. **Commit your changes**
    ```bash
    # Web changes
-   cd web && pnpm run precommit
+   cd web && bun run precommit
 
    # Swift changes
    cd mac && swiftformat . && swiftlint
@@ -254,7 +254,7 @@ We follow conventional commits:
 
 ### Web Server
 - Use Chrome DevTools for frontend debugging
-- Server logs appear in the terminal running `pnpm run dev`
+- Server logs appear in the terminal running `bun run dev`
 - Use `--inspect` flag for Node.js debugging
 
 ### Common Issues
@@ -262,8 +262,8 @@ We follow conventional commits:
 **"Port already in use"**
 - Another instance might be running (e.g., production TunnelForge app)
 - Check Activity Monitor for `tunnelforge` processes
-- Quick fix: `pnpm run dev:server --port 4021` (no -- needed!)
-- Or use environment variable: `PORT=4021 pnpm run dev`
+- Quick fix: `bun run dev:server --port 4021` (no -- needed!)
+- Or use environment variable: `PORT=4021 bun run dev`
 - See "Custom Port Configuration" section above for all options
 
 **"Binary not found"**
@@ -271,7 +271,7 @@ We follow conventional commits:
 - Check that `web/native/tunnelforge` exists
 
 **WebSocket connection failures**
-- Ensure the server is running (`pnpm run dev`)
+- Ensure the server is running (`bun run dev`)
 - Check for CORS issues in browser console
 - Verify the port matches between client and server
 

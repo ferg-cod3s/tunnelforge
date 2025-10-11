@@ -241,7 +241,7 @@ Uses asciinema cast v2 format:
 
 The `fwd.ts` tool (`src/server/fwd.ts`) wraps any command in a TunnelForge session:
 
-**Usage**: `pnpm exec tsx src/fwd.ts [options] <command> [args...]`
+**Usage**: `bun run src/fwd.ts [options] <command> [args...]`
 
 **Options**:
 - `--session-id <id>`: Use specific session ID
@@ -335,16 +335,16 @@ Message Types:
 cd web/
 
 # Development (auto-rebuild)
-pnpm run dev
+bun run dev
 
 # Code quality (must run before commit)
-pnpm run check         # Run all checks in parallel
-pnpm run check:fix     # Auto-fix issues
+bun run check         # Run all checks in parallel
+bun run check:fix     # Auto-fix issues
 
 # Individual commands
-pnpm run lint          # ESLint
-pnpm run format        # Prettier
-pnpm run typecheck     # TypeScript
+bun run lint          # ESLint
+bun run format        # Prettier
+bun run typecheck     # TypeScript
 ```
 
 ## Git Follow Mode

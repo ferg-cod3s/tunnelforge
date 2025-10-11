@@ -116,6 +116,6 @@ const installTfCommand = (tfSource, isGlobalInstall) => {
 module.exports = {
   detectGlobalInstall,
   getNpmBinDir,
-  installGlobalVt,
-  installVtCommand
+  installGlobalTf,
+  installTfCommand
 };

@@ -10,11 +10,12 @@ import {
 } from '../services/push-notification-service.js';
 import { RepositoryService } from '../services/repository-service.js';
 import { ServerConfigService } from '../services/server-config-service.js';
+import { TunnelAPIService, type TunnelStatus } from '../services/tunnel-service.js';
 import { createLogger } from '../utils/logger.js';
 import { type MediaQueryState, responsiveObserver } from '../utils/responsive-utils.js';
 import { VERSION } from '../version.js';
-import { DomainSetup } from './domain-setup.js';
-import { TunnelAPIService, type TunnelConfig, type TunnelStatus } from '../services/tunnel-service.js';
+
+// import { DomainSetup } from './domain-setup.js'; // TODO: Component doesn't exist yet
 
 const logger = createLogger('settings');
 
@@ -58,7 +59,6 @@ export class Settings extends LitElement {
 
   // Tunnel settings state
   @state() private tunnelStatus: TunnelStatus = { running: false };
-  @state() private tunnelConfig: TunnelConfig = {};
   @state() private tunnelInstalled = false;
   @state() private quickTunnelPort = 3000;
   @state() private isTunnelLoading = false;
@@ -868,7 +868,8 @@ export class Settings extends LitElement {
       case 'notifications':
         return this.renderNotificationSettings();
       case 'domains':
-        return html`<domain-setup .authClient=${this.authClient} .visible=${true}></domain-setup>`;
+        return html`<div class="placeholder">Domain setup coming soon...</div>`;
+      // return html`<domain-setup .authClient=${this.authClient} .visible=${true}></domain-setup>`;
       case 'tunnels':
         return this.renderTunnelSettings();
       default:
@@ -885,7 +886,7 @@ export class Settings extends LitElement {
         this.tunnelService.getCloudflareStatus().catch(() => ({ running: false })),
       ]);
 
-      const cloudflare = tunnels.find(t => t.type === 'cloudflare');
+      const cloudflare = tunnels.find((t) => t.type === 'cloudflare');
       this.tunnelInstalled = cloudflare?.installed || false;
       this.tunnelStatus = status;
     } catch (error) {
@@ -902,7 +903,7 @@ export class Settings extends LitElement {
         port: this.quickTunnelPort,
       });
 
-      await new Promise(resolve => setTimeout(resolve, 2000));
+      await new Promise((resolve) => setTimeout(resolve, 2000));
       await this.loadTunnelStatus();
 
       this.dispatchEvent(
@@ -953,20 +954,23 @@ export class Settings extends LitElement {
         <div class="flex items-center justify-between mb-3">
           <h3 class="text-md font-bold text-primary">Cloudflare Quick Tunnels</h3>
           <div class="flex items-center space-x-2">
-            ${this.tunnelStatus.running
-              ? html`
+            ${
+              this.tunnelStatus.running
+                ? html`
                   <span class="text-status-success font-mono">●</span>
                   <span class="text-sm text-primary">Running</span>
                 `
-              : html`
+                : html`
                   <span class="text-status-error font-mono">●</span>
                   <span class="text-sm text-primary">Stopped</span>
-                `}
+                `
+            }
           </div>
         </div>
 
-        ${!this.tunnelInstalled
-          ? html`
+        ${
+          !this.tunnelInstalled
+            ? html`
               <div class="p-4 bg-status-warning/10 border border-status-warning rounded-lg">
                 <p class="text-sm text-status-warning mb-2">
                   ⚠️ cloudflared is not installed
@@ -984,7 +988,7 @@ export class Settings extends LitElement {
                 </p>
               </div>
             `
-          : html`
+            : html`
               <div class="p-4 bg-bg-tertiary rounded-lg border border-border/50">
                 <p class="text-xs text-muted mb-3">
                   Start a temporary Cloudflare tunnel to expose your local development server. The tunnel creates a public URL that you can share for testing.
@@ -998,7 +1002,7 @@ export class Settings extends LitElement {
                       .value=${this.quickTunnelPort.toString()}
                       @input=${(e: Event) => {
                         const input = e.target as HTMLInputElement;
-                        this.quickTunnelPort = parseInt(input.value) || 3000;
+                        this.quickTunnelPort = Number.parseInt(input.value, 10) || 3000;
                       }}
                       class="input-field py-2 text-sm w-full"
                       placeholder="3000"
@@ -1006,16 +1010,18 @@ export class Settings extends LitElement {
                     />
                   </div>
 
-                  ${this.tunnelStatus.running
-                    ? html`
+                  ${
+                    this.tunnelStatus.running
+                      ? html`
                         <div class="p-3 bg-bg rounded-lg">
                           <div class="text-xs text-muted mb-1">Public URL</div>
                           <div class="flex items-center space-x-2">
                             <code class="text-xs text-primary flex-1 truncate break-all"
                               >${this.tunnelStatus.url || 'Starting tunnel...'}</code
                             >
-                            ${this.tunnelStatus.url
-                              ? html`
+                            ${
+                              this.tunnelStatus.url
+                                ? html`
                                   <button
                                     class="text-primary hover:text-primary-hover text-xs transition-colors flex-shrink-0"
                                     @click=${() => {
@@ -1038,7 +1044,8 @@ export class Settings extends LitElement {
                                     </svg>
                                   </button>
                                 `
-                              : ''}
+                                : ''
+                            }
                           </div>
                         </div>
 
@@ -1050,7 +1057,7 @@ export class Settings extends LitElement {
                           ${this.isTunnelLoading ? 'Stopping...' : 'Stop Tunnel'}
                         </button>
                       `
-                    : html`
+                      : html`
                         <button
                           class="btn-primary w-full text-sm py-2"
                           @click=${this.handleStartQuickTunnel}
@@ -1058,7 +1065,8 @@ export class Settings extends LitElement {
                         >
                           ${this.isTunnelLoading ? 'Starting...' : 'Start Tunnel'}
                         </button>
-                      `}
+                      `
+                  }
                 </div>
               </div>
 
@@ -1069,7 +1077,8 @@ export class Settings extends LitElement {
                   configure an authenticated Cloudflare tunnel using the Cloudflare dashboard.
                 </p>
               </div>
-            `}
+            `
+        }
       </div>
     `;
   }

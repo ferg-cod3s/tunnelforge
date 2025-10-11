@@ -59,7 +59,7 @@ gh release create v1.0.0 dist/VibeTunnel-1.0.0.dmg
 # Individual
 cd mac && xcodebuild test
 cd ios && ./scripts/test-with-coverage.sh
-cd web && pnpm test
+cd web && bun test
 ```
 
 **Manual Testing**

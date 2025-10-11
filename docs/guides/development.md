@@ -16,7 +16,7 @@ git clone https://github.com/steipete/vibetunnel
 cd vibetunnel
 
 # Install dependencies
-cd web && pnpm install && cd ..
+cd web && bun install && cd ..
 
 # Build everything
 ./scripts/build-all.sh
@@ -24,7 +24,7 @@ cd web && pnpm install && cd ..
 # Or build individually
 cd mac && ./scripts/build.sh
 cd ios && xcodebuild
-cd web && pnpm build
+cd web && bun build
 ```
 
 ## Project Structure
@@ -125,7 +125,7 @@ export class TerminalView extends LitElement {
 **Web Development**
 ```bash
 # Terminal 1: Run dev server
-cd web && pnpm dev
+cd web && bun dev
 
 # Terminal 2: Enable in Mac app
 # Settings → Debug → Use Development Server
@@ -151,12 +151,12 @@ cd mac && xcodebuild test
 cd ios && ./scripts/test-with-coverage.sh
 
 # Web
-cd web && pnpm test
+cd web && bun test
 ```
 
 **E2E Tests**
 ```bash
-cd web && pnpm test:e2e
+cd web && bun test:e2e
 ```
 
 ### Debugging
@@ -171,7 +171,7 @@ cd web && pnpm test:e2e
 **Debug Server**
 ```bash
 # Run server directly
-cd web && pnpm dev:server
+cd web && bun dev:server
 
 # With inspector
 node --inspect dist/server/server.js
@@ -229,8 +229,8 @@ pnpm build:client                     # Client only
 cd mac && ./scripts/lint.sh
 
 # TypeScript
-cd web && pnpm lint
-cd web && pnpm check:fix
+cd web && bun lint
+cd web && bun check:fix
 ```
 
 ### Formatting
@@ -239,7 +239,7 @@ cd web && pnpm check:fix
 swiftformat mac/ ios/
 
 # TypeScript (Prettier)
-cd web && pnpm format
+cd web && bun format
 ```
 
 ## Performance

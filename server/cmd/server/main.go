@@ -9,7 +9,9 @@ import (
 	"syscall"
 	"time"
 
+	"github.com/ferg-cod3s/tunnelforge/go-server/internal/sentry"
 	"github.com/ferg-cod3s/tunnelforge/go-server/internal/server"
+	"github.com/joho/godotenv"
 )
 
 const (
@@ -17,6 +19,23 @@ const (
 )
 
 func main() {
+	// Load environment variables from .env.development if it exists
+	if err := godotenv.Load("../.env.development"); err != nil {
+		log.Printf("No .env.development file found, using system environment variables")
+	}
+	// Validate Sentry DSN
+	if os.Getenv("SENTRY_GO_DSN") == "" {
+		log.Printf("Warning: SENTRY_GO_DSN not set - Sentry error reporting disabled for Go server")
+		log.Printf("Set SENTRY_GO_DSN in .env.development for error tracking")
+	}
+
+	// Initialize Sentry for error tracking
+	if err := sentry.Initialize(); err != nil {
+		log.Printf("Failed to initialize Sentry: %v", err)
+	}
+	// Ensure Sentry flushes events before shutdown
+	defer sentry.Flush()
+
 	port := os.Getenv("PORT")
 	if port == "" {
 		port = DefaultPort

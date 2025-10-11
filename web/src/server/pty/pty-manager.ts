@@ -5,15 +5,15 @@
  * using the node-pty library while maintaining compatibility with tty-fwd.
  */
 
+import type { IPty, IPtyForkOptions } from 'node-pty';
 import chalk from 'chalk';
 import { exec } from 'child_process';
 import { EventEmitter, once } from 'events';
 import * as fs from 'fs';
 import * as net from 'net';
-import type { IPty, IPtyForkOptions } from 'node-pty';
 import * as path from 'path';
 
-// Import node-pty with fallback support
+// Import node-pty
 let pty: typeof import('node-pty');
 
 // Dynamic import will be done in initialization
@@ -69,7 +69,7 @@ const TITLE_INJECTION_QUIET_PERIOD_MS = 50; // Minimum quiet period before injec
 const TITLE_INJECTION_CHECK_INTERVAL_MS = 10; // How often to check for quiet period
 
 // Foreground process tracking constants
-const PROCESS_POLL_INTERVAL_MS = 500; // How often to check foreground process
+const PROCESS_POLL_INTERVAL_MS = 5000; // How often to check foreground process
 const MIN_COMMAND_DURATION_MS = 3000; // Minimum duration for command completion notifications (3 seconds)
 const SHELL_COMMANDS = new Set(['cd', 'ls', 'pwd', 'echo', 'export', 'alias', 'unset']); // Built-in commands to ignore
 
@@ -441,7 +441,7 @@ export class PtyManager extends EventEmitter {
         ptyProcess = pty.spawn(finalCommand, finalArgs, spawnOptions);
 
         // Add immediate exit handler to catch CI issues
-        const exitHandler = (event: { exitCode: number; signal?: number }) => {
+        const exitHandler = (event: { exitCode: number; signal?: number | string }) => {
           const timeSinceStart = Date.now() - Date.parse(sessionInfo.startedAt);
           if (timeSinceStart < 1000) {
             logger.error(
@@ -790,75 +790,80 @@ export class PtyManager extends EventEmitter {
     });
 
     // Handle PTY exit
-    ptyProcess.onExit(async ({ exitCode, signal }: { exitCode: number; signal?: number }) => {
-      try {
-        // Mark session as exiting to prevent false bell notifications
-        this.sessionExitTimes.set(session.id, Date.now());
-        // Write exit event to asciinema
-        if (asciinemaWriter?.isOpen()) {
-          asciinemaWriter.writeRawJson(['exit', exitCode || 0, session.id]);
-          asciinemaWriter
-            .close()
-            .catch((error) =>
-              logger.error(`Failed to close asciinema writer for session ${session.id}:`, error)
-            );
-        }
-
-        // Update session status
-        this.sessionManager.updateSessionStatus(
-          session.id,
-          'exited',
-          undefined,
-          exitCode || (signal ? 128 + (typeof signal === 'number' ? signal : 1) : 1)
-        );
-
-        // Wait for stdout queue to drain if it exists
-        if (session.stdoutQueue) {
-          try {
-            await session.stdoutQueue.drain();
-          } catch (error) {
-            logger.error(`Failed to drain stdout queue for session ${session.id}:`, error);
+    ptyProcess.onExit(
+      async ({ exitCode, signal }: { exitCode: number; signal?: number | string }) => {
+        try {
+          // Mark session as exiting to prevent false bell notifications
+          this.sessionExitTimes.set(session.id, Date.now());
+          // Write exit event to asciinema
+          if (asciinemaWriter?.isOpen()) {
+            asciinemaWriter.writeRawJson(['exit', exitCode || 0, session.id]);
+            asciinemaWriter
+              .close()
+              .catch((error) =>
+                logger.error(`Failed to close asciinema writer for session ${session.id}:`, error)
+              );
           }
-        }
 
-        // Clean up session resources
-        this.cleanupSessionResources(session);
-
-        // Remove from active sessions
-        this.sessions.delete(session.id);
-
-        // Clean up command tracking
-        this.commandTracking.delete(session.id);
-
-        // Emit session exited event
-        this.emit(
-          'sessionExited',
-          session.id,
-          session.sessionInfo.name || session.sessionInfo.command.join(' '),
-          exitCode
-        );
-
-        // Send notification to Mac app
-        if (controlUnixHandler.isMacAppConnected()) {
-          controlUnixHandler.sendNotification(
-            'Session Ended',
-            session.sessionInfo.name || session.sessionInfo.command.join(' '),
-            {
-              type: 'session-exit',
-              sessionId: session.id,
-              sessionName: session.sessionInfo.name || session.sessionInfo.command.join(' '),
-            }
+          // Update session status
+          this.sessionManager.updateSessionStatus(
+            session.id,
+            'exited',
+            undefined,
+            exitCode || (signal ? 128 + (typeof signal === 'number' ? signal : 1) : 1)
           );
-        }
 
-        // Call exit callback if provided (for fwd.ts)
-        if (onExit) {
-          onExit(exitCode || 0, signal);
+          // Wait for stdout queue to drain if it exists
+          if (session.stdoutQueue) {
+            try {
+              await session.stdoutQueue.drain();
+            } catch (error) {
+              logger.error(`Failed to drain stdout queue for session ${session.id}:`, error);
+            }
+          }
+
+          // Clean up session resources
+          this.cleanupSessionResources(session);
+
+          // Remove from active sessions
+          this.sessions.delete(session.id);
+
+          // Clean up command tracking
+          this.commandTracking.delete(session.id);
+
+          // Emit session exited event
+          this.emit(
+            'sessionExited',
+            session.id,
+            session.sessionInfo.name || session.sessionInfo.command.join(' '),
+            exitCode
+          );
+
+          // Send notification to Mac app
+          if (controlUnixHandler.isMacAppConnected()) {
+            controlUnixHandler.sendNotification(
+              'Session Ended',
+              session.sessionInfo.name || session.sessionInfo.command.join(' '),
+              {
+                type: 'session-exit',
+                sessionId: session.id,
+                sessionName: session.sessionInfo.name || session.sessionInfo.command.join(' '),
+              }
+            );
+          }
+
+          // Call exit callback if provided (for fwd.ts)
+          if (onExit) {
+            // Convert signal to number if it's a string (node-pty compatibility)
+            const signalNum =
+              typeof signal === 'string' ? Number.parseInt(signal, 10) || undefined : signal;
+            onExit(exitCode || 0, signalNum);
+          }
+        } catch (error) {
+          logger.error(`Failed to handle exit for session ${session.id}:`, error);
         }
-      } catch (error) {
-        logger.error(`Failed to handle exit for session ${session.id}:`, error);
       }
-    });
+    );
 
     // Mark for initial title update
     if (
@@ -2432,15 +2437,12 @@ export class PtyManager extends EventEmitter {
         const parts = lines[0].trim().split(/\s+/);
         const pgid = Number.parseInt(parts[0], 10);
 
-        // Log the raw ps output for debugging
-        logger.debug(`Session ${session.id}: ps output for TTY ${ttyName}: "${lines[0].trim()}"`);
-
         if (!Number.isNaN(pgid)) {
           return pgid;
         }
       }
 
-      logger.debug(`Session ${session.id}: Could not parse PGID from ps output, falling back`);
+      return null;
     } catch (error) {
       logger.debug(`Session ${session.id}: Error getting terminal PGID: ${error}, falling back`);
       // Fallback: try to get foreground process from process tree
@@ -2490,16 +2492,8 @@ export class PtyManager extends EventEmitter {
     try {
       const currentPgid = await this.getTerminalForegroundPgid(session);
 
-      // Enhanced debug logging
-      const timestamp = new Date().toISOString();
-      logger.debug(
-        chalk.gray(
-          `[${timestamp}] Session ${session.id} PGID check: current=${currentPgid}, previous=${session.currentForegroundPgid}, shell=${session.shellPgid}`
-        )
-      );
-
-      // Add debug logging
-      if (currentPgid !== session.currentForegroundPgid) {
+      // Only log when PGID actually changes
+      if (currentPgid && currentPgid !== session.currentForegroundPgid) {
         logger.info(
           `🔔 NOTIFICATION DEBUG: PGID change detected - sessionId: ${session.id}, from ${session.currentForegroundPgid} to ${currentPgid}, shellPgid: ${session.shellPgid}`
         );
@@ -2508,9 +2502,7 @@ export class PtyManager extends EventEmitter {
             `Session ${session.id}: Foreground PGID changed from ${session.currentForegroundPgid} to ${currentPgid}`
           )
         );
-      }
 
-      if (currentPgid && currentPgid !== session.currentForegroundPgid) {
         // Foreground process changed
         const previousPgid = session.currentForegroundPgid;
         session.currentForegroundPgid = currentPgid;

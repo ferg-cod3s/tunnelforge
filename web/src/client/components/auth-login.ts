@@ -21,7 +21,7 @@ export class AuthLogin extends LitElement {
   @state() private authConfig = {
     enableSSHKeys: false,
     disallowUserPassword: false,
-    noAuth: false,
+    authRequired: true, // Default to requiring auth until config is loaded
   };
   @state() private isMobile = false;
   private unsubscribeResponsive?: () => void;
@@ -64,13 +64,13 @@ export class AuthLogin extends LitElement {
       console.log('👤 Current user:', this.currentUserId);
 
       // Load user avatar only if auth is enabled
-      if (!this.authConfig.noAuth) {
+      if (this.authConfig.authRequired) {
         this.userAvatar = await this.authClient.getUserAvatar(this.currentUserId);
         console.log('🖼️ User avatar loaded');
       }
 
       // If no auth required, auto-login
-      if (this.authConfig.noAuth) {
+      if (!this.authConfig.authRequired) {
         console.log('🔓 No auth required, auto-logging in');
         this.dispatchEvent(
           new CustomEvent('auth-success', {

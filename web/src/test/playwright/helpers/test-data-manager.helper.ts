@@ -153,7 +153,7 @@ export class TestSessionManager {
 
       // Get session ID for more reliable cleanup
       const sessionData = this.sessions.get(sessionName);
-      if (sessionData && sessionData.id) {
+      if (sessionData?.id) {
         // Use sessionId for more precise targeting to avoid strict mode violations
         const sessionCard = this.page.locator(`session-card[data-session-id="${sessionData.id}"]`);
 
@@ -246,7 +246,7 @@ export class TestSessionManager {
         const countText = countElement.textContent || '';
         const match = countText.match(/\d+/);
         if (!match) return false;
-        const actualCount = Number.parseInt(match[0]);
+        const actualCount = Number.parseInt(match[0], 10);
         return actualCount === expected;
       },
       expectedCount,

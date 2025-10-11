@@ -67,7 +67,7 @@ VibeTunnel consists of three main components working together:
 
 ### Session Creation
 ```
-User → vt command → TTYForwardManager → HTTP POST /api/sessions
+User → tf command → TTYForwardManager → HTTP POST /api/sessions
 → Server creates PTY → Returns session ID → Opens browser
 → WebSocket connection established → Terminal ready
 ```

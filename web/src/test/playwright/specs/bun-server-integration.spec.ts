@@ -171,7 +171,7 @@ test.describe('Bun Server Integration', () => {
     // Verify the requests have proper headers for SSE
     if (eventsRequest) {
       // The browser should set Accept header for EventSource
-      expect(eventsRequest.headers['accept'] || eventsRequest.headers['Accept']).toContain(
+      expect(eventsRequest.headers.accept || eventsRequest.headers.Accept).toContain(
         'text/event-stream'
       );
     }

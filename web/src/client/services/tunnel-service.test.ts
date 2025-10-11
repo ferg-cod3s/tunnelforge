@@ -1,4 +1,4 @@
-import { describe, it, expect, beforeEach, mock } from 'bun:test';
+import { beforeEach, describe, expect, it, mock } from 'bun:test';
 import { TunnelAPIService } from './tunnel-service.js';
 
 describe('TunnelAPIService', () => {
@@ -23,7 +23,7 @@ describe('TunnelAPIService', () => {
         tunnels: {
           cloudflare: { type: 'cloudflare', running: false },
           ngrok: { type: 'ngrok', running: false },
-        }
+        },
       };
       mockFetch.mockImplementation(() =>
         Promise.resolve({
@@ -107,10 +107,10 @@ describe('TunnelAPIService', () => {
 
   describe('isCloudflareInstalled', () => {
     it('should check if cloudflared is installed', async () => {
-      const mockServices = { 
-        tunnels: { 
-          cloudflare: { type: 'cloudflare', running: false }
-        } 
+      const mockServices = {
+        tunnels: {
+          cloudflare: { type: 'cloudflare', running: false },
+        },
       };
       mockFetch.mockImplementation(() =>
         Promise.resolve({

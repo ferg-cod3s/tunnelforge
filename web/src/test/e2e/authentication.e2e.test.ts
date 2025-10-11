@@ -1,4 +1,4 @@
-import { test, expect } from '@playwright/test';
+import { expect, test } from '@playwright/test';
 
 test.describe('Authentication E2E Tests', () => {
   test('should show login form when auth is required', async ({ page }) => {
@@ -6,7 +6,9 @@ test.describe('Authentication E2E Tests', () => {
     await page.goto('/settings');
 
     // Should redirect to login or show login form
-    await expect(page.locator('[data-testid="login-form"], [data-testid="auth-required"]')).toBeVisible();
+    await expect(
+      page.locator('[data-testid="login-form"], [data-testid="auth-required"]')
+    ).toBeVisible();
   });
 
   test('should handle login with valid credentials', async ({ page }) => {
@@ -20,7 +22,9 @@ test.describe('Authentication E2E Tests', () => {
     await page.locator('[data-testid="login-submit"]').click();
 
     // Should redirect to main page or show success
-    await expect(page.locator('[data-testid="login-success"], [data-testid="main-page"]')).toBeVisible();
+    await expect(
+      page.locator('[data-testid="login-success"], [data-testid="main-page"]')
+    ).toBeVisible();
   });
 
   test('should handle login with invalid credentials', async ({ page }) => {
@@ -46,7 +50,9 @@ test.describe('Authentication E2E Tests', () => {
     await page.locator('[data-testid="logout-btn"]').click();
 
     // Should redirect to login or show logged out state
-    await expect(page.locator('[data-testid="login-form"], [data-testid="logged-out"]')).toBeVisible();
+    await expect(
+      page.locator('[data-testid="login-form"], [data-testid="logged-out"]')
+    ).toBeVisible();
   });
 
   test('should handle session timeout', async ({ page }) => {
@@ -95,7 +101,9 @@ test.describe('Authentication E2E Tests', () => {
     await page.locator('[data-testid="register-submit"]').click();
 
     // Should show success message or redirect
-    await expect(page.locator('[data-testid="register-success"], [data-testid="login-form"]')).toBeVisible();
+    await expect(
+      page.locator('[data-testid="register-success"], [data-testid="login-form"]')
+    ).toBeVisible();
   });
 
   test('should handle CSRF protection', async ({ page }) => {
@@ -129,6 +137,8 @@ test.describe('Authentication E2E Tests', () => {
     }
 
     // Should eventually show rate limit error
-    await expect(page.locator('[data-testid="rate-limit-error"], [data-testid="login-error"]')).toBeVisible();
+    await expect(
+      page.locator('[data-testid="rate-limit-error"], [data-testid="login-error"]')
+    ).toBeVisible();
   });
 });

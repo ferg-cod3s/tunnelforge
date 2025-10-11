@@ -1,10 +1,9 @@
 #[cfg(test)]
 mod tests {
-    use super::*;
-    use crate::test_utils::*;
+    use super::super::cloudflare_service::*;
     use std::sync::Arc;
     use std::time::Duration;
-    use tokio::time::sleep;
+    use std::path::PathBuf;
 
     // Installation Tests
     #[tokio::test]

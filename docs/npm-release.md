@@ -6,16 +6,16 @@ This checklist ensures a smooth and error-free npm release process for TunnelFor
 
 ### 1. Code Quality
 - [ ] Run all tests: `pnpm test`
-- [ ] Run linting: `pnpm run lint`
-- [ ] Run type checking: `pnpm run typecheck`
-- [ ] Run format check: `pnpm run format:check`
-- [ ] Fix any issues found: `pnpm run check:fix`
+- [ ] Run linting: `bun run lint`
+- [ ] Run type checking: `bun run typecheck`
+- [ ] Run format check: `bun run format:check`
+- [ ] Fix any issues found: `bun run check:fix`
 
 ### 2. Dependency Updates
 - [ ] Update all dependencies to latest versions
-- [ ] Run `pnpm update --interactive --latest`
+- [ ] Run `bun update --interactive --latest`
 - [ ] Test thoroughly after updates
-- [ ] Check for security vulnerabilities: `pnpm audit`
+- [ ] Check for security vulnerabilities: `bun pm audit`
 
 ### 3. Version Updates (CRITICAL - Must be synchronized!)
 - [ ] Update version in `web/package.json`
@@ -33,7 +33,7 @@ This checklist ensures a smooth and error-free npm release process for TunnelFor
 
 ### 5. Clean Build
 - [ ] Clean previous builds: `rm -rf dist-npm/ tunnelforge-*.tgz`
-- [ ] Run build: `pnpm run build:npm`
+- [ ] Run build: `bun run build:npm`
 - [ ] Verify build output shows all platforms built successfully
 - [ ] Check for "✅ authenticate-pam listed as optional dependency" in output
 
@@ -54,9 +54,9 @@ This checklist ensures a smooth and error-free npm release process for TunnelFor
   - [ ] `package/lib/tunnelforge-cli`
   - [ ] `package/lib/cli.js`
   - [ ] `package/bin/tunnelforge`
-  - [ ] `package/bin/vt`
+  - [ ] `package/bin/tf`
   - [ ] `package/scripts/postinstall.js`
-  - [ ] `package/scripts/install-vt-command.js`
+  - [ ] `package/scripts/install-tf-command.js`
   - [ ] `package/node-pty/` directory
   - [ ] `package/prebuilds/` directory with .tar.gz files
   - [ ] `package/public/` directory
@@ -68,7 +68,7 @@ This checklist ensures a smooth and error-free npm release process for TunnelFor
 - [ ] Verify version: `tunnelforge --version`
 - [ ] Start server: `tunnelforge`
 - [ ] Access web UI: http://localhost:4020
-- [ ] Test vt command: `tf echo "test"`
+- [ ] Test tf command: `tf echo "test"`
 - [ ] Uninstall: `npm uninstall -g tunnelforge`
 
 ### 9. Docker Test (Linux Compatibility)
@@ -162,10 +162,10 @@ This checklist ensures a smooth and error-free npm release process for TunnelFor
 
 ```bash
 # Update dependencies
-pnpm update --interactive --latest
+bun update --interactive --latest
 
 # Build
-pnpm run build:npm
+bun run build:npm
 
 # Verify
 tar -xf tunnelforge-*.tgz package/package.json && \

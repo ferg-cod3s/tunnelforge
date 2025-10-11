@@ -24,6 +24,7 @@ const server = spawn(serverPath, serverArgs, {
   stdio: 'inherit',
   env: {
     ...process.env,
+    PORT: port, // Set PORT environment variable for Go server
     NODE_ENV: 'test',
     TUNNELFORGE_DISABLE_PUSH_NOTIFICATIONS: 'true',
     ENABLE_RATE_LIMIT: 'false', // Disable rate limiting for tests

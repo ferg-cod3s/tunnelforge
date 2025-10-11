@@ -102,7 +102,7 @@ describe.skip('Authentication Middleware - Comprehensive Tests', () => {
       req.headers = { authorization: 'Bearer token' };
 
       // Simulate algorithm mismatch attack
-      mockJwt.verify.mockImplementation((token, secret, options: any) => {
+      mockJwt.verify.mockImplementation((_token, _secret, options: any) => {
         if (options?.algorithms && !options.algorithms.includes('HS256')) {
           throw new Error('invalid algorithm');
         }

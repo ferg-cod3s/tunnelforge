@@ -9,10 +9,10 @@
 # Platform-specific
 cd mac && xcodebuild test
 cd ios && ./scripts/test-with-coverage.sh
-cd web && pnpm test
+cd web && bun test
 
 # With coverage
-cd web && pnpm test:coverage
+cd web && bun test:coverage
 ```
 
 ## Test Structure
@@ -240,7 +240,7 @@ describe('Buffer encoding performance', () => {
 
 ```bash
 # Web coverage
-cd web && pnpm test:coverage
+cd web && bun test:coverage
 
 # iOS coverage
 cd ios && ./scripts/test-with-coverage.sh
@@ -255,7 +255,7 @@ open coverage/index.html
 
 ```bash
 # 1. Start dev server on all interfaces
-cd web && pnpm dev --host 0.0.0.0
+cd web && bun dev --host 0.0.0.0
 
 # 2. Get Mac IP
 ifconfig | grep inet
@@ -329,7 +329,7 @@ jobs:
           
       - name: Install dependencies
         run: |
-          cd web && pnpm install
+          cd web && bun install
           
       - name: Run tests
         run: ./scripts/test-all.sh
