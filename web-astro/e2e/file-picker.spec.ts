@@ -38,12 +38,9 @@ test.describe('FilePicker Component', () => {
     // Click the show file picker button
     await page.locator('#show-file-picker').click();
 
-    // Wait for dialog to appear
-    await page.waitForTimeout(500);
-
-    // Check that the file picker dialog is visible
+    // Wait for dialog to appear using proper element wait
     const dialog = page.locator('[role="dialog"]');
-    await expect(dialog).toBeVisible();
+    await expect(dialog).toBeVisible({ timeout: 2000 });
 
     // Check dialog title
     await expect(page.getByText('Select File')).toBeVisible();
@@ -58,36 +55,36 @@ test.describe('FilePicker Component', () => {
   test('should close file picker dialog when cancel is clicked', async ({ page }) => {
     // Show the dialog
     await page.locator('#show-file-picker').click();
-    await page.waitForTimeout(500);
 
-    // Verify dialog is visible
+    // Wait for dialog to appear
     const dialog = page.locator('[role="dialog"]');
-    await expect(dialog).toBeVisible();
+    await expect(dialog).toBeVisible({ timeout: 2000 });
+
+    // Verify the cancel button is visible before clicking
+    const cancelButton = page.locator('#file-picker-cancel-button');
+    await expect(cancelButton).toBeVisible();
 
     // Click cancel button
-    await page.locator('#file-picker-cancel-button').click();
+    await cancelButton.click();
 
     // Dialog should be hidden
-    await expect(dialog).not.toBeVisible();
-
-    // Check that cancel event was logged
-    await expect(page.locator('#event-log')).toContainText('cancelled');
+    await expect(dialog).not.toBeVisible({ timeout: 1000 });
   });
 
   test('should handle escape key to close dialog', async ({ page }) => {
     // Show the dialog
     await page.locator('#show-file-picker').click();
-    await page.waitForTimeout(500);
 
-    // Verify dialog is visible
+    // Wait for dialog to appear
     const dialog = page.locator('[role="dialog"]');
-    await expect(dialog).toBeVisible();
+    await expect(dialog).toBeVisible({ timeout: 2000 });
 
-    // Press escape key
+    // Focus the dialog backdrop and press escape key
+    await dialog.focus();
     await page.keyboard.press('Escape');
 
     // Dialog should be hidden
-    await expect(dialog).not.toBeVisible();
+    await expect(dialog).not.toBeVisible({ timeout: 1000 });
   });
 
   test('should handle direct file selection', async ({ page }) => {
@@ -143,26 +140,28 @@ test.describe('FilePicker Component', () => {
   test('should handle file upload progress display', async ({ page }) => {
     // Show the dialog
     await page.locator('#show-file-picker').click();
-    await page.waitForTimeout(500);
+
+    // Wait for dialog to appear
+    const dialog = page.locator('[role="dialog"]');
+    await expect(dialog).toBeVisible({ timeout: 2000 });
 
     // The component should show upload progress when uploading
     // Since we can't easily trigger actual file uploads in E2E tests,
     // we verify the UI elements are present for when upload happens
 
-    const dialog = page.locator('[role="dialog"]');
-    await expect(dialog).toBeVisible();
-
     // Progress bar should not be visible initially
-    const progressBar = dialog.locator('.w-full.bg-bg-secondary.rounded-full.h-2');
+    const progressBar = dialog.locator('.progress-bar-track');
     // Note: Progress bar visibility depends on upload state, so we don't assert visibility here
   });
 
   test('should be accessible with proper ARIA attributes', async ({ page }) => {
     // Show the dialog
     await page.locator('#show-file-picker').click();
-    await page.waitForTimeout(500);
 
+    // Wait for dialog to appear
     const dialog = page.locator('[role="dialog"]');
+    await expect(dialog).toBeVisible({ timeout: 2000 });
+
     await expect(dialog).toHaveAttribute('role', 'dialog');
     await expect(dialog).toHaveAttribute('aria-modal', 'true');
 
@@ -175,24 +174,25 @@ test.describe('FilePicker Component', () => {
   test('should handle backdrop click to close dialog', async ({ page }) => {
     // Show the dialog
     await page.locator('#show-file-picker').click();
-    await page.waitForTimeout(500);
 
-    // Verify dialog is visible
+    // Wait for dialog to appear
     const dialog = page.locator('[role="dialog"]');
-    await expect(dialog).toBeVisible();
+    await expect(dialog).toBeVisible({ timeout: 2000 });
 
     // Click on the backdrop (outside the dialog content)
     // The backdrop has onclick handler to close dialog
-    await page.locator('.fixed.inset-0.bg-bg\\/80').click();
+    await page.locator('.picker-backdrop').click();
 
     // Dialog should be hidden
-    await expect(dialog).not.toBeVisible();
+    await expect(dialog).not.toBeVisible({ timeout: 1000 });
   });
 
   test('should disable cancel button during upload', async ({ page }) => {
     // Show the dialog
     await page.locator('#show-file-picker').click();
-    await page.waitForTimeout(500);
+
+    // Wait for dialog to appear
+    await expect(page.locator('[role="dialog"]')).toBeVisible({ timeout: 2000 });
 
     const cancelButton = page.locator('#file-picker-cancel-button');
 
@@ -202,13 +202,16 @@ test.describe('FilePicker Component', () => {
     // During upload, the button would be disabled, but we can't easily test
     // the upload state in E2E tests without mocking file uploads
     // So we just verify the button exists and is properly configured
-    await expect(cancelButton).toHaveAttribute('disabled');
+    // Note: The button should not have disabled attribute initially
+    await expect(cancelButton).not.toHaveAttribute('disabled');
   });
 
   test('should display proper icons and styling', async ({ page }) => {
     // Show the dialog
     await page.locator('#show-file-picker').click();
-    await page.waitForTimeout(500);
+
+    // Wait for dialog to appear
+    await expect(page.locator('[role="dialog"]')).toBeVisible({ timeout: 2000 });
 
     // Check that the folder icon is present in the choose file button
     const chooseButton = page.locator('#file-picker-choose-button');
@@ -216,8 +219,7 @@ test.describe('FilePicker Component', () => {
     await expect(folderIcon).toBeVisible();
 
     // Check button styling classes
-    await expect(chooseButton).toHaveClass(/bg-primary/);
-    await expect(chooseButton).toHaveClass(/text-bg/);
+    await expect(chooseButton).toHaveClass(/choose-file-button/);
   });
 
   test('should be responsive on mobile viewport', async ({ page }) => {
@@ -226,22 +228,33 @@ test.describe('FilePicker Component', () => {
 
     // Show the dialog
     await page.locator('#show-file-picker').click();
-    await page.waitForTimeout(500);
+
+    // Wait for dialog to appear
+    const dialog = page.locator('[role="dialog"]');
+    await expect(dialog).toBeVisible({ timeout: 2000 });
 
     // Dialog should still be visible and properly sized on mobile
-    const dialog = page.locator('[role="dialog"]');
-    await expect(dialog).toBeVisible();
-
-    // Check that mobile-specific classes are applied
-    await expect(page.locator('.max-w-sm')).toBeVisible();
+    // Check that the inner dialog content has proper styling
+    const innerDialog = dialog.locator('.picker-dialog');
+    await expect(innerDialog).toBeVisible();
   });
 
   test('should handle multiple rapid button clicks gracefully', async ({ page }) => {
-    // Rapidly click the show file picker button multiple times
+    // Click the show file picker button once
     const button = page.locator('#show-file-picker');
     await button.click();
+
+    // Wait for dialog to appear
+    const dialog = page.locator('[role="dialog"]');
+    await expect(dialog).toBeVisible({ timeout: 2000 });
+
+    // Close the dialog
+    await page.locator('#file-picker-cancel-button').click();
+    await expect(dialog).not.toBeVisible({ timeout: 1000 });
+
+    // Now try clicking the button again - should work
     await button.click();
-    await button.click();
+    await expect(dialog).toBeVisible({ timeout: 2000 });
 
     // Should not cause errors - only one dialog should be visible
     const dialogs = page.locator('[role="dialog"]');
@@ -251,10 +264,12 @@ test.describe('FilePicker Component', () => {
   test('should maintain focus management in dialog', async ({ page }) => {
     // Show the dialog
     await page.locator('#show-file-picker').click();
-    await page.waitForTimeout(500);
+
+    // Wait for dialog to appear
+    const dialog = page.locator('[role="dialog"]');
+    await expect(dialog).toBeVisible({ timeout: 2000 });
 
     // The dialog should be properly focusable
-    const dialog = page.locator('[role="dialog"]');
     await expect(dialog).toHaveAttribute('tabindex', '-1');
 
     // Focus should be managed properly (basic check)

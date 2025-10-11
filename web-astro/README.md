@@ -37,6 +37,8 @@ All commands are run from the root of the project, from a terminal:
 | `bun preview`         | Preview your build locally, before deploying     |
 | `bun astro ...`       | Run CLI commands like `astro add`, `astro check` |
 | `bun astro -- --help` | Get help using the Astro CLI                     |
+| `bun test`            | Run E2E tests with Playwright (Chromium)         |
+| `CROSS_BROWSER=1 bun test` | Run E2E tests on all browsers (Chrome, Firefox, WebKit) |
 
 ## 👀 Want to learn more?
 
