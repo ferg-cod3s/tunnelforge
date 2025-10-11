@@ -63,7 +63,12 @@ export async function getUserAvatar(userId: string): Promise<string> {
 export async function getAuthConfig(): Promise<AuthConfig> {
   const response = await fetch('/api/auth/config');
   if (response.ok) {
-    return response.json();
+    const data = await response.json();
+    return {
+      enableSSHKeys: data.sshKeyAuth || false,
+      disallowUserPassword: !data.passwordAuth,
+      noAuth: !data.authRequired,
+    };
   }
   return {
     enableSSHKeys: false,

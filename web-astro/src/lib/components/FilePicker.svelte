@@ -1,24 +1,34 @@
 <script lang="ts">
-  import { onMount, onDestroy } from 'svelte';
-  import { uploadFile, createFileInput, removeFileInput } from '$lib/services/filesystem';
-  import type { FileSelectedEvent } from '$lib/types';
+   import { onMount, onDestroy } from 'svelte';
+   import { uploadFile, createFileInput, removeFileInput } from '$lib/services/filesystem';
+   import { filePickerStore } from '$lib/stores/file-picker';
+   import type { FileSelectedEvent } from '$lib/types';
 
-  // Svelte 5 event props
-  interface Props {
-    visible?: boolean;
-    directSelect?: boolean;
-    onfileselected?: (detail: FileSelectedEvent) => void;
-    onfileerror?: (detail: string) => void;
-    onfilecancel?: () => void;
-  }
+   // Svelte 5 event props
+   interface Props {
+     onfileselected?: (detail: FileSelectedEvent) => void;
+     onfileerror?: (detail: string) => void;
+     onfilecancel?: () => void;
+   }
 
-  let {
-    visible = false,
-    directSelect = false,
-    onfileselected,
-    onfileerror,
-    onfilecancel
-  }: Props = $props();
+   let {
+     onfileselected,
+     onfileerror,
+     onfilecancel
+   }: Props = $props();
+
+   // Use store for visibility state
+   let visible = $state(false);
+   let directSelect = $state(false);
+
+   // Subscribe to store changes
+   $effect(() => {
+     const unsubscribe = filePickerStore.subscribe(state => {
+       visible = state.visible;
+       directSelect = state.directSelect;
+     });
+     return unsubscribe;
+   });
 
   // Svelte 5 state
   let uploading = $state(false);
@@ -37,17 +47,17 @@
     }
   });
 
-  // Watch for visible changes to handle directSelect
-  $effect(() => {
-    if (visible && directSelect) {
-      // Small delay to ensure the component is ready
-      setTimeout(() => {
-        handleFileClick();
-        // Reset visible state since we're not showing the dialog
-        visible = false;
-      }, 10);
-    }
-  });
+   // Watch for visible changes to handle directSelect
+   $effect(() => {
+     if (visible && directSelect) {
+       // Small delay to ensure the component is ready
+       setTimeout(() => {
+         handleFileClick();
+         // Reset state since we're not showing the dialog
+         filePickerStore.reset();
+       }, 10);
+     }
+   });
 
   function createFileInputElement() {
     // Create a hidden file input element
@@ -158,22 +168,31 @@
     }
   }
 
-  function handleCancel() {
-    onfilecancel?.();
-  }
+   function handleCancel() {
+     filePickerStore.hideDialog();
+     onfilecancel?.();
+   }
 
-  // Expose methods for external use
-  $effect(() => {
-    // This effect runs when the component is mounted and makes methods available
-    if (typeof window !== 'undefined') {
-      (window as any).filePickerMethods = {
-        uploadFile: uploadFileProgrammatically,
-        openFilePicker,
-        openImagePicker,
-        openCamera,
-      };
-    }
-  });
+   /**
+    * Public method to show the file picker dialog
+    */
+   function showDialog(): void {
+     filePickerStore.showDialog();
+   }
+
+   // Expose methods for external use
+   $effect(() => {
+     // This effect runs when the component is mounted and makes methods available
+     if (typeof window !== 'undefined') {
+       (window as any).filePickerMethods = {
+         uploadFile: uploadFileProgrammatically,
+         openFilePicker,
+         openImagePicker,
+         openCamera,
+         showDialog,
+       };
+     }
+   });
 </script>
 
 {#if visible}

@@ -58,11 +58,19 @@
 
       if (authConfig.noAuth) {
         console.log('🔓 No auth required, auto-logging in');
-        onauthsuccess?.({
-          success: true,
-          userId: currentUserId,
-          authMethod: 'no-auth',
-        });
+        try {
+          const result = await authenticateWithPassword(currentUserId, '');
+          console.log('🎫 Guest auth result:', result);
+          
+          if (result.success) {
+            onauthsuccess?.(result);
+          } else {
+            error = 'Auto-login failed';
+          }
+        } catch (err) {
+          console.error('❌ Auto-login error:', err);
+          error = 'Auto-login failed';
+        }
       }
     } catch (err) {
       error = 'Failed to load user information';
