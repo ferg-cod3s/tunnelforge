@@ -4,6 +4,7 @@ import ModalWrapper from '../lib/components/ModalWrapper.svelte';
 import InlineEdit from '../lib/components/InlineEdit.svelte';
 import ClickablePath from '../lib/components/ClickablePath.svelte';
 import GitStatusBadge from '../lib/components/GitStatusBadge.svelte';
+import SessionCreateForm from '../lib/components/SessionCreateForm.svelte';
 import type { Session } from '../lib/types/index';
 
 // Mock session data for testing
@@ -148,6 +149,29 @@ const mockSession: Session = {
         </div>
       </section>
 
+      <!-- Session Create Form Test -->
+      <section class="card p-6">
+        <h2 class="text-2xl font-bold text-primary mb-4">SessionCreateForm</h2>
+        <p class="text-muted mb-4">Complete session creation form with Git integration, worktrees, and autocomplete</p>
+
+        <button
+          id="openSessionForm"
+          class="px-4 py-2 bg-accent text-white rounded hover:bg-accent/80"
+        >
+          Open Session Create Form
+        </button>
+
+        <SessionCreateForm
+          client:load
+          visible={false}
+          on:session-created={(e) => console.log('Session created:', e.detail)}
+          on:cancel={() => console.log('Form cancelled')}
+          on:error={(e) => console.error('Form error:', e.detail)}
+          on:success={(e) => console.log('Form success:', e.detail)}
+          on:working-dir-change={(e) => console.log('Working dir changed:', e.detail)}
+        />
+      </section>
+
       <!-- Summary Section -->
       <section class="card p-6 bg-bg-tertiary">
         <h2 class="text-2xl font-bold text-primary mb-4">✅ Migration Progress</h2>
@@ -158,8 +182,9 @@ const mockSession: Session = {
             <li>InlineEdit - Inline text editing</li>
             <li>ClickablePath - Path display with copy</li>
             <li>GitStatusBadge - Git status information</li>
+            <li>SessionCreateForm - Complete session creation with Git integration</li>
           </ul>
-          <p class="text-primary font-semibold mt-4">Total migrated: 21 of 55 components (38%)</p>
+          <p class="text-primary font-semibold mt-4">Total migrated: 22 of 55 components (40%)</p>
         </div>
       </section>
     </div>
@@ -181,6 +206,16 @@ const mockSession: Session = {
 
     modal?.addEventListener('close', () => {
       modal.visible = false;
+    });
+
+    // Session form test
+    const sessionForm = document.querySelector('session-create-form') as any;
+    const openSessionBtn = document.getElementById('openSessionForm');
+
+    openSessionBtn?.addEventListener('click', () => {
+      if (sessionForm) {
+        sessionForm.visible = true;
+      }
     });
   </script>
 </BaseLayout>

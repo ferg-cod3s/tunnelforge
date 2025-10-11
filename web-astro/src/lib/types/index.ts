@@ -220,3 +220,142 @@ export interface FileBrowserEventDetail {
 export interface DirectorySelectedEventDetail {
   path: string;
 }
+
+// Additional types for session creation form
+export enum TitleMode {
+  NONE = 'none', // No title management
+  FILTER = 'filter', // Block all title changes from apps
+  STATIC = 'static', // Static title: path — command — session
+  DYNAMIC = 'dynamic', // Static + live activity indicators
+}
+
+export interface SessionCreateData {
+  command: string[];
+  workingDir: string;
+  name?: string;
+  spawn_terminal?: boolean;
+  cols?: number;
+  rows?: number;
+  titleMode?: TitleMode;
+  gitRepoPath?: string;
+  gitBranch?: string;
+}
+
+export interface SessionCreateResult {
+  sessionId: string;
+  message?: string;
+}
+
+export interface GitRepoInfo {
+  isGitRepo: boolean;
+  repoPath?: string;
+  hasChanges?: boolean;
+  isWorktree?: boolean;
+}
+
+export interface WorktreeInfo {
+  branch: string;
+  path: string;
+  isMainWorktree?: boolean;
+  isCurrentWorktree?: boolean;
+}
+
+export interface QuickStartItem {
+  label: string;
+  command: string;
+}
+
+export interface AutocompleteItem {
+  suggestion: string;
+  name: string;
+  path?: string;
+  type?: string;
+  isRepository?: boolean;
+  gitBranch?: string;
+  isWorktree?: boolean;
+  gitAddedCount?: number;
+  gitModifiedCount?: number;
+  gitDeletedCount?: number;
+}
+
+export interface Repository {
+  path: string;
+  folderName: string;
+  relativePath: string;
+  lastModified: string;
+}
+
+// Multiplexer types for terminal session management
+export type MultiplexerType = 'tmux' | 'zellij' | 'screen';
+
+export interface MultiplexerSession {
+  name: string;
+  type: MultiplexerType;
+  windows?: number; // tmux specific
+  created?: string;
+  attached?: boolean; // tmux specific
+  exited?: boolean; // zellij specific
+  activity?: string; // tmux specific
+  current?: boolean; // tmux specific
+}
+
+export interface MultiplexerStatus {
+  tmux: {
+    available: boolean;
+    type: MultiplexerType;
+    sessions: MultiplexerSession[];
+  };
+  zellij: {
+    available: boolean;
+    type: MultiplexerType;
+    sessions: MultiplexerSession[];
+  };
+  screen: {
+    available: boolean;
+    type: MultiplexerType;
+    sessions: MultiplexerSession[];
+  };
+}
+
+export interface MultiplexerTarget {
+  type: MultiplexerType;
+  session: string;
+  window?: number; // tmux specific
+  pane?: number; // tmux specific
+}
+
+export interface TmuxSession {
+  name: string;
+  windows: number;
+  created: string;
+  attached: boolean;
+  activity?: string;
+  current?: boolean;
+}
+
+export interface TmuxWindow {
+  session: string;
+  index: number;
+  name: string;
+  active: boolean;
+  panes: number;
+}
+
+export interface TmuxPane {
+  session: string;
+  window: number;
+  index: number;
+  active: boolean;
+  title?: string;
+  pid?: number;
+  command?: string;
+  width: number;
+  height: number;
+  currentPath?: string;
+}
+
+export interface TmuxTarget {
+  session: string;
+  window?: number;
+  pane?: number;
+}

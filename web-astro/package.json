@@ -18,6 +18,7 @@
     "@xterm/addon-webgl": "^0.18.0",
     "@xterm/xterm": "^5.5.0",
     "astro": "^5.14.1",
+    "monaco-editor": "^0.52.0",
     "svelte": "^5.39.8",
     "typescript": "^5.9.3"
   },

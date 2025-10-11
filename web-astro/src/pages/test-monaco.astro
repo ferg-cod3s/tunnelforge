@@ -1,0 +1,63 @@
+---
+import BaseLayout from '../layouts/BaseLayout.astro';
+import MonacoEditor from '../lib/components/MonacoEditor.svelte';
+---
+
+<BaseLayout title="Monaco Editor Test">
+  <div class="container">
+    <h1>Monaco Editor Test</h1>
+
+    <div class="editor-section">
+      <h2>JavaScript File</h2>
+      <div class="editor-wrapper">
+        <MonacoEditor
+          sessionId="test-session"
+          filePath="example.js"
+          theme="vs-dark"
+          fontSize={14}
+          autoSave={true}
+          autoSaveDelay={2000}
+          client:only="svelte"
+        />
+      </div>
+    </div>
+
+    <div class="editor-section">
+      <h2>TypeScript File (Read-only)</h2>
+      <div class="editor-wrapper">
+        <MonacoEditor
+          sessionId="test-session"
+          filePath="example.ts"
+          theme="vs-dark"
+          fontSize={14}
+          readOnly={true}
+          client:only="svelte"
+        />
+      </div>
+    </div>
+  </div>
+</Layout>
+
+<style>
+  .container {
+    padding: 2rem;
+    max-width: 1200px;
+    margin: 0 auto;
+  }
+
+  .editor-section {
+    margin-bottom: 2rem;
+  }
+
+  .editor-section h2 {
+    margin-bottom: 1rem;
+    color: var(--color-text);
+  }
+
+  .editor-wrapper {
+    height: 400px;
+    border: 1px solid var(--color-border);
+    border-radius: var(--radius-md);
+    overflow: hidden;
+  }
+</style>
