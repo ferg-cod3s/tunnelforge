@@ -43,7 +43,7 @@ test.describe('TunnelForge Mac App - Error Scenarios & Edge Cases', () => {
 
     // The app should handle disconnection gracefully
     // Look for reconnection indicators or error messages
-    const errorIndicators = page
+    const _errorIndicators = page
       .locator('text=connection')
       .or(page.locator('text=reconnect').or(page.locator('text=disconnected')));
 
@@ -70,7 +70,7 @@ test.describe('TunnelForge Mac App - Error Scenarios & Edge Cases', () => {
     await createButton.click();
 
     // Should show error message or handle gracefully
-    const errorMessages = page
+    const _errorMessages = page
       .locator('text=error')
       .or(page.locator('text=failed').or(page.locator('[data-testid*="error"]')));
 

@@ -378,12 +378,12 @@ class AuditLogger {
 ### Regular Updates
 ```bash
 # Check for vulnerabilities
-pnpm audit
+bun pm audit
 npm audit
 
 # Update dependencies
-pnpm update
-pnpm audit fix
+bun update
+bun pm audit fix
 
 # Use tools like Dependabot or Renovate
 ```
@@ -460,7 +460,7 @@ class Encryptor {
 ```bash
 # TypeScript/JavaScript
 npm install -D eslint-plugin-security
-pnpm dlx @sonarcloud/sonarcloud-scan
+bun x @sonarcloud/sonarcloud-scan
 
 # Swift
 swiftlint analyze --compiler-log-path build.log

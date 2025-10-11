@@ -1,1 +1,97 @@
-/**\n * Global setup for TunnelForge Desktop E2E tests\n * \n * This file is run once before all tests start.\n * It handles:\n * - Environment preparation\n * - Server startup verification\n * - Test data initialization\n * - Logging setup\n */\n\nimport { FullConfig } from '@playwright/test';\nimport { spawn, ChildProcessWithoutNullStreams, execSync } from 'child_process';\nimport path from 'path';\nimport fs from 'fs';\n\n// Global state for test processes\nlet serverProcess: ChildProcessWithoutNullStreams | null = null;\n\nasync function globalSetup(config: FullConfig) {\n  console.log('🚀 Starting TunnelForge Desktop E2E Test Setup');\n  \n  // Ensure test directories exist\n  const testDirs = [\n    'test-results',\n    'test-results/screenshots',\n    'test-results/videos',\n    'test-results/traces'\n  ];\n  \n  for (const dir of testDirs) {\n    const fullPath = path.join(process.cwd(), dir);\n    if (!fs.existsSync(fullPath)) {\n      fs.mkdirSync(fullPath, { recursive: true });\n      console.log(`📁 Created test directory: ${dir}`);\n    }\n  }\n  \n  // Set test environment variables\n  process.env.TUNNELFORGE_TEST_MODE = 'true';\n  process.env.TAURI_ENV = 'test';\n  process.env.RUST_LOG = 'info';\n  \n  console.log('✅ Environment variables set for testing');\n  \n  // Verify Go server can be built (for server management tests)\n  try {\n    const serverDir = path.join(process.cwd(), '..', 'server');\n    if (fs.existsSync(path.join(serverDir, 'go.mod'))) {\n      console.log('🔧 Checking Go server build...');\n      \n      // This is a dry run to verify the Go server can be built\n      // The actual server management will be handled by the desktop app\n      // execSync is imported at the top\n      \n      try {\n        execSync('go version', { cwd: serverDir, stdio: 'pipe' });\n        console.log('✅ Go is available for server build tests');\n      } catch (error) {\n        console.warn('⚠️  Go not available - server build tests may fail');\n      }\n    } else {\n      console.warn('⚠️  Go server directory not found - server tests may be limited');\n    }\n  } catch (error) {\n    console.warn('⚠️  Could not verify Go server:', error);\n  }\n  \n  // Log test configuration\n  console.log('📋 Test Configuration:');\n  console.log(`  - Base URL: ${config.use?.baseURL || 'http://localhost:1420'}`);\n  console.log(`  - Timeout: ${config.timeout || 60000}ms`);\n  console.log(`  - Workers: ${config.workers || 'default'}`);\n  console.log(`  - Retries: ${config.retries || 0}`);\n  \n  // Wait a moment to ensure everything is ready\n  await new Promise(resolve => setTimeout(resolve, 1000));\n  \n  console.log('✅ Global setup completed successfully');\n  \n  return async () => {\n    // Global teardown function\n    console.log('🧹 Running global teardown...');\n    \n    if (serverProcess) {\n      console.log('🛑 Stopping test server process...');\n      serverProcess.kill();\n      serverProcess = null;\n    }\n    \n    // Clean up test artifacts if needed\n    // (Playwright will handle most cleanup automatically)\n    \n    console.log('✅ Global teardown completed');\n  };\n}\n\nexport default globalSetup;
+/**
+ * Global setup for TunnelForge Desktop E2E tests
+ *
+ * This file is run once before all tests start.
+ * It handles:
+ * - Environment preparation
+ * - Server startup verification
+ * - Test data initialization
+ * - Logging setup
+ */
+
+import { FullConfig } from '@playwright/test';
+import { spawn, ChildProcessWithoutNullStreams, execSync } from 'child_process';
+import path from 'path';
+import fs from 'fs';
+
+// Global state for test processes
+let serverProcess: ChildProcessWithoutNullStreams | null = null;
+
+async function globalSetup(config: FullConfig) {
+  console.log('🚀 Starting TunnelForge Desktop E2E Test Setup');
+
+  // Ensure test directories exist
+  const testDirs = [
+    'test-results',
+    'test-results/screenshots',
+    'test-results/videos',
+    'test-results/traces'
+  ];
+
+  for (const dir of testDirs) {
+    const fullPath = path.join(process.cwd(), dir);
+    if (!fs.existsSync(fullPath)) {
+      fs.mkdirSync(fullPath, { recursive: true });
+      console.log(`📁 Created test directory: ${dir}`);
+    }
+  }
+
+  // Set test environment variables
+  process.env.TUNNELFORGE_TEST_MODE = 'true';
+  process.env.TAURI_ENV = 'test';
+  process.env.RUST_LOG = 'info';
+
+  console.log('✅ Environment variables set for testing');
+
+  // Verify Go server can be built (for server management tests)
+  try {
+    const serverDir = path.join(process.cwd(), '..', 'server');
+    if (fs.existsSync(path.join(serverDir, 'go.mod'))) {
+      console.log('🔧 Checking Go server build...');
+
+      // This is a dry run to verify the Go server can be built
+      // The actual server management will be handled by the desktop app
+
+      try {
+        execSync('go version', { cwd: serverDir, stdio: 'pipe' });
+        console.log('✅ Go is available for server build tests');
+      } catch (error) {
+        console.warn('⚠️  Go not available - server build tests may fail');
+      }
+    } else {
+      console.warn('⚠️  Go server directory not found - server tests may be limited');
+    }
+  } catch (error) {
+    console.warn('⚠️  Could not verify Go server:', error);
+  }
+
+  // Log test configuration
+  console.log('📋 Test Configuration:');
+  console.log(`  - Base URL: ${config.use?.baseURL || 'http://localhost:1420'}`);
+  console.log(`  - Timeout: ${config.timeout || 60000}ms`);
+  console.log(`  - Workers: ${config.workers || 'default'}`);
+  console.log(`  - Retries: ${config.retries || 0}`);
+
+  // Wait a moment to ensure everything is ready
+  await new Promise(resolve => setTimeout(resolve, 1000));
+
+  console.log('✅ Global setup completed successfully');
+
+  return async () => {
+    // Global teardown function
+    console.log('🧹 Running global teardown...');
+
+    if (serverProcess) {
+      console.log('🛑 Stopping test server process...');
+      serverProcess.kill();
+      serverProcess = null;
+    }
+
+    // Clean up test artifacts if needed
+    // (Playwright will handle most cleanup automatically)
+
+    console.log('✅ Global teardown completed');
+  };
+}
+
+export default globalSetup;

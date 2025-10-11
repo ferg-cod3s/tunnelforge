@@ -8,26 +8,40 @@ export function initSentry() {
   if (isBrowser) {
     // Browser environment - use import.meta.env (Vite)
     Sentry.init({
-      dsn: (import.meta as any).env?.VITE_SENTRY_DSN || '',
+      dsn:
+        (import.meta as any).env?.VITE_SENTRY_DSN ||
+        'https://7afe672f8dcad80804647bc69a386687@sentry.fergify.work/10',
       environment: (import.meta as any).env?.VITE_SENTRY_ENVIRONMENT || 'development',
       release: (import.meta as any).env?.VITE_SENTRY_RELEASE || 'dev',
-      // Set TracesSampleRate to 1.0 to capture 100% of transactions for performance monitoring.
-      // We recommend adjusting this value in production,
+      // Setting this option to true will send default PII data to Sentry
+      sendDefaultPii: true,
+      // Tracing - Capture 100% of the transactions
       tracesSampleRate: 1.0,
-      // Set ProfilesSampleRate to profile 100% of sampled transactions.
-      // We recommend adjusting this value in production,
-      profilesSampleRate: 1.0,
-      // Capture console logs and errors
+      // Set 'tracePropagationTargets' to control for which URLs distributed tracing should be enabled
+      tracePropagationTargets: ['localhost', /^https:\/\/.*\.fergify\.work\/api/],
+      // Session Replay - 10% sample rate in production, 100% for errors
+      replaysSessionSampleRate: 0.1,
+      replaysOnErrorSampleRate: 1.0,
+      // Integrations
       integrations: [
         Sentry.browserTracingIntegration(),
+        Sentry.replayIntegration(),
         Sentry.feedbackIntegration({
-          // Additional Feedback configuration
-          colorScheme: "auto",
+          colorScheme: 'auto',
           showBranding: true,
         }),
       ],
+      // Add breadcrumbs for better error context
+      beforeBreadcrumb(breadcrumb) {
+        // Filter out noisy breadcrumbs
+        if (breadcrumb.category === 'console' && breadcrumb.level === 'log') {
+          return null;
+        }
+        return breadcrumb;
+      },
       // Performance monitoring
-      enabled: (import.meta as any).env?.PROD,
+      enabled:
+        (import.meta as any).env?.PROD || (import.meta as any).env?.VITE_ENABLE_SENTRY === 'true',
       // Before sending events, filter out development errors
       beforeSend(event, hint) {
         // Filter out network errors in development

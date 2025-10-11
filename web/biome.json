@@ -97,7 +97,8 @@
       "bracketSameLine": false,
       "bracketSpacing": true,
       "quoteProperties": "asNeeded"
-    }
+    },
+    "globals": ["Bun"]
   },
   "assist": {
     "enabled": true,

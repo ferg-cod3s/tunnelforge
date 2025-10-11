@@ -611,7 +611,9 @@ func (s *Server) handleListSessions(w http.ResponseWriter, r *http.Request) {
 		}
 		responses = append(responses, &types.SessionResponse{
 			ID:        session.ID,
+			SessionID: session.ID, // Alias for backwards compatibility
 			Title:     session.Title,
+			Name:      session.Title, // Set name same as title
 			Command:   session.Command,
 			Cwd:       session.Cwd,
 			Cols:      session.Cols,
@@ -669,7 +671,9 @@ func (s *Server) handleCreateSession(w http.ResponseWriter, r *http.Request) {
 	}
 	response := &types.SessionResponse{
 		ID:        session.ID,
+		SessionID: session.ID, // Alias for backwards compatibility
 		Title:     session.Title,
+		Name:      session.Title, // Set name same as title
 		Command:   session.Command,
 		Cwd:       session.Cwd,
 		Cols:      session.Cols,
@@ -715,7 +719,9 @@ func (s *Server) handleGetSession(w http.ResponseWriter, r *http.Request) {
 	}
 	response := &types.SessionResponse{
 		ID:        session.ID,
+		SessionID: session.ID, // Alias for backwards compatibility
 		Title:     session.Title,
+		Name:      session.Title, // Set name same as title
 		Command:   session.Command,
 		Cwd:       session.Cwd,
 		Cols:      session.Cols,
@@ -763,10 +769,18 @@ func (s *Server) handleDeleteSession(w http.ResponseWriter, r *http.Request) {
 func (s *Server) handleServerConfig(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "application/json")
 
+	// Determine WebSocket URL based on request
+	protocol := "ws"
+	if r.TLS != nil {
+		protocol = "wss"
+	}
+	websocketUrl := fmt.Sprintf("%s://%s", protocol, r.Host)
+
 	config := map[string]interface{}{
 		"serverName":   s.config.ServerName,
 		"version":      "1.0.0",
 		"authRequired": s.config.AuthRequired,
+		"websocketUrl": websocketUrl, // Add WebSocket URL for client
 		"features": map[string]bool{
 			"auth":       true,
 			"filesystem": true,

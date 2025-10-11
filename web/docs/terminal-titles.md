@@ -56,15 +56,15 @@ Dynamic mode is also automatically selected when running Claude from the command
 
 ```bash
 # Explicitly set title mode
-pnpm exec tsx src/server/fwd.ts --title-mode static bash
-pnpm exec tsx src/server/fwd.ts --title-mode filter vim
-pnpm exec tsx src/server/fwd.ts --title-mode dynamic python
+bun run src/server/fwd.ts --title-mode static bash
+bun run src/server/fwd.ts --title-mode filter vim
+bun run src/server/fwd.ts --title-mode dynamic python
 
 # Auto-selects dynamic mode for Claude
-pnpm exec tsx src/server/fwd.ts claude
+bun run src/server/fwd.ts claude
 
 # Using environment variable
-TUNNELFORGE_TITLE_MODE=static pnpm exec tsx src/server/fwd.ts zsh
+TUNNELFORGE_TITLE_MODE=static bun run src/server/fwd.ts zsh
 ```
 
 ## Implementation Details

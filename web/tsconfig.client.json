@@ -15,7 +15,8 @@
   "include": [
     "src/client/**/*",
     "src/shared/**/*",
-    "src/types/**/*"
+    "src/types/**/*",
+    "src/sentry.ts"
   ],
   "exclude": [
     "node_modules",

@@ -78,7 +78,7 @@ exit 0
 - **Hook Management**: `web/src/server/utils/git-hooks.ts`
 - **Event Handler**: `web/src/server/routes/git.ts` (lines 189-481)
 - **Follow Mode**: `web/src/server/routes/worktrees.ts` (lines 580-630)
-- **CLI Integration**: `web/bin/vt` (git event command)
+- **CLI Integration**: `web/bin/tf` (git event command)
 
 ## Configuration
 

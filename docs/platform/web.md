@@ -11,10 +11,10 @@
 
 ```bash
 cd web
-pnpm install
-pnpm dev          # Development server
-pnpm build        # Production build
-pnpm test         # Run tests
+bun install
+bun dev          # Development server
+bun build        # Production build
+bun test         # Run tests
 ```
 
 ## Project Structure
@@ -198,7 +198,7 @@ export class TerminalService {
 
 ```bash
 # Build everything
-pnpm build
+bun build
 
 # Outputs:
 # dist/server/   - Compiled server
@@ -283,7 +283,7 @@ node --inspect dist/server/server.js
 NODE_OPTIONS='--enable-source-maps' node dist/server/server.js
 
 # Verbose logging
-DEBUG=vt:* pnpm dev:server
+DEBUG=vt:* bun dev:server
 ```
 
 ### Client Debugging

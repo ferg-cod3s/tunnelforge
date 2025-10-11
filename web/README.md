@@ -19,8 +19,8 @@ npm install -g tunnelforge
 ```bash
 git clone https://github.com/ferg-cod3s/tunnelforge.git
 cd tunnelforge/web
-pnpm install
-pnpm run build
+bun install
+bun run build
 ```
 
 ## Installation Differences
@@ -33,7 +33,7 @@ pnpm run build
 - Includes production dependencies only
 
 **Source installation**:
-- Full development environment with hot reload (`pnpm run dev`)
+- Full development environment with hot reload (`bun run dev`)
 - Access to all development scripts and tools
 - Ability to modify and rebuild the application
 - Includes test suites and development dependencies
@@ -285,16 +285,16 @@ The Web Crypto API is restricted to secure contexts (HTTPS or localhost) to prev
 For source installations:
 ```bash
 # Install dependencies
-pnpm install
+bun install
 
 # Run development server with hot reload
-pnpm run dev
+bun run dev
 
 # Run code quality checks
-pnpm run check
+bun run check
 
 # Build for production
-pnpm run build
+bun run build
 ```
 
 ## Documentation

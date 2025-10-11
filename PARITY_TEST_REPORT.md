@@ -116,7 +116,7 @@ Verified Svelte components at `/home/f3rg/src/github/tunnelforge/web/src/compone
   - Recommendation: Use pre-built binaries or Docker container
 
 ### 🟡 Minor Issues
-- **Missing pnpm**: Build scripts expect pnpm but system has Bun
+- **Package Manager**: Build scripts use Bun
 - **Package.json Syntax**: Fixed duplicate JSON content issue
 
 ## Recommendations

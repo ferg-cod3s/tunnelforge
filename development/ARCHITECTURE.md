@@ -367,8 +367,8 @@ gopkg.in/yaml.v3               // Configuration parsing
 ### Code Quality Pipeline
 ```bash
 # Bun Server Quality Checks
-pnpm run check         # Run all checks (format, lint, typecheck)
-pnpm run check:fix     # Auto-fix issues
+bun run check         # Run all checks (format, lint, typecheck)
+bun run check:fix     # Auto-fix issues
 
 # Go Server Quality Checks  
 go test ./...          # Run all tests

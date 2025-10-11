@@ -232,7 +232,7 @@ describe('FilePicker Component', () => {
       }),
     };
 
-    // @ts-ignore
+    // @ts-expect-error
     global.XMLHttpRequest = vi.fn(() => mockXHR);
 
     const imageFile = new File(['fake image'], 'test.png', { type: 'image/png' });

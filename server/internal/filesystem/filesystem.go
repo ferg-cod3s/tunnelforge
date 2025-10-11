@@ -950,6 +950,9 @@ func (fs *FileSystemService) RegisterRoutes(router *mux.Router) {
 	fsAliasRouter := router.PathPrefix("/api/fs").Subrouter()
 
 	// Register alias endpoints that frontend expects
+	fsAliasRouter.HandleFunc("/preview", fs.PreviewFile).Methods("GET")
+	fsAliasRouter.HandleFunc("/diff", fs.DiffFile).Methods("GET")
+	fsAliasRouter.HandleFunc("/diff-content", fs.DiffContent).Methods("GET")
 	fsAliasRouter.HandleFunc("/browse", fs.BrowseDirectory).Methods("GET")
 	fsAliasRouter.HandleFunc("/completions", fs.PathCompletions).Methods("GET")
 }

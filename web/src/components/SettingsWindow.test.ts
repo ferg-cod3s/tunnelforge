@@ -1,5 +1,5 @@
-import { describe, it, expect, beforeEach, vi } from 'bun:test';
-import { render, screen, fireEvent } from '@testing-library/svelte';
+import { beforeEach, describe, expect, it, vi } from 'bun:test';
+import { fireEvent, render, screen } from '@testing-library/svelte';
 import SettingsWindow from './SettingsWindow.svelte';
 
 // Mock Tauri API

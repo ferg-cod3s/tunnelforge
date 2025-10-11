@@ -1,9 +1,9 @@
 # AGENT.md
 
 ## Build/Test Commands
-- **Web**: `cd web && pnpm run check` (format, lint, typecheck), `pnpm run dev` (port 4020), `pnpm run test` (Vitest)
+- **Web**: `cd web && bun run check` (format, lint, typecheck), `bun run dev` (port 4020), `bun run test` (Vitest)
 - **Mac**: `cd mac && ./scripts/build.sh` (Release), `./scripts/build.sh --configuration Debug`, `./scripts/lint.sh` (SwiftFormat + SwiftLint)
-- **Single test**: `cd web && pnpm run test path/to/test.spec.ts` or `xcodebuild test -project TunnelForge-Mac.xcodeproj -scheme TunnelForge-Mac`
+- **Single test**: `cd web && bun run test path/to/test.spec.ts` or `xcodebuild test -project TunnelForge-Mac.xcodeproj -scheme TunnelForge-Mac`
 
 ## Architecture
 - **Native macOS** (Swift/SwiftUI) in `mac/` - main app + terminal session management

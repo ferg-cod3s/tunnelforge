@@ -737,6 +737,11 @@ export class SessionList extends LitElement {
     );
     const exitedSessions = this.sessions.filter((session) => session.status === 'exited');
 
+    logger.debug(
+      `[SessionList] Rendering: total=${this.sessions.length}, active=${activeSessions.length}, ` +
+        `idle=${idleSessions.length}, exited=${exitedSessions.length}, hideExited=${this.hideExited}`
+    );
+
     const hasActiveSessions = activeSessions.length > 0;
     const hasIdleSessions = idleSessions.length > 0;
     const hasExitedSessions = exitedSessions.length > 0;
@@ -772,35 +777,35 @@ export class SessionList extends LitElement {
                             No terminal sessions yet!
                           </div>
 
-                          <div class="space-y-3">
-                            <div class="text-sm text-text-muted">
-                              Get started by using the
-                              <code class="bg-bg-secondary px-2 py-1 rounded">vt</code> command
-                              in your terminal:
-                            </div>
+                           <div class="space-y-3">
+                             <div class="text-sm text-text-muted">
+                               Get started by using the
+                               <code class="bg-bg-secondary px-2 py-1 rounded">tf</code> command
+                               in your terminal:
+                             </div>
 
-                            <div
-                              class="bg-bg-secondary p-4 rounded-lg font-mono text-xs space-y-2"
-                            >
-                              <div class="text-status-success">vt pnpm run dev</div>
-                              <div class="text-text-muted pl-4"># Monitor your dev server</div>
+                             <div
+                               class="bg-bg-secondary p-4 rounded-lg font-mono text-xs space-y-2"
+                             >
+                               <div class="text-status-success">tf pnpm run dev</div>
+                               <div class="text-text-muted pl-4"># Monitor your dev server</div>
 
-                              <div class="text-status-success">vt claude --dangerously...</div>
-                              <div class="text-text-muted pl-4">
-                                # Keep an eye on AI agents
-                              </div>
+                               <div class="text-status-success">tf claude --dangerously...</div>
+                               <div class="text-text-muted pl-4">
+                                 # Keep an eye on AI agents
+                               </div>
 
-                              <div class="text-status-success">vt --shell</div>
-                              <div class="text-text-muted pl-4">
-                                # Open an interactive shell
-                              </div>
+                               <div class="text-status-success">tf --shell</div>
+                               <div class="text-text-muted pl-4">
+                                 # Open an interactive shell
+                               </div>
 
-                              <div class="text-status-success">vt python train.py</div>
-                              <div class="text-text-muted pl-4">
-                                # Watch long-running scripts
-                              </div>
-                            </div>
-                          </div>
+                               <div class="text-status-success">tf python train.py</div>
+                               <div class="text-text-muted pl-4">
+                                 # Watch long-running scripts
+                               </div>
+                             </div>
+                           </div>
 
                           <div class="space-y-3 border-t border-border pt-4">
                             <div class="text-sm font-semibold text-text">
@@ -812,11 +817,11 @@ export class SessionList extends LitElement {
                             </div>
                           </div>
 
-                          <div class="text-xs text-text-muted mt-4">
-                            Once installed, any command prefixed with
-                            <code class="bg-bg-secondary px-1 rounded">vt</code> will appear
-                            here, accessible from any browser at localhost:4020.
-                          </div>
+                           <div class="text-xs text-text-muted mt-4">
+                             Once installed, any command prefixed with
+                             <code class="bg-bg-secondary px-1 rounded">tf</code> will appear
+                             here, accessible from any browser at localhost:4020.
+                           </div>
                         </div>
                       `
                 }

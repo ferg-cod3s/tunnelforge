@@ -18,7 +18,7 @@ TunnelForge deployment encompasses macOS app distribution, automatic updates via
 
 **CLI Tools Package** - Command line binaries installed to /usr/local/bin
 - tunnelforge binary (main CLI tool)
-- vt wrapper script/symlink (convenience command)
+- tf wrapper script/symlink (convenience command)
 - Installed via mac/TunnelForge/Utilities/CLIInstaller.swift
 
 ## Platform Deployment

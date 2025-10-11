@@ -161,7 +161,11 @@ export class FileBrowser extends LitElement {
     await this.loadDirectoryWithRetry(dirPath);
   }
 
-  private async loadDirectoryWithRetry(dirPath: string, attempt = 1, maxRetries = 3) {
+  private async loadDirectoryWithRetry(
+    dirPath: string,
+    attempt = 1,
+    maxRetries = 3
+  ): Promise<void> {
     this.loading = true;
     try {
       const params = new URLSearchParams({
@@ -206,7 +210,7 @@ export class FileBrowser extends LitElement {
 
         // Retry on rate limit (429) or server errors
         if ((response.status === 429 || response.status >= 500) && attempt < maxRetries) {
-          const delay = Math.min(1000 * Math.pow(2, attempt - 1), 10000); // Exponential backoff, max 10s
+          const delay = Math.min(1000 * 2 ** (attempt - 1), 10000); // Exponential backoff, max 10s
           if (response.status === 429) {
             this.showErrorMessage(`Rate limited, retrying in ${delay / 1000}s...`);
           } else {
@@ -224,7 +228,7 @@ export class FileBrowser extends LitElement {
 
       // Retry on network errors
       if (attempt < maxRetries) {
-        const delay = Math.min(1000 * Math.pow(2, attempt - 1), 10000); // Exponential backoff, max 10s
+        const delay = Math.min(1000 * 2 ** (attempt - 1), 10000); // Exponential backoff, max 10s
         logger.debug(`Retrying in ${delay}ms...`);
         await new Promise((resolve) => setTimeout(resolve, delay));
         return this.loadDirectoryWithRetry(dirPath, attempt + 1, maxRetries);
@@ -233,6 +237,28 @@ export class FileBrowser extends LitElement {
       this.showErrorMessage('Network error loading directory');
     } finally {
       this.loading = false;
+    }
+  }
+
+  private async loadPreview(file: FileInfo) {
+    if (file.type === 'directory') return;
+
+    this.previewLoading = true;
+    this.showDiff = false;
+
+    try {
+      const headers = this.noAuthMode ? {} : { ...authClient.getAuthHeader() };
+      const response = await fetch(`/api/fs/preview?path=${encodeURIComponent(file.path)}`, {
+        headers,
+      });
+
+      if (response.ok) {
+        this.preview = await response.json();
+      }
+    } catch (error) {
+      logger.error('error loading preview:', error);
+    } finally {
+      this.previewLoading = false;
     }
   }
 

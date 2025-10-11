@@ -29,12 +29,14 @@ initLogger(debugMode, verbosityLevel);
 const logger = createLogger('cli');
 
 // Initialize Sentry for error tracking
-import('./sentry.js').then(({ initSentry }) => {
-  initSentry();
-  logger.debug('Sentry initialized for error tracking');
-}).catch(err => {
-  logger.warn('Failed to initialize Sentry:', err);
-});
+import('./sentry.js')
+  .then(({ initSentry }) => {
+    initSentry();
+    logger.debug('Sentry initialized for error tracking');
+  })
+  .catch((err) => {
+    logger.warn('Failed to initialize Sentry:', err);
+  });
 
 // Source maps are only included if built with --sourcemap flag
 

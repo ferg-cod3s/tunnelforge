@@ -487,6 +487,75 @@ func TestGitService_DiscoverRepositories(t *testing.T) {
 	assert.Contains(t, repoPaths, repo2)
 }
 
+// Test API: Repository Info Endpoint
+func TestGitAPIHandler_RepoInfo(t *testing.T) {
+	repoPath, cleanup := setupTestRepo(t)
+	defer cleanup()
+
+	// Create a subdirectory that's not a git repo
+	subDir := filepath.Join(repoPath, "subdir")
+	err := os.MkdirAll(subDir, 0755)
+	require.NoError(t, err)
+
+	service := NewGitService(repoPath, newMockEventBroadcaster())
+	router := mux.NewRouter()
+	service.RegisterRoutes(router)
+
+	tests := []struct {
+		name           string
+		path           string
+		expectedStatus int
+		expectedGit    bool
+	}{
+		{
+			name:           "git_repository",
+			path:           repoPath,
+			expectedStatus: http.StatusOK,
+			expectedGit:    true,
+		},
+		{
+			name:           "non_git_directory",
+			path:           filepath.Join(repoPath, "subdir"),
+			expectedStatus: http.StatusOK,
+			expectedGit:    false,
+		},
+		{
+			name:           "missing_path_parameter",
+			path:           "",
+			expectedStatus: http.StatusBadRequest,
+			expectedGit:    false,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			url := "/api/git/repo-info"
+			if tt.path != "" {
+				url += "?path=" + tt.path
+			}
+
+			req, err := http.NewRequest("GET", url, nil)
+			require.NoError(t, err)
+
+			rr := httptest.NewRecorder()
+			router.ServeHTTP(rr, req)
+
+			assert.Equal(t, tt.expectedStatus, rr.Code)
+
+			if tt.expectedStatus == http.StatusOK {
+				var response map[string]interface{}
+				err := json.NewDecoder(rr.Body).Decode(&response)
+				require.NoError(t, err)
+
+				assert.Contains(t, response, "isGitRepo")
+				assert.Contains(t, response, "repoPath")
+				assert.Equal(t, tt.expectedGit, response["isGitRepo"])
+				assert.Equal(t, tt.path, response["repoPath"])
+			}
+		})
+	}
+}
+
 // Helper function to run git commands for testing
 func runGitCommand(repoPath string, args ...string) error {
 	cmd := exec.Command("git", args...)

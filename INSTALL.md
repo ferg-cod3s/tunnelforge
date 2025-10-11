@@ -2,6 +2,19 @@
 
 Complete installation instructions for TunnelForge across all platforms.
 
+## ⚠️ Security Notice
+
+**TunnelForge ships with INSECURE DEFAULTS for development convenience.**
+
+Before deploying to production or exposing to any network:
+- **Enable authentication**: See [Security Configuration](#security-configuration)
+- **Configure secure settings**: Review `.env.production.example`
+- **Use HTTPS/TLS**: Place behind reverse proxy with valid SSL certificate
+
+📖 **Full Security Guide**: [docs/SECURITY_CONFIGURATION.md](docs/SECURITY_CONFIGURATION.md)
+
+---
+
 ## Quick Start
 
 Choose your platform:
@@ -332,28 +345,95 @@ Built files will be in `desktop/src-tauri/target/release/bundle/`
 
 ## Configuration
 
+### Security Configuration
+
+**⚠️ IMPORTANT**: TunnelForge defaults to **INSECURE** settings for local development.
+
+For production deployment or network exposure:
+
+```bash
+# Copy and customize production configuration
+cp .env.production.example .env
+
+# Generate secure secrets
+openssl rand -base64 32  # For JWT_SECRET
+openssl rand -base64 32  # For CSRF_SECRET
+
+# Edit .env with your secrets and domains
+nano .env
+```
+
+**Required Production Settings**:
+- `ENABLE_AUTH=true` - Enable JWT authentication
+- `AUTH_REQUIRED=true` - Require auth on all endpoints
+- `ALLOW_LOCAL_BYPASS=false` - Disable local auth bypass
+- `JWT_SECRET=<secure-random-key>` - 256-bit random secret
+- `CSRF_SECRET=<secure-random-key>` - 256-bit random secret
+- `ALLOWED_ORIGINS=https://yourdomain.com` - Your actual domain(s)
+
+📖 **Full Security Guide**: [docs/SECURITY_CONFIGURATION.md](docs/SECURITY_CONFIGURATION.md)
+
 ### Server Configuration
 
-TunnelForge looks for configuration in these locations (in order):
+TunnelForge supports both **environment variables** (recommended) and YAML configuration.
 
-1. `./tunnelforge.yml` (current directory)
-2. `~/.config/tunnelforge/config.yml` (Linux/macOS)
-3. `%APPDATA%\TunnelForge\config.yml` (Windows)
+#### Configuration Files (in order of precedence):
+
+1. `.env` (current directory) - **Recommended**
+2. `./tunnelforge.yml` (current directory)
+3. `~/.config/tunnelforge/config.yml` (Linux/macOS)
+4. `%APPDATA%\TunnelForge\config.yml` (Windows)
+
+#### Environment Variables (Recommended)
+
+```bash
+# Server settings
+HOST=localhost
+PORT=4021
+SERVER_NAME=TunnelForge
+
+# Authentication (PRODUCTION)
+ENABLE_AUTH=true
+AUTH_REQUIRED=true
+ALLOW_LOCAL_BYPASS=false
+JWT_SECRET=<generate-with-openssl-rand>
+CSRF_SECRET=<generate-with-openssl-rand>
+
+# Security
+ENABLE_RATE_LIMIT=true
+RATE_LIMIT_PER_MIN=60
+ENABLE_CSRF=true
+ALLOWED_ORIGINS=https://yourdomain.com
+
+# Logging
+LOG_LEVEL=warn
+ENABLE_REQUEST_LOG=true
+```
+
+#### YAML Configuration (Legacy)
 
 Example `tunnelforge.yml`:
 
 ```yaml
 server:
   port: 4021
-  host: "0.0.0.0"
-  
-web:
-  port: 3001
-  enable: true
+  host: "localhost"
   
 auth:
   enabled: true
+  required: true
+  allow_local_bypass: false
   jwt_secret: "your-secret-key"
+  
+security:
+  rate_limit:
+    enabled: true
+    per_min: 60
+  csrf:
+    enabled: true
+    secret: "your-csrf-secret"
+  allowed_origins:
+    - "https://yourdomain.com"
   
 sessions:
   persistence: true
@@ -361,31 +441,14 @@ sessions:
   
 tunnels:
   cloudflare:
-    enabled: true
+    enabled: false
   ngrok:
-    enabled: true
-    auth_token: "your-ngrok-token"
+    enabled: false
   tailscale:
-    enabled: true
+    enabled: false
 ```
 
-### Environment Variables
-
-```bash
-# Server settings
-export TUNNELFORGE_PORT=4021
-export TUNNELFORGE_HOST=0.0.0.0
-
-# Authentication
-export TUNNELFORGE_NO_AUTH=false
-export TUNNELFORGE_JWT_SECRET=your-secret-key
-
-# Logging
-export TUNNELFORGE_LOG_LEVEL=info
-
-# Tunnels
-export NGROK_AUTH_TOKEN=your-ngrok-token
-```
+**Note**: Environment variables take precedence over YAML configuration.
 
 ### Auto-Start Configuration
 

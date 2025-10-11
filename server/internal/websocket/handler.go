@@ -7,6 +7,7 @@ import (
 	"sync"
 	"time"
 
+	"github.com/getsentry/sentry-go"
 	"github.com/google/uuid"
 	"github.com/gorilla/websocket"
 
@@ -66,26 +67,46 @@ func NewHandler(sessionManager session.ManagerInterface) *Handler {
 }
 
 func (h *Handler) HandleWebSocket(w http.ResponseWriter, r *http.Request) {
+	// Log all WebSocket connection attempts
+	log.Printf("[WS] Connection attempt from %s, URL: %s", r.RemoteAddr, r.URL.String())
+
 	// Get session ID from query parameters
 	sessionID := r.URL.Query().Get("sessionId")
 	if sessionID == "" {
+		log.Printf("[WS] ERROR: Missing sessionId parameter")
 		http.Error(w, "Missing sessionId parameter", http.StatusBadRequest)
 		return
 	}
+	log.Printf("[WS] Session ID: %s", sessionID)
 
 	// Verify session exists before upgrading WebSocket
-	if h.sessionManager.Get(sessionID) == nil {
+	session := h.sessionManager.Get(sessionID)
+	if session == nil {
+		log.Printf("[WS] ERROR: Session %s not found", sessionID)
 		http.Error(w, "Session not found", http.StatusNotFound)
 		return
 	}
+	log.Printf("[WS] Session %s found, active: %v", sessionID[:8], session.Active)
 
 	// Upgrade to WebSocket with origin checks
 	upgrader := h.buildUpgrader()
+	log.Printf("[WS] Attempting to upgrade connection for session %s", sessionID[:8])
 	conn, err := upgrader.Upgrade(w, r, nil)
 	if err != nil {
-		log.Printf("WebSocket upgrade failed: %v", err)
+		log.Printf("[WS] ERROR: WebSocket upgrade failed for session %s: %v", sessionID[:8], err)
+		sentry.WithScope(func(scope *sentry.Scope) {
+			scope.SetTag("component", "websocket")
+			scope.SetTag("session_id", sessionID)
+			scope.SetContext("request", map[string]interface{}{
+				"url":         r.URL.String(),
+				"remote_addr": r.RemoteAddr,
+				"origin":      r.Header.Get("Origin"),
+			})
+			sentry.CaptureException(err)
+		})
 		return
 	}
+	log.Printf("[WS] ✓ WebSocket upgrade successful for session %s", sessionID[:8])
 
 	// Create client
 	clientID := uuid.New().String()
@@ -113,19 +134,28 @@ func (h *Handler) HandleWebSocket(w http.ResponseWriter, r *http.Request) {
 		LastPing:  time.Now(),
 	}
 
+	log.Printf("[WS] Adding client %s to session %s", clientID[:8], sessionID[:8])
 	if err := h.sessionManager.AddClientToSession(sessionID, wsClient); err != nil {
-		log.Printf("Failed to add client to session %s: %v", sessionID[:8], err)
+		log.Printf("[WS] ERROR: Failed to add client to session %s: %v", sessionID[:8], err)
+		sentry.WithScope(func(scope *sentry.Scope) {
+			scope.SetTag("component", "websocket")
+			scope.SetTag("session_id", sessionID)
+			scope.SetTag("client_id", clientID)
+			scope.SetLevel(sentry.LevelError)
+			sentry.CaptureException(err)
+		})
 		conn.Close()
 		h.clientsMu.Lock()
 		delete(h.clients, clientID)
 		h.clientsMu.Unlock()
 		return
 	}
+	log.Printf("[WS] ✓ Client %s added to session %s", clientID[:8], sessionID[:8])
 
 	// Get the PTY session for I/O handling (after initialization)
 	ptySession := h.sessionManager.GetPTYSession(sessionID)
 	if ptySession == nil {
-		log.Printf("PTY session %s not found after client addition", sessionID[:8])
+		log.Printf("[WS] ERROR: PTY session %s not found after client addition", sessionID[:8])
 		conn.Close()
 		h.clientsMu.Lock()
 		delete(h.clients, clientID)
@@ -133,7 +163,7 @@ func (h *Handler) HandleWebSocket(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	log.Printf("WebSocket client %s connected to session %s", clientID[:8], sessionID[:8])
+	log.Printf("[WS] ✓ WebSocket client %s fully connected to session %s", clientID[:8], sessionID[:8])
 
 	// Type assert to PTYSession
 	if ptySessionTyped, ok := ptySession.(*terminal.PTYSession); ok {
@@ -181,14 +211,15 @@ func (h *Handler) handleClientOutput(client *Client, ptySession *terminal.PTYSes
 		case <-client.Done:
 			return
 		case data := <-client.Send:
-			if err := client.Conn.WriteMessage(websocket.TextMessage, data); err != nil {
-				log.Printf("WebSocket write error for client %s: %v", client.ID[:8], err)
+			log.Printf("[WS] Sending %d bytes to client %s", len(data), client.ID[:8])
+			if err := client.Conn.WriteMessage(websocket.BinaryMessage, data); err != nil {
+				log.Printf("[WS] ERROR: Write error for client %s: %v", client.ID[:8], err)
 				return
 			}
 		case <-time.After(30 * time.Second):
 			// Send ping
 			if err := client.Conn.WriteMessage(websocket.PingMessage, nil); err != nil {
-				log.Printf("WebSocket ping error for client %s: %v", client.ID[:8], err)
+				log.Printf("[WS] ERROR: Ping error for client %s: %v", client.ID[:8], err)
 				return
 			}
 		}

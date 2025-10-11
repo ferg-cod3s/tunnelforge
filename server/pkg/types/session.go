@@ -49,8 +49,10 @@ type SessionCreateRequest struct {
 
 // SessionResponse represents a session in API responses
 type SessionResponse struct {
-	ID        string    `json:"id"`
+	ID        string    `json:"id"`        // Primary ID field for client
+	SessionID string    `json:"sessionId"` // Alias for backwards compatibility
 	Title     string    `json:"title"`
+	Name      string    `json:"name"` // Alias for title for backwards compatibility
 	Command   string    `json:"command"`
 	Cwd       string    `json:"cwd"`
 	Cols      int       `json:"cols"`

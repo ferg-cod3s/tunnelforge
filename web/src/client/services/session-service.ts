@@ -221,5 +221,7 @@ export class SessionService {
         // Retry on network errors
       }
     }
+    // Should never reach here, but required for TypeScript
+    throw new Error('Failed to create session after all retries');
   }
 }

@@ -336,7 +336,7 @@ test.describe('UI Features', () => {
     }
 
     const countText = await sessionCountElement.textContent();
-    const count = Number.parseInt(countText?.match(/\d+/)?.[0] || '0');
+    const count = Number.parseInt(countText?.match(/\d+/)?.[0] || '0', 10);
 
     // We should have at least 1 session (the one we just created)
     expect(count).toBeGreaterThanOrEqual(1);

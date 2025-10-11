@@ -22,15 +22,15 @@ curl -o- https://raw.githubusercontent.com/nvm-sh/nvm/v0.39.0/install.sh | bash
 nvm install --lts
 nvm use --lts
 
-# Install pnpm
-npm install -g pnpm
+# Install Bun
+curl -fsSL https://bun.sh/install | bash
 
 # Install Xcode (macOS)
 # Download from Mac App Store or developer.apple.com
 
 # Verify installations
 node --version
-pnpm --version
+bun --version
 git --version
 xcodebuild -version
 ```
@@ -39,25 +39,25 @@ xcodebuild -version
 
 ### Package Manager Configuration
 
-#### pnpm Configuration
+#### Bun Configuration
 ```bash
-# Install pnpm globally
-npm install -g pnpm
+# Install Bun globally
+curl -fsSL https://bun.sh/install | bash
 
-# Configure pnpm
-pnpm config set store-dir ~/.pnpm-store
-pnpm config set strict-peer-dependencies false
-pnpm config set auto-install-peers true
+# Configure bun
+# bun config set store-dir ~/.pnpm-store
+# bun config set strict-peer-dependencies false
+# bun config set auto-install-peers true
 ```
 
 #### Project Setup
 ```json
 // package.json
 {
-  "packageManager": "pnpm@8.15.0",
+  "packageManager": "bun@1.0.0",
   "engines": {
     "node": ">=18.0.0",
-    "pnpm": ">=8.0.0"
+    "bun": ">=1.0.0"
   }
 }
 ```
@@ -66,9 +66,9 @@ pnpm config set auto-install-peers true
 
 #### Installation
 ```bash
-pnpm add -D eslint @typescript-eslint/parser @typescript-eslint/eslint-plugin
-pnpm add -D eslint-plugin-import eslint-plugin-jsx-a11y eslint-plugin-react
-pnpm add -D eslint-config-prettier eslint-plugin-prettier
+bun add -D eslint @typescript-eslint/parser @typescript-eslint/eslint-plugin
+bun add -D eslint-plugin-import eslint-plugin-jsx-a11y eslint-plugin-react
+bun add -D eslint-config-prettier eslint-plugin-prettier
 ```
 
 #### Configuration (.eslintrc.json)
@@ -132,7 +132,7 @@ pnpm add -D eslint-config-prettier eslint-plugin-prettier
 
 #### Installation
 ```bash
-pnpm add -D prettier
+bun add -D prettier
 ```
 
 #### Configuration (.prettierrc.json)
@@ -287,7 +287,7 @@ max_line_length = 88
 
 #### Installation
 ```bash
-pnpm add -D eslint-plugin-jsx-a11y
+bun add -D eslint-plugin-jsx-a11y
 ```
 
 #### Additional Rules
@@ -567,9 +567,9 @@ custom_rules:
 
 #### Installation
 ```bash
-pnpm add -D husky lint-staged
-pnpm dlx husky install
-pnpm dlx husky add .husky/pre-commit "pnpm dlx lint-staged"
+bun add -D husky lint-staged
+bun x husky install
+bun x husky add .husky/pre-commit "bun x lint-staged"
 ```
 
 #### Configuration (package.json)
@@ -595,7 +595,7 @@ pnpm dlx husky add .husky/pre-commit "pnpm dlx lint-staged"
 
 #### Installation
 ```bash
-pnpm add -D @commitlint/cli @commitlint/config-conventional
+bun add -D @commitlint/cli @commitlint/config-conventional
 ```
 
 #### Configuration (commitlint.config.js)
@@ -739,17 +739,17 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v3
-      - uses: pnpm/action-setup@v2
-        with:
-          version: 8
+      # Bun setup handled by actions/setup-node
+      # with:
+      #   version: 1
       - uses: actions/setup-node@v3
-        with:
+      # with:
           node-version: '20'
-          cache: 'pnpm'
-      - run: pnpm install --frozen-lockfile
-      - run: pnpm run lint
-      - run: pnpm run typecheck
-      - run: pnpm run format:check
+          cache: 'bun'
+      - run: bun install --frozen-lockfile
+      - run: bun run lint
+      - run: bun run typecheck
+      - run: bun run format:check
 
   lint-swift:
     runs-on: macos-latest
@@ -797,23 +797,23 @@ jobs:
 ```bash
 # Clear ESLint cache
 rm -rf node_modules/.cache/eslint-loader
-pnpm run lint --debug
+bun run lint --debug
 ```
 
 #### Prettier Conflicts
 ```bash
 # Check for conflicts
-pnpm dlx prettier-eslint-cli --list-different "src/**/*.{js,jsx,ts,tsx}"
+bun x prettier-eslint-cli --list-different "src/**/*.{js,jsx,ts,tsx}"
 
 # Auto-fix conflicts
-pnpm dlx prettier-eslint --write "src/**/*.{js,jsx,ts,tsx}"
+bun x prettier-eslint --write "src/**/*.{js,jsx,ts,tsx}"
 ```
 
 #### TypeScript Errors
 ```bash
 # Rebuild TypeScript project
 rm -rf tsconfig.tsbuildinfo
-pnpm run typecheck
+bun run typecheck
 ```
 
 #### SwiftFormat Issues

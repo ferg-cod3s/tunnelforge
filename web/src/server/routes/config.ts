@@ -32,6 +32,7 @@ export interface AppConfig {
   serverConfigured?: boolean;
   quickStartCommands?: QuickStartCommand[];
   notificationPreferences?: NotificationPreferences;
+  websocketUrl?: string;
 }
 
 interface ConfigRouteOptions {
@@ -49,17 +50,23 @@ export function createConfigRoutes(options: ConfigRouteOptions): Router {
    * Get application configuration
    * GET /api/config
    */
-  router.get('/config', (_req, res) => {
+  router.get('/config', (req, res) => {
     try {
       const vibeTunnelConfig = configService.getConfig();
       const repositoryBasePath =
         vibeTunnelConfig.repositoryBasePath || DEFAULT_REPOSITORY_BASE_PATH;
+
+      // Determine WebSocket URL based on request
+      const protocol = req.protocol === 'https' ? 'wss' : 'ws';
+      const host = req.get('host') || 'localhost:4020';
+      const websocketUrl = `${protocol}://${host}`;
 
       const config: AppConfig = {
         repositoryBasePath: repositoryBasePath,
         serverConfigured: true, // Always configured when server is running
         quickStartCommands: vibeTunnelConfig.quickStartCommands,
         notificationPreferences: configService.getNotificationPreferences(),
+        websocketUrl,
       };
 
       logger.debug('[GET /api/config] Returning app config:', config);

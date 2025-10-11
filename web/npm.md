@@ -87,7 +87,7 @@ CMD ["vibetunnel"]
    - `package.npm.json` 
    - `../mac/VibeTunnel/version.xcconfig`
 
-2. **Build**: `pnpm run build:npm`
+2. **Build**: `bun run build:npm`
 
 3. **Verify**: 
    ```bash
@@ -132,7 +132,7 @@ The build script (`scripts/build-npm.js`) checks for `package.npm.json` and uses
 
 1. Build the package explicitly:
    ```bash
-   pnpm run build:npm
+   bun run build:npm
    ```
 
 2. Verify the package has the correct configuration:
@@ -167,7 +167,7 @@ vim ../mac/VibeTunnel/version.xcconfig  # Update MARKETING_VERSION
 
 ### 2. Build the Package
 ```bash
-pnpm run build:npm
+bun run build:npm
 ```
 
 ### 3. Verify the Build
@@ -293,14 +293,14 @@ If you accidentally published with wrong configuration:
 - **Issue**: npm publish process overwrote correct configuration
 
 ### Version 11.4 (Good)
-- Built with explicit `pnpm run build:npm`
+- Built with explicit `bun run build:npm`
 - Published pre-built tarball
 - `authenticate-pam` correctly optional
 - Linux installations work properly
 
 ### Version 11.5 (Good)
 - Published December 2024
-- Built with explicit `pnpm run build:npm`
+- Built with explicit `bun run build:npm`
 - Published pre-built tarball: `vibetunnel-1.0.0-beta.11.5.tgz`
 - Verified `authenticate-pam` as optional dependency before publishing
 - Tagged as both `beta` and `latest`
@@ -308,14 +308,14 @@ If you accidentally published with wrong configuration:
 
 ### Version 12.1 (Good)
 - Published July 2025
-- Built with explicit `pnpm run build:npm`
+- Built with explicit `bun run build:npm`
 - Published pre-built tarball
 - `authenticate-pam` correctly optional
 - Linux installations work properly
 
 ### Version 12.2 (Good - Latest)
 - Published July 17, 2025
-- Built with explicit `pnpm run build:npm`
+- Built with explicit `bun run build:npm`
 - Published pre-built tarball: `vibetunnel-1.0.0-beta.12.2.tgz`
 - Verified `authenticate-pam` as optional dependency before publishing
 - Tagged with `beta` tag

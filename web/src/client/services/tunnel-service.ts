@@ -1,7 +1,7 @@
-import type { AuthClient } from './auth-client.js';
 import { createLogger } from '../utils/logger.js';
+import type { AuthClient } from './auth-client.js';
 
-const logger = createLogger('tunnel-service');
+const _logger = createLogger('tunnel-service');
 
 export interface TunnelConfig {
   tunnelId?: string;
@@ -39,11 +39,11 @@ export class TunnelAPIService {
     const response = await fetch('/api/tunnels', {
       headers: this.getHeaders(),
     });
-    
+
     if (!response.ok) {
       throw new Error(`Failed to list tunnel services: ${response.statusText}`);
     }
-    
+
     const data = await response.json();
     const tunnels = data.tunnels || {};
     return Object.values(tunnels);
@@ -55,12 +55,12 @@ export class TunnelAPIService {
       headers: this.getHeaders(),
       body: JSON.stringify({ port: request.port || 3000 }),
     });
-    
+
     if (!response.ok) {
       const error = await response.json();
       throw new Error(error.error || 'Failed to start tunnel');
     }
-    
+
     return response.json();
   }
 
@@ -69,7 +69,7 @@ export class TunnelAPIService {
       method: 'POST',
       headers: this.getHeaders(),
     });
-    
+
     if (!response.ok) {
       throw new Error(`Failed to stop tunnel: ${response.statusText}`);
     }
@@ -79,11 +79,11 @@ export class TunnelAPIService {
     const response = await fetch('/api/tunnels/cloudflare/status', {
       headers: this.getHeaders(),
     });
-    
+
     if (!response.ok) {
       throw new Error(`Failed to get tunnel status: ${response.statusText}`);
     }
-    
+
     return response.json();
   }
 
@@ -91,29 +91,24 @@ export class TunnelAPIService {
     const response = await fetch('/api/tunnels/cloudflare/url', {
       headers: this.getHeaders(),
     });
-    
+
     if (!response.ok) {
       throw new Error(`Failed to get tunnel URL: ${response.statusText}`);
     }
-    
+
     return response.json();
   }
 
   async isCloudflareInstalled(): Promise<{ installed: boolean }> {
     const list = await this.listTunnelServices();
-    const cloudflare = list.find(t => t.type === 'cloudflare');
+    const cloudflare = list.find((t) => t.type === 'cloudflare');
     return { installed: cloudflare?.installed || false };
   }
 
   private getHeaders(): HeadersInit {
-    const headers: HeadersInit = {
+    return {
       'Content-Type': 'application/json',
+      ...this.authClient.getAuthHeader(),
     };
-    
-    if (this.authClient?.token) {
-      headers['Authorization'] = `Bearer ${this.authClient.token}`;
-    }
-    
-    return headers;
   }
 }

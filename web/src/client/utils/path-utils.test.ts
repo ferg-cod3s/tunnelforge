@@ -1,7 +1,7 @@
 /**
  * Tests for path-utils.ts
  */
-import { expect, describe, it, beforeEach, afterEach, mock, spyOn } from 'bun:test';
+import { afterEach, beforeEach, describe, expect, it, mock } from 'bun:test';
 import { copyToClipboard, formatPathForDisplay } from './path-utils';
 
 describe('formatPathForDisplay', () => {

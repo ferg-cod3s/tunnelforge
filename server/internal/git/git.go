@@ -454,11 +454,39 @@ func (g *GitService) handleDiscoverRepositories(w http.ResponseWriter, r *http.R
 	json.NewEncoder(w).Encode(response)
 }
 
+// handleRepoInfo checks if a path is a Git repository and returns repository information
+func (g *GitService) handleRepoInfo(w http.ResponseWriter, r *http.Request) {
+	path := r.URL.Query().Get("path")
+	if path == "" {
+		http.Error(w, "Missing path parameter", http.StatusBadRequest)
+		return
+	}
+
+	// Validate and resolve path
+	validatedPath, err := g.validatePath(path)
+	if err != nil {
+		http.Error(w, fmt.Sprintf("Invalid path: %v", err), http.StatusBadRequest)
+		return
+	}
+
+	// Check if it's a git repository
+	isGitRepo := g.isGitRepository(validatedPath)
+
+	response := map[string]interface{}{
+		"isGitRepo": isGitRepo,
+		"repoPath":  validatedPath,
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	json.NewEncoder(w).Encode(response)
+}
+
 // RegisterRoutes registers Git API routes
 func (g *GitService) RegisterRoutes(router *mux.Router) {
 	// Git API routes
 	gitRouter := router.PathPrefix("/api/git").Subrouter()
 
+	gitRouter.HandleFunc("/repo-info", g.handleRepoInfo).Methods("GET")
 	gitRouter.HandleFunc("/status", g.handleGetStatus).Methods("GET")
 	gitRouter.HandleFunc("/branches", g.handleListBranches).Methods("GET")
 	gitRouter.HandleFunc("/checkout", g.handleCheckoutBranch).Methods("POST")

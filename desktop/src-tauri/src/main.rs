@@ -344,6 +344,22 @@ pub fn run() {
             ui::toggle_ngrok_integration,
             ui::set_ngrok_auth_token,
 
+            // Cloudflare commands
+            cloudflare_service::get_cloudflare_status,
+            cloudflare_service::check_cloudflare_status,
+            cloudflare_service::start_cloudflare_tunnel,
+            cloudflare_service::stop_cloudflare_tunnel,
+            cloudflare_service::open_cloudflare_homebrew,
+            cloudflare_service::open_cloudflare_download,
+            cloudflare_service::open_cloudflare_setup_guide,
+            cloudflare_service::save_cloudflare_credentials,
+            cloudflare_service::load_cloudflare_credentials,
+            cloudflare_service::validate_cloudflare_credentials,
+            cloudflare_service::create_named_cloudflare_tunnel,
+            cloudflare_service::stop_named_cloudflare_tunnel,
+            cloudflare_service::delete_named_cloudflare_tunnel,
+            cloudflare_service::list_named_cloudflare_tunnels,
+
             // Access mode commands
             access_mode_service::get_access_mode_status,
             access_mode_service::check_network_access,

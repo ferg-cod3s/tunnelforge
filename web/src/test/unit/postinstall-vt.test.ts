@@ -28,12 +28,12 @@ describe('postinstall vt installation', () => {
 
       const consoleSpy = vi.spyOn(console, 'log').mockImplementation(() => {});
 
-      const { installVtCommand } = require('../../../scripts/install-vt-command');
-      const result = installVtCommand(vtSource, false);
+      const { installTfCommand } = require('../../../scripts/install-tf-command');
+      const result = installTfCommand(vtSource, false);
 
       expect(result).toBe(true);
-      expect(consoleSpy).toHaveBeenCalledWith('✓ vt command configured for local use');
-      expect(consoleSpy).toHaveBeenCalledWith('  Use "npx vt" to run the vt wrapper');
+      expect(consoleSpy).toHaveBeenCalledWith('✓ tf command configured for local use');
+      expect(consoleSpy).toHaveBeenCalledWith('  Use "npx tf" to run the tf wrapper');
 
       // Check file is executable on Unix
       if (process.platform !== 'win32') {
@@ -49,11 +49,11 @@ describe('postinstall vt installation', () => {
       const consoleWarnSpy = vi.spyOn(console, 'warn').mockImplementation(() => {});
       const consoleLogSpy = vi.spyOn(console, 'log').mockImplementation(() => {});
 
-      const { installVtCommand } = require('../../../scripts/install-vt-command');
-      const result = installVtCommand(vtSource, false);
+      const { installTfCommand } = require('../../../scripts/install-tf-command');
+      const result = installTfCommand(vtSource, false);
 
       expect(result).toBe(false);
-      expect(consoleWarnSpy).toHaveBeenCalledWith('⚠️  vt command script not found in package');
+      expect(consoleWarnSpy).toHaveBeenCalledWith('⚠️  tf command script not found in package');
       expect(consoleLogSpy).toHaveBeenCalledWith('   Use "tunnelforge" command instead');
 
       consoleWarnSpy.mockRestore();
@@ -65,7 +65,7 @@ describe('postinstall vt installation', () => {
     it('should detect global install when npm_config_global is true', () => {
       process.env.npm_config_global = 'true';
 
-      const { detectGlobalInstall } = require('../../../scripts/install-vt-command');
+      const { detectGlobalInstall } = require('../../../scripts/install-tf-command');
       const result = detectGlobalInstall();
 
       expect(result).toBe(true);
@@ -74,7 +74,7 @@ describe('postinstall vt installation', () => {
     it('should detect local install when npm_config_global is false', () => {
       process.env.npm_config_global = 'false';
 
-      const { detectGlobalInstall } = require('../../../scripts/install-vt-command');
+      const { detectGlobalInstall } = require('../../../scripts/install-tf-command');
       const result = detectGlobalInstall();
 
       expect(result).toBe(false);

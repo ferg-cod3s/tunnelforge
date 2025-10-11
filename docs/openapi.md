@@ -28,7 +28,7 @@ This document outlines the plan to adopt OpenAPI 3.1 for TunnelForge's REST API 
 
 ```bash
 # In web directory
-pnpm add -D @hey-api/openapi-ts @apidevtools/swagger-cli @stoplight/spectral-cli
+bun add -D @hey-api/openapi-ts @apidevtools/swagger-cli @stoplight/spectral-cli
 ```
 
 #### 1.2 Create Initial OpenAPI Spec

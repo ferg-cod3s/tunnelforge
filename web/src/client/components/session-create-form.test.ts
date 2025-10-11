@@ -1,5 +1,6 @@
-import { fixture, html } from '@open-wc/testing';
 import { afterEach, beforeAll, beforeEach, describe, expect, it, mock } from 'bun:test';
+import { fixture, html } from '@open-wc/testing';
+import { TitleMode } from '../../shared/types';
 import {
   restoreLocalStorage,
   setupFetchMock,
@@ -7,7 +8,6 @@ import {
   typeInInput,
   waitForAsync,
 } from '../../test/utils/component-helpers';
-import { TitleMode } from '../../shared/types';
 import type { AuthClient } from '../services/auth-client';
 
 // Mock AuthClient
@@ -35,8 +35,8 @@ describe('SessionCreateForm', () => {
     localStorageMock = setupLocalStorageMock();
 
     // Spy on localStorage methods for assertions
-    const originalSetItem = localStorageMock.setItem;
-    const originalGetItem = localStorageMock.getItem;
+    const _originalSetItem = localStorageMock.setItem;
+    const _originalGetItem = localStorageMock.getItem;
 
     localStorageMock.setItem = mock(() => {});
     localStorageMock.getItem = mock(() => null);

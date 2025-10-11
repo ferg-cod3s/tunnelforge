@@ -45,6 +45,11 @@ import { getControlEventService } from './services/control-event-service.js';
 import { notificationEventService } from './services/notification-event-service.js';
 import { pushNotificationService } from './services/push-notification-service.js';
 
+// Initialize console logger to forward browser logs to server
+import { initConsoleLogger } from './utils/console-logger.js';
+
+initConsoleLogger();
+
 const logger = createLogger('app');
 
 // Interface for session view component's stream connection
@@ -198,7 +203,7 @@ export class TunnelForgeApp extends LitElement {
         e.stopPropagation();
 
         // Get the session number (1-9, 0 = 10)
-        const sessionNumber = e.key === '0' ? 10 : Number.parseInt(e.key);
+        const sessionNumber = e.key === '0' ? 10 : Number.parseInt(e.key, 10);
 
         // Get visible sessions in the same order as the session list
         const activeSessions = this.sessions.filter(
@@ -437,6 +442,19 @@ export class TunnelForgeApp extends LitElement {
 
         if (!authConfig.authRequired) {
           logger.log('🔓 No auth required, bypassing authentication');
+
+          // Get the current system user and persist in AuthClient
+          try {
+            const userResponse = await fetch('/api/auth/current-user');
+            if (userResponse.ok) {
+              const userData = await userResponse.json();
+              authClient.setNoAuthUser(userData.userId);
+              logger.log('👤 No-auth user configured on init:', authClient.getCurrentUser());
+            }
+          } catch (error) {
+            logger.warn('Could not fetch current user:', error);
+          }
+
           this.isAuthenticated = true;
           this.currentView = 'list';
           await this.initializeServices(noAuthEnabled); // Initialize services with no-auth flag
@@ -628,7 +646,13 @@ export class TunnelForgeApp extends LitElement {
         const headers = authClient.getAuthHeader();
         const response = await fetch('/api/sessions', { headers });
         if (response.ok) {
-          const newSessions = (await response.json()) as Session[];
+          const rawSessions = await response.json();
+          // Normalize sessionId to id for backwards compatibility
+          const newSessions = rawSessions.map((s: any) => ({
+            ...s,
+            id: s.sessionId || s.id,
+            sessionId: s.sessionId || s.id,
+          })) as Session[];
 
           // Debug: Log sessions with activity status
           const sessionsWithActivity = newSessions.filter((s) => s.activityStatus);
@@ -707,6 +731,11 @@ export class TunnelForgeApp extends LitElement {
 
           if (hasSessionChanges) {
             this.sessions = updatedSessions;
+            logger.log(
+              `[App] Sessions updated: ${updatedSessions.length} total, ` +
+                `${updatedSessions.filter((s) => s.status === 'running').length} running, ` +
+                `${updatedSessions.filter((s) => s.status === 'exited').length} exited`
+            );
             // Clear session cache when sessions change
             this._cachedSelectedSession = undefined;
             this._cachedSelectedSessionId = null;

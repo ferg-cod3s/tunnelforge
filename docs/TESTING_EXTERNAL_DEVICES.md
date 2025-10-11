@@ -14,7 +14,7 @@ This is the recommended approach for rapid iteration during development.
 
 ```bash
 cd web
-pnpm run dev --port 4021 --bind 0.0.0.0
+bun run dev --port 4021 --bind 0.0.0.0
 ```
 
 **Key parameters:**
@@ -54,7 +54,7 @@ Use this method when you need to test with the full Mac app integration.
 
 ```bash
 cd web
-pnpm run build
+bun run build
 ```
 
 ### 2. Configure TunnelForge for Network Access
@@ -98,7 +98,7 @@ lsof -i :4021
 - Check the terminal for build errors
 
 **For production build:**
-- You must rebuild after each change: `pnpm run build`
+- You must rebuild after each change: `bun run build`
 - Restart the TunnelForge server after building
 - Clear browser cache on the external device
 
@@ -142,7 +142,7 @@ Use Chrome DevTools or Safari Web Inspector to simulate:
 Test on multiple devices simultaneously:
 ```bash
 # Terminal 1: Development server
-pnpm run dev --port 4021 --bind 0.0.0.0
+bun run dev --port 4021 --bind 0.0.0.0
 
 # Terminal 2: Production server (if needed)
 # TunnelForge app handles this automatically

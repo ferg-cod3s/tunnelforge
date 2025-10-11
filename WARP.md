@@ -95,19 +95,19 @@ When the user says "release" or asks to create a release, ALWAYS read and follow
 
 ### Terminal Title Management with VT
 
-When creating pull requests, use the `vt` command to update the terminal title:
-- Run `vt title "Brief summary - github.com/owner/repo/pull/123"`
+When creating pull requests, use the `tf` command to update the terminal title:
+- Run `tf title "Brief summary - github.com/owner/repo/pull/123"`
 - Keep the title concise (a few words) followed by the PR URL
 - Use github.com URL format (not https://) for easy identification
 - Update the title periodically as work progresses
-- If `vt` command fails (only works inside TunnelForge), simply ignore the error and continue
+- If `tf` command fails (only works inside TunnelForge), simply ignore the error and continue
 
 ## Web Development Commands
 
 **DEVELOPMENT MODES**:
-- **Standalone Development**: `pnpm run dev` runs independently on port 4020
+- **Standalone Development**: `bun run dev` runs independently on port 4020
 - **Mac App Integration**: Enable "Development Server" in TunnelForge settings (recommended)
-  - Mac app automatically runs `pnpm run dev` and manages the process
+  - Mac app automatically runs `bun run dev` and manages the process
   - Provides seamless integration with Mac app features
   - Hot reload works with full TunnelForge functionality
 
@@ -115,23 +115,23 @@ In the `web/` directory:
 
 ```bash
 # Development
-pnpm run dev                   # Standalone development server (port 4020)
-pnpm run dev --port 4021       # Alternative port for external device testing
+bun run dev                   # Standalone development server (port 4020)
+bun run dev --port 4021       # Alternative port for external device testing
 
 # Code quality (MUST run before commit)
-pnpm run check         # Run ALL checks in parallel (format, lint, typecheck)
-pnpm run check:fix     # Auto-fix formatting and linting issues
+bun run check         # Run ALL checks in parallel (format, lint, typecheck)
+bun run check:fix     # Auto-fix formatting and linting issues
 
 # Individual commands (rarely needed)
-pnpm run lint          # Check for linting errors
-pnpm run lint:fix      # Auto-fix linting errors
-pnpm run format        # Format with Prettier
-pnpm run typecheck     # Check TypeScript types
+bun run lint          # Check for linting errors
+bun run lint:fix      # Auto-fix linting errors
+bun run format        # Format with Prettier
+bun run typecheck     # Check TypeScript types
 
 # Testing (only when requested)
-pnpm run test
-pnpm run test:coverage
-pnpm run test:e2e
+bun run test
+bun run test:coverage
+bun run test:e2e
 ```
 
 ## Modern Development Commands
@@ -261,7 +261,7 @@ When the user reports issues on external devices, use the development server met
 ```bash
 # Run dev server accessible from external devices
 cd web
-pnpm run dev --port 4021 --bind 0.0.0.0
+bun run dev --port 4021 --bind 0.0.0.0
 ```
 
 Then access from the external device using `http://[mac-ip]:4021`

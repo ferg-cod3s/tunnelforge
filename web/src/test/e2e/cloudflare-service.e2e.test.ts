@@ -1,4 +1,4 @@
-import { test, expect } from '@playwright/test';
+import { expect, test } from '@playwright/test';
 
 test.describe('Cloudflare Service E2E Tests', () => {
   test('should display Cloudflare tunnel status', async ({ page }) => {
@@ -41,7 +41,9 @@ test.describe('Cloudflare Service E2E Tests', () => {
     await page.locator('[data-testid="cloudflare-tab"]').click();
 
     // Find an active tunnel and delete it
-    const deleteButton = page.locator('[data-testid="tunnel-card"]:has([data-testid="tunnel-status"]:has-text("active")) [data-testid="delete-tunnel-btn"]');
+    const deleteButton = page.locator(
+      '[data-testid="tunnel-card"]:has([data-testid="tunnel-status"]:has-text("active")) [data-testid="delete-tunnel-btn"]'
+    );
     if (await deleteButton.isVisible()) {
       await deleteButton.click();
 
@@ -50,7 +52,9 @@ test.describe('Cloudflare Service E2E Tests', () => {
       await page.locator('[data-testid="confirm-delete-btn"]').click();
 
       // Tunnel should be removed or show as deleted
-      await expect(page.locator('[data-testid="tunnel-card"]:has-text("test-tunnel")')).not.toBeVisible();
+      await expect(
+        page.locator('[data-testid="tunnel-card"]:has-text("test-tunnel")')
+      ).not.toBeVisible();
     }
   });
 
@@ -69,7 +73,9 @@ test.describe('Cloudflare Service E2E Tests', () => {
     await page.locator('[data-testid="assign-domain-btn"]').click();
 
     // Should show domain assignment
-    await expect(page.locator('[data-testid="domain-list"]:has-text("test.example.com")')).toBeVisible();
+    await expect(
+      page.locator('[data-testid="domain-list"]:has-text("test.example.com")')
+    ).toBeVisible();
   });
 
   test('should handle domain removal', async ({ page }) => {
@@ -82,7 +88,9 @@ test.describe('Cloudflare Service E2E Tests', () => {
     await page.locator('[data-testid="domains-tab"]').click();
 
     // Remove a domain
-    const removeButton = page.locator('[data-testid="domain-list"]:has-text("test.example.com") [data-testid="remove-domain-btn"]');
+    const removeButton = page.locator(
+      '[data-testid="domain-list"]:has-text("test.example.com") [data-testid="remove-domain-btn"]'
+    );
     if (await removeButton.isVisible()) {
       await removeButton.click();
 
@@ -91,7 +99,9 @@ test.describe('Cloudflare Service E2E Tests', () => {
       await page.locator('[data-testid="confirm-remove-btn"]').click();
 
       // Domain should be removed
-      await expect(page.locator('[data-testid="domain-list"]:has-text("test.example.com")')).not.toBeVisible();
+      await expect(
+        page.locator('[data-testid="domain-list"]:has-text("test.example.com")')
+      ).not.toBeVisible();
     }
   });
 
@@ -136,7 +146,9 @@ test.describe('Cloudflare Service E2E Tests', () => {
     await page.locator('[data-testid="cloudflare-tab"]').click();
 
     // Find an existing tunnel and update its configuration
-    const configButton = page.locator('[data-testid="tunnel-card"] [data-testid="edit-config-btn"]');
+    const configButton = page.locator(
+      '[data-testid="tunnel-card"] [data-testid="edit-config-btn"]'
+    );
     if (await configButton.isVisible()) {
       await configButton.click();
 
