@@ -45,7 +45,7 @@ jobs:
           go build -ldflags="-s -w" -o tunnelforge-server-${{ matrix.target.os }}-${{ matrix.target.arch }}${{ matrix.target.ext }} cmd/server/main.go
 
       - name: Upload Server Binary
-        uses: actions/upload-artifact@v3
+        uses: actions/upload-artifact@v4
         with:
           name: tunnelforge-server-${{ matrix.target.os }}-${{ matrix.target.arch }}
           path: development/go-server/tunnelforge-server-${{ matrix.target.os }}-${{ matrix.target.arch }}${{ matrix.target.ext }}
@@ -78,7 +78,7 @@ jobs:
           node-version: '18'
 
       - name: Download Go Server Binary
-        uses: actions/download-artifact@v3
+        uses: actions/download-artifact@v4
         with:
           name: tunnelforge-server-linux-amd64
           path: desktop/src-tauri/bin/
@@ -98,7 +98,7 @@ jobs:
           npm run build
 
       - name: Upload Linux Artifacts
-        uses: actions/upload-artifact@v3
+        uses: actions/upload-artifact@v4
         with:
           name: tunnelforge-linux
           path: |
@@ -125,7 +125,7 @@ jobs:
           node-version: '18'
 
       - name: Download Go Server Binary
-        uses: actions/download-artifact@v3
+        uses: actions/download-artifact@v4
         with:
           name: tunnelforge-server-windows-amd64
           path: desktop/src-tauri/bin/
@@ -142,7 +142,7 @@ jobs:
           npm run build
 
       - name: Upload Windows Artifacts
-        uses: actions/upload-artifact@v3
+        uses: actions/upload-artifact@v4
         with:
           name: tunnelforge-windows
           path: |
@@ -169,7 +169,7 @@ jobs:
           node-version: '18'
 
       - name: Download Go Server Binary
-        uses: actions/download-artifact@v3
+        uses: actions/download-artifact@v4
         with:
           name: tunnelforge-server-darwin-amd64
           path: desktop/src-tauri/bin/
@@ -189,7 +189,7 @@ jobs:
           npm run build
 
       - name: Upload macOS Artifacts
-        uses: actions/upload-artifact@v3
+        uses: actions/upload-artifact@v4
         with:
           name: tunnelforge-macos
           path: |
@@ -208,7 +208,10 @@ jobs:
         uses: actions/checkout@v4
 
       - name: Download All Artifacts
-        uses: actions/download-artifact@v3
+        uses: actions/download-artifact@v4
+        with:
+          path: artifacts/
+          merge-multiple: true
 
       - name: Create Release
         uses: softprops/action-gh-release@v1
