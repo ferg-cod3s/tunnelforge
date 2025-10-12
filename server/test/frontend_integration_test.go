@@ -7,6 +7,7 @@ import (
 	"mime/multipart"
 	"net/http"
 	"net/http/httptest"
+	"os"
 	"strings"
 	"testing"
 	"time"
@@ -21,18 +22,48 @@ import (
 
 // TestTunnelForgeFrontendCompatibility tests compatibility with the TunnelForge frontend
 func TestTunnelForgeFrontendCompatibility(t *testing.T) {
+	// Disable rate limiting for tests
+	oldRateLimit := os.Getenv("ENABLE_RATE_LIMIT")
+	os.Setenv("ENABLE_RATE_LIMIT", "false")
+	defer func() {
+		if oldRateLimit == "" {
+			os.Unsetenv("ENABLE_RATE_LIMIT")
+		} else {
+			os.Setenv("ENABLE_RATE_LIMIT", oldRateLimit)
+		}
+	}()
+
+	// Use temporary directory for session persistence to avoid loading 192 real sessions
+	tmpDir := t.TempDir()
+	oldPersistenceDir := os.Getenv("PERSISTENCE_DIR")
+	os.Setenv("PERSISTENCE_DIR", tmpDir)
+	defer func() {
+		if oldPersistenceDir == "" {
+			os.Unsetenv("PERSISTENCE_DIR")
+		} else {
+			os.Setenv("PERSISTENCE_DIR", oldPersistenceDir)
+		}
+	}()
+
 	// Create test server
+	t.Log("Creating server config...")
 	cfg := &server.Config{Port: "0"} // Use random port
+
+	t.Log("Initializing server...")
 	testServer, err := server.New(cfg)
 	require.NoError(t, err)
+	t.Log("Server created successfully")
 
+	t.Log("Creating HTTP test server...")
 	httpServer := httptest.NewServer(testServer.Handler())
 	defer httpServer.Close()
+	t.Log("HTTP test server started")
 
 	baseURL := httpServer.URL
 
 	t.Run("Frontend_API_Compatibility", func(t *testing.T) {
 		t.Run("Health_Endpoint_Format", func(t *testing.T) {
+			t.Log("Making health check request to:", baseURL+"/health")
 			resp, err := http.Get(baseURL + "/health")
 			require.NoError(t, err)
 			defer resp.Body.Close()
@@ -275,6 +306,18 @@ func TestTunnelForgeFrontendCompatibility(t *testing.T) {
 
 // TestFrontendSecurityCompatibility tests security features expected by frontend
 func TestFrontendSecurityCompatibility(t *testing.T) {
+	// Use temporary directory for session persistence
+	tmpDir := t.TempDir()
+	oldPersistenceDir := os.Getenv("PERSISTENCE_DIR")
+	os.Setenv("PERSISTENCE_DIR", tmpDir)
+	defer func() {
+		if oldPersistenceDir == "" {
+			os.Unsetenv("PERSISTENCE_DIR")
+		} else {
+			os.Setenv("PERSISTENCE_DIR", oldPersistenceDir)
+		}
+	}()
+
 	cfg := &server.Config{Port: "0"}
 	testServer, err := server.New(cfg)
 	require.NoError(t, err)
@@ -338,6 +381,18 @@ func TestFrontendPerformanceCompatibility(t *testing.T) {
 	if testing.Short() {
 		t.Skip("Skipping performance test in short mode")
 	}
+
+	// Use temporary directory for session persistence
+	tmpDir := t.TempDir()
+	oldPersistenceDir := os.Getenv("PERSISTENCE_DIR")
+	os.Setenv("PERSISTENCE_DIR", tmpDir)
+	defer func() {
+		if oldPersistenceDir == "" {
+			os.Unsetenv("PERSISTENCE_DIR")
+		} else {
+			os.Setenv("PERSISTENCE_DIR", oldPersistenceDir)
+		}
+	}()
 
 	cfg := &server.Config{Port: "0"}
 	testServer, err := server.New(cfg)
@@ -420,6 +475,18 @@ func TestFrontendPerformanceCompatibility(t *testing.T) {
 
 // TestFrontendFileOperationsCompatibility tests file operations that frontend uses
 func TestFrontendFileOperationsCompatibility(t *testing.T) {
+	// Use temporary directory for session persistence
+	tmpDir := t.TempDir()
+	oldPersistenceDir := os.Getenv("PERSISTENCE_DIR")
+	os.Setenv("PERSISTENCE_DIR", tmpDir)
+	defer func() {
+		if oldPersistenceDir == "" {
+			os.Unsetenv("PERSISTENCE_DIR")
+		} else {
+			os.Setenv("PERSISTENCE_DIR", oldPersistenceDir)
+		}
+	}()
+
 	cfg := &server.Config{Port: "0"}
 	testServer, err := server.New(cfg)
 	require.NoError(t, err)
