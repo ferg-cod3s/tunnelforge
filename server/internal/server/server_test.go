@@ -56,7 +56,7 @@ func TestServer_CreateSession(t *testing.T) {
 
 	// Create session request
 	reqBody := types.SessionCreateRequest{
-		Command: "echo 'hello world'",
+		Command: "echo hello world",
 		Title:   "Test Session",
 		Cols:    80,
 		Rows:    24,
@@ -80,7 +80,7 @@ func TestServer_CreateSession(t *testing.T) {
 
 	assert.NotEmpty(t, response.ID)
 	assert.Equal(t, "Test Session", response.Title)
-	assert.Equal(t, "echo 'hello world'", response.Command)
+	assert.Equal(t, "echo hello world", response.Command)
 	assert.Equal(t, 80, response.Cols)
 	assert.Equal(t, 24, response.Rows)
 	assert.True(t, response.Active)
@@ -113,7 +113,7 @@ func TestServer_GetSession(t *testing.T) {
 
 	// First, create a session
 	reqBody := types.SessionCreateRequest{
-		Command: "echo 'test'",
+		Command: "echo test",
 		Title:   "Test Session",
 	}
 	session, err := server.sessionManager.Create(&reqBody)
@@ -197,14 +197,14 @@ func TestServer_ListSessions_WithSessions(t *testing.T) {
 
 	// Create a couple of sessions
 	reqBody1 := types.SessionCreateRequest{
-		Command: "echo 'test1'",
+		Command: "echo test1",
 		Title:   "Test Session 1",
 	}
 	session1, err := server.sessionManager.Create(&reqBody1)
 	require.NoError(t, err)
 
 	reqBody2 := types.SessionCreateRequest{
-		Command: "echo 'test2'",
+		Command: "echo test2",
 		Title:   "Test Session 2",
 	}
 	session2, err := server.sessionManager.Create(&reqBody2)

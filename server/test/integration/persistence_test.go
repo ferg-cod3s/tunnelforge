@@ -35,7 +35,7 @@ func TestSessionPersistenceIntegration(t *testing.T) {
 
 	// Create a test session
 	req := &types.SessionCreateRequest{
-		Command: []string{"bash"},
+		Command: "bash",
 		Title:   "Integration Test Session",
 		Cwd:     "/tmp",
 		Cols:    80,
@@ -85,7 +85,7 @@ func TestSessionPersistenceIntegration(t *testing.T) {
 		persistedSession := sessions[0]
 		assert.Equal(t, "Integration Test Session", persistedSession.Title)
 		assert.Equal(t, "bash", persistedSession.Command)
-		// Note: persistedSession.Active is true in storage, but RestorePersistedSessions() 
+		// Note: persistedSession.Active is true in storage, but RestorePersistedSessions()
 		// marks sessions as inactive in memory only (they remain active in persistent storage)
 	})
 
@@ -133,7 +133,7 @@ func TestPersistenceServiceStats(t *testing.T) {
 	// Create test sessions
 	for i := 0; i < 3; i++ {
 		req := &types.SessionCreateRequest{
-			Command: []string{"echo", "test"},
+			Command: "echo test",
 			Title:   fmt.Sprintf("Test Session %d", i+1),
 			Cols:    80,
 			Rows:    24,

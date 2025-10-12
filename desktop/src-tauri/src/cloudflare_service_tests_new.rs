@@ -5,6 +5,11 @@
 mod cloudflare_service_unit_tests {
     use super::*;
     use std::path::PathBuf;
+    use crate::cloudflare_service::{
+        CloudflareStatus, CloudflareCredentials, NamedTunnelInfo, CreateNamedTunnelResult,
+        CloudflareApiResponse, CloudflareApiError, TunnelCreateResponse, DnsRecordResponse,
+        DnsRecordCreate,
+    };
 
     // ============================================================================
     // Data Structure Tests (15 tests)

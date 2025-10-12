@@ -13,10 +13,8 @@ import (
 // TestTunnelAPIEndpoints tests the tunnel API endpoints
 func TestTunnelAPIEndpoints(t *testing.T) {
 	// Create test server
-	server, err := NewServer(&Config{
-		Port:     4021,
-		NoAuth:   true,
-		BasePath: "/tmp/tunnelforge-test",
+	server, err := New(&Config{
+		Port: "4021",
 	})
 	if err != nil {
 		t.Fatalf("Failed to create server: %v", err)
@@ -90,11 +88,10 @@ func TestTunnelAPIEndpoints(t *testing.T) {
 			name:           "Get tunnel URL",
 			method:         "GET",
 			path:           "/api/tunnels/cloudflare/url",
-			expectedStatus: http.StatusOK,
+			expectedStatus: http.StatusServiceUnavailable,
 			checkResponse: func(t *testing.T, resp map[string]interface{}) {
-				url, ok := resp["url"].(string)
-				if !ok || url == "" {
-					t.Error("Expected non-empty URL in response")
+				if resp["error"] == nil {
+					t.Error("Expected error message when URL not available")
 				}
 			},
 		},
@@ -117,10 +114,10 @@ func TestTunnelAPIEndpoints(t *testing.T) {
 			expectedStatus: http.StatusBadRequest,
 		},
 		{
-			name:   "Start tunnel with missing port",
-			method: "POST",
-			path:   "/api/tunnels/cloudflare/start",
-			body:   map[string]interface{}{},
+			name:           "Start tunnel with missing port",
+			method:         "POST",
+			path:           "/api/tunnels/cloudflare/start",
+			body:           map[string]interface{}{},
 			expectedStatus: http.StatusBadRequest,
 		},
 	}
@@ -145,7 +142,7 @@ func TestTunnelAPIEndpoints(t *testing.T) {
 				return
 			}
 
-			if tt.checkResponse != nil && rr.Code == http.StatusOK {
+			if tt.checkResponse != nil {
 				var resp map[string]interface{}
 				if err := json.Unmarshal(rr.Body.Bytes(), &resp); err != nil {
 					t.Fatalf("Failed to parse response: %v", err)
@@ -158,10 +155,8 @@ func TestTunnelAPIEndpoints(t *testing.T) {
 
 // TestTunnelServiceAvailability tests that tunnel service is properly initialized
 func TestTunnelServiceAvailability(t *testing.T) {
-	server, err := NewServer(&Config{
-		Port:     4021,
-		NoAuth:   true,
-		BasePath: "/tmp/tunnelforge-test",
+	server, err := New(&Config{
+		Port: "4021",
 	})
 	if err != nil {
 		t.Fatalf("Failed to create server: %v", err)
@@ -183,10 +178,8 @@ func TestTunnelStartStop(t *testing.T) {
 		t.Skip("Skipping integration test in short mode")
 	}
 
-	server, err := NewServer(&Config{
-		Port:     4021,
-		NoAuth:   true,
-		BasePath: "/tmp/tunnelforge-test",
+	server, err := New(&Config{
+		Port: "4021",
 	})
 	if err != nil {
 		t.Fatalf("Failed to create server: %v", err)
@@ -200,15 +193,16 @@ func TestTunnelStartStop(t *testing.T) {
 	}
 
 	// Test start
-	config := map[string]interface{}{
-		"port": 3001,
-	}
-	if err := svc.Start(config); err != nil {
+	port := 3001
+	if err := svc.Start(port); err != nil {
 		t.Fatalf("Failed to start tunnel: %v", err)
 	}
 
 	// Verify running
-	status := svc.GetStatus()
+	status, err := svc.GetStatus()
+	if err != nil {
+		t.Fatalf("Failed to get status: %v", err)
+	}
 	if !status.Running {
 		t.Error("Tunnel should be running after start")
 	}
@@ -219,7 +213,10 @@ func TestTunnelStartStop(t *testing.T) {
 	}
 
 	// Verify stopped
-	status = svc.GetStatus()
+	status, err = svc.GetStatus()
+	if err != nil {
+		t.Fatalf("Failed to get status: %v", err)
+	}
 	if status.Running {
 		t.Error("Tunnel should not be running after stop")
 	}

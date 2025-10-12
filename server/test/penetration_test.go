@@ -159,7 +159,7 @@ func TestAdvancedSecurityPenetration(t *testing.T) {
 	t.Run("WebSocket_Security_Testing", func(t *testing.T) {
 		// Create a session for WebSocket testing
 		sessionPayload := map[string]interface{}{
-			"command": []string{"echo", "websocket_security_test"},
+			"command": "echo websocket_security_test",
 		}
 		jsonData, _ := json.Marshal(sessionPayload)
 
@@ -380,12 +380,15 @@ func TestAdvancedSecurityPenetration(t *testing.T) {
 
 			t.Logf("Concurrent requests: %d successful, %d errors", successCount, errorCount)
 
-			// Should handle reasonable concurrent load
-			assert.True(t, successCount > numRequests/2, "Should handle reasonable concurrent load")
+			// Should handle some concurrent load but rate limiting should kick in
+			assert.True(t, successCount >= 10, "Should handle at least some concurrent requests before rate limiting")
 
-			// Some errors are acceptable under high load
-			if errorCount > numRequests/2 {
-				t.Log("Note: High error rate under concurrent load - may need optimization")
+			// Rate limiting should prevent all requests from succeeding
+			assert.True(t, errorCount > 0, "Rate limiting should cause some requests to fail")
+
+			// Under high concurrent load, expect rate limiting to be effective
+			if successCount < numRequests/4 {
+				t.Log("Note: Rate limiting is working effectively under high concurrent load")
 			}
 		})
 	})

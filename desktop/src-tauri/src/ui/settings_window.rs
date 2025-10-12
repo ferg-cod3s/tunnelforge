@@ -5,7 +5,78 @@ use tauri::{AppHandle, Manager, WebviewWindow, WebviewWindowBuilder, WebviewUrl}
 use serde::{Serialize, Deserialize};
 use log::{info, error};
 
-// use crate::security::{CredentialStore, InputValidator, SecurityError}; // Will be implemented later
+// Stub security types (to be fully implemented later)
+#[derive(Clone, Debug)]
+pub struct CredentialStore {
+    service: String,
+}
+
+impl CredentialStore {
+    pub fn new(service: &str) -> Self {
+        Self {
+            service: service.to_string(),
+        }
+    }
+
+    pub fn store(&self, _key: &str, _value: &str) -> Result<(), SecurityError> {
+        // TODO: Implement keychain storage
+        Ok(())
+    }
+    
+    pub fn store_credential(&self, key: &str, value: &str) -> Result<(), SecurityError> {
+        self.store(key, value)
+    }
+    
+    pub fn get_credential(&self, key: &str) -> Result<String, SecurityError> {
+        self.retrieve(key)
+    }
+    
+    pub fn delete_credential(&self, _key: &str) -> Result<(), SecurityError> {
+        // TODO: Implement credential deletion
+        Ok(())
+    }
+
+    pub fn retrieve(&self, _key: &str) -> Result<String, SecurityError> {
+        // TODO: Implement keychain retrieval
+        Err(SecurityError::NotFound)
+    }
+}
+
+#[derive(Clone, Debug)]
+pub struct InputValidator;
+
+impl InputValidator {
+    pub fn new() -> Self {
+        Self
+    }
+    
+    pub fn validate_token(&self, token: &str) -> Result<(), SecurityError> {
+        // TODO: Implement proper token validation
+        if token.is_empty() {
+            return Err(SecurityError::InvalidInput);
+        }
+        Ok(())
+    }
+}
+
+#[derive(Debug)]
+pub enum SecurityError {
+    NotFound,
+    AccessDenied,
+    InvalidInput,
+}
+
+impl std::fmt::Display for SecurityError {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            SecurityError::NotFound => write!(f, "Credential not found"),
+            SecurityError::AccessDenied => write!(f, "Access denied"),
+            SecurityError::InvalidInput => write!(f, "Invalid input"),
+        }
+    }
+}
+
+impl std::error::Error for SecurityError {}
 
 #[derive(Serialize, Deserialize, Clone, Debug)]
 pub struct SettingsConfig {
@@ -72,7 +143,7 @@ impl SettingsWindow {
     pub fn create_window(&mut self, app_handle: &AppHandle) -> Result<(), String> {
         // Check if window already exists
         if self.window.is_some() {
-            return Ok(()");
+            return Ok(());
         }
         
         let window = WebviewWindowBuilder::new(
@@ -89,7 +160,7 @@ impl SettingsWindow {
         .build()
         .map_err(|e| format!("Failed to create settings window: {}", e))?;
 
-        self.window = Some(window");
+        self.window = Some(window);
         Ok(())
     }
 
@@ -147,8 +218,8 @@ impl SettingsWindow {
 // Tauri commands for settings window management
 #[tauri::command]
 pub async fn show_settings_window(app_handle: AppHandle) -> Result<(), String> {
-    let settings_window = app_handle.state::<SettingsWindow>(");
-    let mut settings_window = settings_window.inner().clone(");
+    let settings_window = app_handle.state::<SettingsWindow>();
+    let mut settings_window = settings_window.inner().clone();
     
     if settings_window.window.is_none() {
         settings_window.create_window(&app_handle)?;
@@ -159,29 +230,29 @@ pub async fn show_settings_window(app_handle: AppHandle) -> Result<(), String> {
 
 #[tauri::command]
 pub async fn hide_settings_window(app_handle: AppHandle) -> Result<(), String> {
-    let settings_window = app_handle.state::<SettingsWindow>(");
-    let settings_window = settings_window.inner(");
+    let settings_window = app_handle.state::<SettingsWindow>();
+    let settings_window = settings_window.inner();
     settings_window.hide()
 }
 
 #[tauri::command]
 pub async fn close_settings_window(app_handle: AppHandle) -> Result<(), String> {
-    let settings_window = app_handle.state::<SettingsWindow>(");
-    let mut settings_window = settings_window.inner().clone(");
+    let settings_window = app_handle.state::<SettingsWindow>();
+    let mut settings_window = settings_window.inner().clone();
     settings_window.close()
 }
 
 #[tauri::command]
 pub async fn get_settings_window_state(app_handle: AppHandle) -> Result<bool, String> {
-    let settings_window = app_handle.state::<SettingsWindow>(");
-    let settings_window = settings_window.inner(");
+    let settings_window = app_handle.state::<SettingsWindow>();
+    let settings_window = settings_window.inner();
     Ok(settings_window.is_visible())
 }
 
 #[tauri::command]
 pub async fn update_settings_window_state(app_handle: AppHandle, visible: bool) -> Result<(), String> {
-    let settings_window = app_handle.state::<SettingsWindow>(");
-    let mut settings_window = settings_window.inner().clone(");
+    let settings_window = app_handle.state::<SettingsWindow>();
+    let mut settings_window = settings_window.inner().clone();
     
     if visible {
         if settings_window.window.is_none() {
@@ -203,63 +274,60 @@ pub async fn get_settings_config(_app_handle: AppHandle) -> Result<SettingsConfi
 #[tauri::command]
 pub async fn save_settings_config(_app_handle: AppHandle, config: SettingsConfig) -> Result<(), String> {
     // TODO: Save to persistent storage
-    info!("Saving settings config: {:?}", config");
+    info!("Saving settings config: {:?}", config);
     Ok(())
 }
 
 // Service integration commands with secure credential storage
 #[tauri::command]
 pub async fn toggle_tailscale_integration(app_handle: AppHandle, enabled: bool) -> Result<(), String> {
-    let settings_window = app_handle.state::<SettingsWindow>(");
-    let settings_window = settings_window.inner(");
+    let settings_window = app_handle.state::<SettingsWindow>();
+    let settings_window = settings_window.inner();
 
     if !enabled {
-        // Remove stored credentials when disabling
         if let Err(e) = settings_window.delete_credential("tailscale_key") {
-            error!("Failed to delete Tailscale credentials: {}", e");
+            error!("Failed to delete Tailscale credentials: {}", e);
         }
     }
 
-    info!("Setting Tailscale integration to: {}", enabled");
+    info!("Setting Tailscale integration to: {}", enabled);
     Ok(())
 }
 
 #[tauri::command]
 pub async fn toggle_cloudflare_integration(app_handle: AppHandle, enabled: bool) -> Result<(), String> {
-    let settings_window = app_handle.state::<SettingsWindow>(");
-    let settings_window = settings_window.inner(");
+    let settings_window = app_handle.state::<SettingsWindow>();
+    let settings_window = settings_window.inner();
 
     if !enabled {
-        // Remove stored credentials when disabling
         if let Err(e) = settings_window.delete_credential("cloudflare_token") {
-            error!("Failed to delete Cloudflare credentials: {}", e");
+            error!("Failed to delete Cloudflare credentials: {}", e);
         }
     }
 
-    info!("Setting Cloudflare integration to: {}", enabled");
+    info!("Setting Cloudflare integration to: {}", enabled);
     Ok(())
 }
 
 #[tauri::command]
 pub async fn toggle_ngrok_integration(app_handle: AppHandle, enabled: bool) -> Result<(), String> {
-    let settings_window = app_handle.state::<SettingsWindow>(");
-    let settings_window = settings_window.inner(");
+    let settings_window = app_handle.state::<SettingsWindow>();
+    let settings_window = settings_window.inner();
 
     if !enabled {
-        // Remove stored credentials when disabling
         if let Err(e) = settings_window.delete_credential("ngrok_token") {
-            error!("Failed to delete ngrok credentials: {}", e");
+            error!("Failed to delete ngrok credentials: {}", e);
         }
     }
 
-    info!("Setting ngrok integration to: {}", enabled");
+    info!("Setting ngrok integration to: {}", enabled);
     Ok(())
 }
 
 #[tauri::command]
 pub async fn set_ngrok_auth_token(app_handle: AppHandle, token: String) -> Result<(), String> {
-    let settings_window = app_handle.state::<SettingsWindow>(");
-    let settings_window = settings_window.inner(");
+    let settings_window = app_handle.state::<SettingsWindow>();
+    let settings_window = settings_window.inner();
 
     // Store token securely
     settings_window.store_credential("ngrok_token", &token)
@@ -275,30 +343,30 @@ mod tests {
 
     #[test]
     fn test_credential_storage() {
-        let settings = SettingsWindow::new(");
+        let settings = SettingsWindow::new();
 
         // Test storing valid token
-        assert!(settings.store_credential("test_key", "valid-token-12345678901234567890").is_ok()");
+        assert!(settings.store_credential("test_key", "valid-token-12345678901234567890").is_ok());
 
         // Test retrieving stored token
         let retrieved = settings.get_credential("test_key");
-        assert!(retrieved.is_ok()");
+        assert!(retrieved.is_ok());
         assert_eq!(retrieved.unwrap(), "valid-token-12345678901234567890");
 
         // Test deleting token
-        assert!(settings.delete_credential("test_key").is_ok()");
+        assert!(settings.delete_credential("test_key").is_ok());
 
         // Test storing invalid token
-        assert!(settings.store_credential("test_key", "invalid!@#$").is_err()");
+        assert!(settings.store_credential("test_key", "invalid!@#$").is_err());
     }
 
     #[test]
     fn test_settings_config() {
-        let config = SettingsConfig::default(");
+        let config = SettingsConfig::default();
 
         // Verify default values
-        assert!(!config.autostart");
-        assert!(config.show_in_dock");
+        assert!(!config.autostart);
+        assert!(config.show_in_dock);
         assert_eq!(config.server_port, "4020");
         assert_eq!(config.access_mode, "localhost");
     }

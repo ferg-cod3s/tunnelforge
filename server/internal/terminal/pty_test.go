@@ -14,7 +14,7 @@ func TestPTYManager_CreateSession(t *testing.T) {
 	manager := NewPTYManager()
 
 	req := &types.SessionCreateRequest{
-		Command: "echo 'hello world'",
+		Command: "echo hello world",
 		Title:   "Test Session",
 		Cols:    80,
 		Rows:    24,
@@ -27,7 +27,7 @@ func TestPTYManager_CreateSession(t *testing.T) {
 	// Verify session properties
 	assert.NotEmpty(t, session.ID)
 	assert.Equal(t, "Test Session", session.Title)
-	assert.Equal(t, "echo 'hello world'", session.Command)
+	assert.Equal(t, "echo hello world", session.Command)
 	assert.Equal(t, 80, session.Cols)
 	assert.Equal(t, 24, session.Rows)
 	assert.True(t, session.Active)
@@ -68,7 +68,7 @@ func TestPTYManager_GetSession(t *testing.T) {
 	manager := NewPTYManager()
 
 	req := &types.SessionCreateRequest{
-		Command: "echo 'test'",
+		Command: "echo test",
 	}
 
 	session, err := manager.CreateSession(req)
@@ -97,7 +97,7 @@ func TestPTYManager_ListSessions(t *testing.T) {
 
 	// Create a few sessions
 	req := &types.SessionCreateRequest{
-		Command: "echo 'test'",
+		Command: "echo test",
 	}
 
 	session1, err := manager.CreateSession(req)
@@ -165,7 +165,7 @@ func TestPTYManager_Count(t *testing.T) {
 	assert.Equal(t, 0, manager.Count())
 
 	req := &types.SessionCreateRequest{
-		Command: "echo 'test'",
+		Command: "echo test",
 	}
 
 	// Create sessions

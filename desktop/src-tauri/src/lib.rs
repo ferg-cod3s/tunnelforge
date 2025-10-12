@@ -27,6 +27,13 @@ pub struct AppState {
     pub config: Arc<Mutex<config::AppConfig>>,
 }
 
+#[derive(Debug, Clone, serde::Serialize)]
+pub struct ServerStatus {
+    pub running: bool,
+    pub port: u16,
+    pub pid: Option<u32>,
+}
+
 #[derive(Debug, Clone)]
 pub struct LogEntry {
     pub timestamp: String,
@@ -55,7 +62,6 @@ pub fn add_log_entry(level: &str, message: &str) {
 
     if let Ok(mut buffer) = LOG_BUFFER.lock() {
         buffer.push(entry);
-        // Keep only the last 200 entries
         if buffer.len() > 200 {
             buffer.remove(0);
         }
@@ -91,12 +97,10 @@ pub async fn get_app_version_internal() -> Result<String, String> {
 // App setup function
 pub fn setup_app(_app: &mut tauri::App) -> Result<(), String> {
     log::info!("TunnelForge Desktop starting up...");
-    log::info!("{}", env!("CARGO_PKG_VERSION"));
+    log::info!("Version: {}", env!("CARGO_PKG_VERSION"));
 
-    // Initialize logging
     log::info!("Setting up TunnelForge Desktop app");
 
-    // Set up system tray (VibeTunnel-style menu bar app)
     log::info!("Setting up system tray interface");
 
     Ok(())
@@ -108,23 +112,17 @@ mod tests {
     use std::env;
 
     #[test]
+    #[test]
     fn test_sentry_logging_integration() {
-        // Set up test environment
         env::set_var("SENTRY_DSN", "https://test@test.ingest.sentry.io/test");
         env::set_var("SENTRY_ENVIRONMENT", "test");
 
-        // Test that Sentry can be initialized
-        // In a real test, we'd check that Sentry was initialized
-        // For now, we just ensure the environment variables are set
         assert_eq!(env::var("SENTRY_DSN").unwrap(), "https://test@test.ingest.sentry.io/test");
         assert_eq!(env::var("SENTRY_ENVIRONMENT").unwrap(), "test");
     }
 
     #[test]
     fn test_secure_operations_logging() {
-        // Test that logging setup works
-        // In a real implementation, we'd test the actual secure_store function
-        // For now, we verify the logging setup is correct
         assert!(true, "Logging setup should be functional");
     }
 }

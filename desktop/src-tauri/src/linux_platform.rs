@@ -1,6 +1,6 @@
 // Linux-specific platform integration for TunnelForge
 
-use super::PlatformIntegration;
+use crate::PlatformIntegration;
 use tauri::AppHandle;
 use log::{info, warn};
 

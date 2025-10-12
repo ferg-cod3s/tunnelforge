@@ -76,6 +76,10 @@ freedesktop-desktop-entry = "0.5"
 custom-protocol = ["tauri/custom-protocol"]
  security = ["ring/std", "zeroize/derive"]
 
+[lib]
+name = "tunnelforge_desktop"
+path = "src/lib.rs"
+
 [[bin]]
 name = "tunnelforge"
 path = "src/main.rs"

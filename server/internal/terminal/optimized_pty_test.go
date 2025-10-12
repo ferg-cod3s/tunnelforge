@@ -14,7 +14,7 @@ func TestOptimizedPTYManager_CreateSession(t *testing.T) {
 	manager := NewOptimizedPTYManager()
 
 	req := &types.SessionCreateRequest{
-		Command: "echo 'hello world'",
+		Command: "echo hello world",
 		Title:   "Test Session",
 		Cols:    80,
 		Rows:    24,
@@ -26,7 +26,7 @@ func TestOptimizedPTYManager_CreateSession(t *testing.T) {
 
 	assert.NotEmpty(t, session.ID)
 	assert.Equal(t, "Test Session", session.Title)
-	assert.Equal(t, "echo 'hello world'", session.Command)
+	assert.Equal(t, "echo hello world", session.Command)
 	assert.Equal(t, 80, session.Cols)
 	assert.Equal(t, 24, session.Rows)
 	assert.True(t, session.Active)
@@ -69,7 +69,7 @@ func TestOptimizedPTYManager_LazyInitialization(t *testing.T) {
 	manager := NewOptimizedPTYManager()
 
 	req := &types.SessionCreateRequest{
-		Command: "cat", // Long-running command for testing
+		Command: "cat",
 		Title:   "Lazy Init Test",
 	}
 
@@ -119,10 +119,8 @@ func TestOptimizedPTYManager_ToPTYSession(t *testing.T) {
 	manager := NewOptimizedPTYManager()
 
 	req := &types.SessionCreateRequest{
-		Command: "sleep 2",
-		Title:   "Conversion Test",
-		Cols:    100,
-		Rows:    30,
+		Command: "sleep 5",
+		Title:   "Close Before Init Test",
 	}
 
 	session, err := manager.CreateSession(req)
@@ -155,8 +153,10 @@ func TestOptimizedPTYSession_WriteInput(t *testing.T) {
 	manager := NewOptimizedPTYManager()
 
 	req := &types.SessionCreateRequest{
-		Command: "cat", // Echo back input
-		Title:   "Input Test",
+		Command: "cat",
+		Title:   "Input Output Test",
+		Cols:    80,
+		Rows:    24,
 	}
 
 	session, err := manager.CreateSession(req)
@@ -196,10 +196,8 @@ func TestOptimizedPTYSession_Resize(t *testing.T) {
 	manager := NewOptimizedPTYManager()
 
 	req := &types.SessionCreateRequest{
-		Command: "sleep 5",
-		Title:   "Resize Test",
-		Cols:    80,
-		Rows:    24,
+		Command: "sleep 2",
+		Title:   "Close Test",
 	}
 
 	session, err := manager.CreateSession(req)
@@ -244,9 +242,7 @@ func TestOptimizedPTYSession_ResizeViaPTYSession(t *testing.T) {
 
 	req := &types.SessionCreateRequest{
 		Command: "sleep 5",
-		Title:   "PTY Resize Test",
-		Cols:    80,
-		Rows:    24,
+		Title:   "Close After Init Test",
 	}
 
 	session, err := manager.CreateSession(req)
@@ -291,8 +287,8 @@ func TestOptimizedPTYManager_ListSessions(t *testing.T) {
 	manager := NewOptimizedPTYManager()
 
 	// Create multiple sessions
-	req1 := &types.SessionCreateRequest{Command: "echo 'test1'", Title: "Test 1"}
-	req2 := &types.SessionCreateRequest{Command: "echo 'test2'", Title: "Test 2"}
+	req1 := &types.SessionCreateRequest{Command: "echo test1", Title: "Test 1"}
+	req2 := &types.SessionCreateRequest{Command: "echo test2", Title: "Test 2"}
 
 	session1, err := manager.CreateSession(req1)
 	require.NoError(t, err)
@@ -409,7 +405,7 @@ func TestOptimizedPTYManager_Performance(t *testing.T) {
 	var sessions []*types.Session
 	for i := 0; i < 10; i++ {
 		req := &types.SessionCreateRequest{
-			Command: "echo 'performance test'",
+			Command: "echo performance test",
 			Title:   "Perf Test",
 		}
 

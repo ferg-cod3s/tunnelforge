@@ -13,8 +13,19 @@ import (
 	"github.com/gorilla/mux"
 )
 
+// mockAnalyticsService is a mock implementation for testing
+type mockAnalyticsService struct{}
+
+func (m *mockAnalyticsService) RecordCommandActivity(userID, sessionID, commandID, command string, success bool, duration time.Duration) {
+	// No-op for tests
+}
+
+func (m *mockAnalyticsService) RecordSessionActivity(userID, sessionID, activityType string, duration *time.Duration) {
+	// No-op for tests
+}
+
 func TestControlService_HandleSendEvent(t *testing.T) {
-	cs := NewControlService()
+	cs := NewControlService(&mockAnalyticsService{})
 	router := mux.NewRouter()
 	cs.RegisterRoutes(router)
 
@@ -91,7 +102,7 @@ func TestControlService_HandleSendEvent(t *testing.T) {
 }
 
 func TestControlService_HandleControlStream(t *testing.T) {
-	cs := NewControlService()
+	cs := NewControlService(&mockAnalyticsService{})
 	router := mux.NewRouter()
 	cs.RegisterRoutes(router)
 
@@ -138,7 +149,7 @@ func TestControlService_HandleControlStream(t *testing.T) {
 }
 
 func TestControlService_BroadcastEvent(t *testing.T) {
-	cs := NewControlService()
+	cs := NewControlService(&mockAnalyticsService{})
 
 	// Test that BroadcastEvent doesn't block
 	event := ControlEvent{
@@ -159,7 +170,7 @@ func TestControlService_BroadcastEvent(t *testing.T) {
 }
 
 func TestControlService_GetClientCount(t *testing.T) {
-	cs := NewControlService()
+	cs := NewControlService(&mockAnalyticsService{})
 
 	// Initially should have no clients
 	if count := cs.GetClientCount(); count != 0 {
@@ -223,7 +234,7 @@ func TestControlEvent_JSON(t *testing.T) {
 }
 
 func TestControlService_ClientLifecycle(t *testing.T) {
-	cs := NewControlService()
+	cs := NewControlService(&mockAnalyticsService{})
 
 	// Test client creation and cleanup
 	client := &Client{

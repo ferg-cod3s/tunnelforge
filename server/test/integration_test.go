@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"net/http"
 	"net/http/httptest"
+	"os"
 	"strings"
 	"testing"
 	"time"
@@ -21,6 +22,17 @@ import (
 // Tests the complete integration between Go server and frontend expectations
 
 func TestFrontendIntegration(t *testing.T) {
+	// Disable rate limiting for tests
+	oldRateLimit := os.Getenv("ENABLE_RATE_LIMIT")
+	os.Setenv("ENABLE_RATE_LIMIT", "false")
+	defer func() {
+		if oldRateLimit == "" {
+			os.Unsetenv("ENABLE_RATE_LIMIT")
+		} else {
+			os.Setenv("ENABLE_RATE_LIMIT", oldRateLimit)
+		}
+	}()
+
 	// Create test server with default config
 	srv, err := server.New(&server.Config{
 		Port: "0", // Use random port for testing
@@ -95,8 +107,8 @@ func testFrontendAPICompatibility(t *testing.T, baseURL string) {
 	t.Run("Session_API_Endpoints", func(t *testing.T) {
 		// Test session creation endpoint format that frontend expects
 		sessionData := map[string]interface{}{
-			"shell": "/bin/bash",
-			"cwd":   "/tmp",
+			"command": []string{"/bin/bash"},
+			"cwd":     "/tmp",
 		}
 		jsonData, err := json.Marshal(sessionData)
 		require.NoError(t, err)
@@ -135,14 +147,10 @@ func testFrontendAPICompatibility(t *testing.T, baseURL string) {
 func testFrontendWebSocketIntegration(t *testing.T, wsURL string) {
 	t.Run("WebSocket_Connection_Protocol", func(t *testing.T) {
 		// First create a session
-		sessionData := map[string]interface{}{
-			"shell": "/bin/bash",
-		}
-		jsonData, err := json.Marshal(sessionData)
-		require.NoError(t, err)
+		jsonPayload := `{"command": "echo test"}`
 
 		httpURL := strings.Replace(wsURL, "ws://", "http://", 1)
-		resp, err := http.Post(httpURL+"/api/sessions", "application/json", bytes.NewBuffer(jsonData))
+		resp, err := http.Post(httpURL+"/api/sessions", "application/json", bytes.NewBufferString(jsonPayload))
 		require.NoError(t, err)
 		defer resp.Body.Close()
 
@@ -172,12 +180,10 @@ func testFrontendWebSocketIntegration(t *testing.T, wsURL string) {
 
 	t.Run("WebSocket_Message_Format", func(t *testing.T) {
 		// Create session and connect
-		sessionData := map[string]interface{}{"shell": "/bin/bash"}
-		jsonData, err := json.Marshal(sessionData)
-		require.NoError(t, err)
+		jsonPayload := `{"command": "echo test"}`
 		httpURL := strings.Replace(wsURL, "ws://", "http://", 1)
 
-		resp, err := http.Post(httpURL+"/api/sessions", "application/json", bytes.NewBuffer(jsonData))
+		resp, err := http.Post(httpURL+"/api/sessions", "application/json", bytes.NewBufferString(jsonPayload))
 		require.NoError(t, err)
 		defer resp.Body.Close()
 
@@ -224,12 +230,10 @@ func testFrontendWebSocketIntegration(t *testing.T, wsURL string) {
 
 	t.Run("WebSocket_Ping_Pong", func(t *testing.T) {
 		// Create session and connect
-		sessionData := map[string]interface{}{"shell": "/bin/bash"}
-		jsonData, err := json.Marshal(sessionData)
-		require.NoError(t, err)
+		jsonPayload := `{"command": ["echo", "test"]}`
 		httpURL := strings.Replace(wsURL, "ws://", "http://", 1)
 
-		resp, err := http.Post(httpURL+"/api/sessions", "application/json", bytes.NewBuffer(jsonData))
+		resp, err := http.Post(httpURL+"/api/sessions", "application/json", bytes.NewBufferString(jsonPayload))
 		require.NoError(t, err)
 		defer resp.Body.Close()
 
@@ -259,14 +263,9 @@ func testFrontendWebSocketIntegration(t *testing.T, wsURL string) {
 func testFrontendSessionLifecycle(t *testing.T, baseURL, wsURL string) {
 	t.Run("Complete_Session_Workflow", func(t *testing.T) {
 		// 1. Frontend creates session
-		sessionData := map[string]interface{}{
-			"shell": "/bin/bash",
-			"cwd":   "/tmp",
-		}
-		jsonData, err := json.Marshal(sessionData)
-		require.NoError(t, err)
+		jsonPayload := `{"command": "echo test", "cwd": "/tmp"}`
 
-		resp, err := http.Post(baseURL+"/api/sessions", "application/json", bytes.NewBuffer(jsonData))
+		resp, err := http.Post(baseURL+"/api/sessions", "application/json", bytes.NewBufferString(jsonPayload))
 		require.NoError(t, err)
 		defer resp.Body.Close()
 
@@ -384,13 +383,9 @@ func testFrontendErrorHandling(t *testing.T, baseURL string) {
 // Helper functions for integration testing
 
 func createTestSession(t *testing.T, baseURL string) types.SessionResponse {
-	sessionData := map[string]interface{}{
-		"shell": "/bin/bash",
-	}
-	jsonData, err := json.Marshal(sessionData)
-	require.NoError(t, err)
+	jsonPayload := `{"command": "echo test"}`
 
-	resp, err := http.Post(baseURL+"/api/sessions", "application/json", bytes.NewBuffer(jsonData))
+	resp, err := http.Post(baseURL+"/api/sessions", "application/json", bytes.NewBufferString(jsonPayload))
 	require.NoError(t, err)
 	defer resp.Body.Close()
 

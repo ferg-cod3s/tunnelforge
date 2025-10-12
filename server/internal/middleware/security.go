@@ -53,6 +53,14 @@ func (rl *RateLimiter) Middleware(next http.Handler) http.Handler {
 		ip := getClientIP(r)
 
 		if !rl.allow(ip) {
+			// Set CORS headers even for rate limited requests
+			if origin := r.Header.Get("Origin"); origin != "" {
+				w.Header().Set("Access-Control-Allow-Origin", "*")
+				w.Header().Set("Access-Control-Allow-Methods", "GET, POST, PUT, DELETE, OPTIONS")
+				w.Header().Set("Access-Control-Allow-Headers", "Content-Type, Authorization, X-Requested-With, X-CSRF-Token")
+				w.Header().Set("Access-Control-Allow-Credentials", "true")
+			}
+
 			w.Header().Set("Content-Type", "application/json")
 			w.WriteHeader(http.StatusTooManyRequests)
 			if err := json.NewEncoder(w).Encode(map[string]interface{}{
@@ -143,7 +151,7 @@ func SecurityHeaders() func(http.Handler) http.Handler {
 		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 			// Check if this is a desktop app request (Tauri webview)
 			userAgent := r.Header.Get("User-Agent")
-			isDesktopApp := strings.Contains(userAgent, "Tauri") || 
+			isDesktopApp := strings.Contains(userAgent, "Tauri") ||
 				strings.Contains(userAgent, "tunnelforge-desktop")
 
 			// Prevent MIME sniffing

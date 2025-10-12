@@ -12,6 +12,7 @@ import (
 	"github.com/stretchr/testify/require"
 
 	"github.com/ferg-cod3s/tunnelforge/go-server/internal/session"
+	"github.com/ferg-cod3s/tunnelforge/go-server/internal/terminal"
 	"github.com/ferg-cod3s/tunnelforge/go-server/pkg/types"
 )
 
@@ -57,7 +58,7 @@ func TestWebSocketHandler_ValidConnection(t *testing.T) {
 
 	// Create a test session first
 	req := &types.SessionCreateRequest{
-		Command: "echo 'test'",
+		Command: "echo test",
 		Title:   "Test Session",
 	}
 	session, err := sessionManager.Create(req)
@@ -155,8 +156,10 @@ func TestWebSocketHandler_ResizeHandling(t *testing.T) {
 	time.Sleep(100 * time.Millisecond)
 
 	// Verify the session was resized
-	ptySession := sessionManager.GetPTYSession(session.ID)
-	require.NotNil(t, ptySession)
+	ptySessionIface := sessionManager.GetPTYSession(session.ID)
+	require.NotNil(t, ptySessionIface)
+	ptySession, ok := ptySessionIface.(*terminal.PTYSession)
+	require.True(t, ok, "Expected PTYSession type")
 	assert.Equal(t, 100, ptySession.Cols)
 	assert.Equal(t, 30, ptySession.Rows)
 
@@ -189,8 +192,10 @@ func TestWebSocketHandler_ClientCleanup(t *testing.T) {
 	require.NoError(t, err)
 
 	// Get the PTY session and verify client was added
-	ptySession := sessionManager.GetPTYSession(session.ID)
-	require.NotNil(t, ptySession)
+	ptySessionIface := sessionManager.GetPTYSession(session.ID)
+	require.NotNil(t, ptySessionIface)
+	ptySession, ok := ptySessionIface.(*terminal.PTYSession)
+	require.True(t, ok, "Expected PTYSession type")
 
 	// Give it time for the client to be registered
 	time.Sleep(50 * time.Millisecond)

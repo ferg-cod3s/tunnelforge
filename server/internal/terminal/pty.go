@@ -7,7 +7,6 @@ import (
 	"log"
 	"os"
 	"os/exec"
-	"strings"
 	"sync"
 	"time"
 
@@ -65,7 +64,7 @@ func (m *PTYManager) CreateSession(req *types.SessionCreateRequest) (*types.Sess
 
 	// Set defaults
 	var command string
-	if len(req.Command) == 0 {
+	if req.Command == "" {
 		// Default to user's shell
 		shell := os.Getenv("SHELL")
 		if shell == "" {
@@ -73,8 +72,7 @@ func (m *PTYManager) CreateSession(req *types.SessionCreateRequest) (*types.Sess
 		}
 		command = shell
 	} else {
-		// Join command array into string
-		command = strings.Join(req.Command, " ")
+		command = req.Command
 	}
 
 	cwd := req.Cwd
@@ -403,7 +401,7 @@ func (s *PTYSession) Resize(cols, rows int) error {
 			s.mu.Lock()
 			s.Cols = cols
 			s.Rows = rows
-			func() { s.mu.Lock(); s.UpdatedAt = time.Now(); s.mu.Unlock() }()
+			s.UpdatedAt = time.Now()
 			s.mu.Unlock()
 		}
 		return err
@@ -427,7 +425,7 @@ func (s *PTYSession) Resize(cols, rows int) error {
 
 	s.Cols = cols
 	s.Rows = rows
-	func() { s.mu.Lock(); s.UpdatedAt = time.Now(); s.mu.Unlock() }()
+	s.UpdatedAt = time.Now()
 
 	log.Printf("Resized session %s to %dx%d", s.ID[:8], cols, rows)
 	return nil

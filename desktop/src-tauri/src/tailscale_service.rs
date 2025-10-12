@@ -57,7 +57,7 @@ impl TailscaleService {
                 is_running: false,
                 hostname: None,
                 addresses: vec![],
-                error: Some("Failed to acquire lock".to_string()),
+                error: Some(Failed to acquire lock".to_string()),
             }
         }
     }
@@ -69,7 +69,7 @@ impl TailscaleService {
             TailscaleServeStatus {
                 is_loading: false,
                 is_running: false,
-                last_error: Some("Failed to acquire lock".to_string()),
+                last_error: Some(Failed to acquire lock".to_string()),
             }
         }
     }
@@ -77,14 +77,14 @@ impl TailscaleService {
     pub async fn check_tailscale_status(&self) {
         // TODO: Implement actual Tailscale status checking
         // For now, simulate status checking
-        println!("Checking Tailscale status...");
+        println!(Checking Tailscale status...);
 
         // Simulate checking if Tailscale is installed
-        let is_installed = self.check_tailscale_installed(");
+        let is_installed = self.check_tailscale_installed();
 
         if is_installed {
             // Simulate checking if Tailscale is running
-            let (is_running, hostname, addresses) = self.check_tailscale_running(");
+            let (is_running, hostname, addresses) = self.check_tailscale_running();
 
             if let Ok(mut status) = self.status.lock() {
                 status.is_installed = true;
@@ -122,22 +122,22 @@ impl TailscaleService {
 
     pub fn open_app_store(&self) {
         // TODO: Open App Store to Tailscale app
-        println!("Opening App Store for Tailscale");
+        println!(Opening App Store for Tailscale);
     }
 
     pub fn open_download_page(&self) {
         // TODO: Open Tailscale download page
-        println!("Opening Tailscale download page");
+        println!(Opening Tailscale download page);
     }
 
     pub fn open_setup_guide(&self) {
         // TODO: Open Tailscale setup guide
-        println!("Opening Tailscale setup guide");
+        println!(Opening Tailscale setup guide);
     }
 
     pub fn open_tailscale_app(&self) {
         // TODO: Open Tailscale application
-        println!("Opening Tailscale application");
+        println!(Opening Tailscale application);
     }
 }
 
@@ -165,73 +165,73 @@ impl TailscaleServeStatusService {
             TailscaleServeStatus {
                 is_loading: false,
                 is_running: false,
-                last_error: Some("Failed to acquire lock".to_string()),
+                last_error: Some(Failed to acquire lock".to_string()),
             }
         }
     }
 
     pub fn start_monitoring(&self) {
         // TODO: Start monitoring Tailscale Serve status
-        println!("Starting Tailscale Serve monitoring");
+        println!(Starting Tailscale Serve monitoring);
     }
 
     pub fn stop_monitoring(&self) {
         // TODO: Stop monitoring Tailscale Serve status
-        println!("Stopping Tailscale Serve monitoring");
+        println!(Stopping Tailscale Serve monitoring);
     }
 }
 
 // Tauri commands for Tailscale integration
 #[tauri::command]
 pub async fn get_tailscale_status(app_handle: AppHandle) -> Result<TailscaleStatus, String> {
-    let tailscale_service = app_handle.state::<TailscaleService>(");
-    let tailscale_service = tailscale_service.inner(");
+    let tailscale_service = app_handle.state::<TailscaleService>();
+    let tailscale_service = tailscale_service.inner();
     Ok(tailscale_service.get_status())
 }
 
 #[tauri::command]
 pub async fn check_tailscale_status(app_handle: AppHandle) -> Result<(), String> {
-    let tailscale_service = app_handle.state::<TailscaleService>(");
-    let tailscale_service = tailscale_service.inner(");
+    let tailscale_service = app_handle.state::<TailscaleService>();
+    let tailscale_service = tailscale_service.inner();
     tailscale_service.check_tailscale_status().await;
     Ok(())
 }
 
 #[tauri::command]
 pub async fn get_tailscale_serve_status(app_handle: AppHandle) -> Result<TailscaleServeStatus, String> {
-    let tailscale_serve_service = app_handle.state::<TailscaleServeStatusService>(");
-    let tailscale_serve_service = tailscale_serve_service.inner(");
+    let tailscale_serve_service = app_handle.state::<TailscaleServeStatusService>();
+    let tailscale_serve_service = tailscale_serve_service.inner();
     Ok(tailscale_serve_service.get_status())
 }
 
 #[tauri::command]
 pub async fn open_tailscale_app_store(app_handle: AppHandle) -> Result<(), String> {
-    let tailscale_service = app_handle.state::<TailscaleService>(");
-    let tailscale_service = tailscale_service.inner(");
-    tailscale_service.open_app_store(");
+    let tailscale_service = app_handle.state::<TailscaleService>();
+    let tailscale_service = tailscale_service.inner();
+    tailscale_service.open_app_store();
     Ok(())
 }
 
 #[tauri::command]
 pub async fn open_tailscale_download(app_handle: AppHandle) -> Result<(), String> {
-    let tailscale_service = app_handle.state::<TailscaleService>(");
-    let tailscale_service = tailscale_service.inner(");
-    tailscale_service.open_download_page(");
+    let tailscale_service = app_handle.state::<TailscaleService>();
+    let tailscale_service = tailscale_service.inner();
+    tailscale_service.open_download_page();
     Ok(())
 }
 
 #[tauri::command]
 pub async fn open_tailscale_setup_guide(app_handle: AppHandle) -> Result<(), String> {
-    let tailscale_service = app_handle.state::<TailscaleService>(");
-    let tailscale_service = tailscale_service.inner(");
-    tailscale_service.open_setup_guide(");
+    let tailscale_service = app_handle.state::<TailscaleService>();
+    let tailscale_service = tailscale_service.inner();
+    tailscale_service.open_setup_guide();
     Ok(())
 }
 
 #[tauri::command]
 pub async fn open_tailscale_app(app_handle: AppHandle) -> Result<(), String> {
-    let tailscale_service = app_handle.state::<TailscaleService>(");
-    let tailscale_service = tailscale_service.inner(");
-    tailscale_service.open_tailscale_app(");
+    let tailscale_service = app_handle.state::<TailscaleService>();
+    let tailscale_service = tailscale_service.inner();
+    tailscale_service.open_tailscale_app();
     Ok(())
 }

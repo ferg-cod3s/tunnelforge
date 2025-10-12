@@ -609,6 +609,15 @@ func (s *Server) handleHealth(w http.ResponseWriter, r *http.Request) {
 
 // API handlers for Phase 4 implementation
 func (s *Server) handleListSessions(w http.ResponseWriter, r *http.Request) {
+	// Validate query parameters - reject duplicate parameters (HTTP Parameter Pollution)
+	query := r.URL.Query()
+	for param := range query {
+		if len(query[param]) > 1 {
+			s.writeJSONError(w, fmt.Sprintf("Duplicate parameter '%s' not allowed", param), http.StatusBadRequest)
+			return
+		}
+	}
+
 	sessions := s.sessionManager.List()
 	w.Header().Set("Content-Type", "application/json")
 

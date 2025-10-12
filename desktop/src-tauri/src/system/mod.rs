@@ -2,7 +2,7 @@
 
 use serde::{Deserialize, Serialize};
 
-use crate::add_log_entry;
+// use crate::add_log_entry; // TODO: Implement logging system
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct SystemSettings {
@@ -27,7 +27,7 @@ impl Default for SystemSettings {
 #[tauri::command]
 pub async fn get_system_settings() -> Result<SystemSettings, String> {
     // In a real implementation, this would load from persistent storage
-    log::info!(""Getting system settings");
+    log::info!("Getting system settings");
     Ok(SystemSettings::default())
 }
 

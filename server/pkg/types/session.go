@@ -1,7 +1,9 @@
 package types
 
 import (
+	"encoding/json"
 	"os/exec"
+	"strings"
 	"time"
 
 	"github.com/gorilla/websocket"
@@ -40,11 +42,41 @@ type WSClient struct {
 
 // SessionCreateRequest represents a request to create a new session
 type SessionCreateRequest struct {
-	Command []string `json:"command,omitempty"`
-	Cwd     string   `json:"cwd,omitempty"`
-	Title   string   `json:"title,omitempty"`
-	Cols    int      `json:"cols,omitempty"`
-	Rows    int      `json:"rows,omitempty"`
+	Command string `json:"command,omitempty"`
+	Cwd     string `json:"cwd,omitempty"`
+	Title   string `json:"title,omitempty"`
+	Cols    int    `json:"cols,omitempty"`
+	Rows    int    `json:"rows,omitempty"`
+}
+
+// UnmarshalJSON provides custom unmarshaling to support both string and array command formats
+func (r *SessionCreateRequest) UnmarshalJSON(data []byte) error {
+	type Alias SessionCreateRequest
+	aux := &struct {
+		CommandRaw json.RawMessage `json:"command,omitempty"`
+		*Alias
+	}{
+		Alias: (*Alias)(r),
+	}
+
+	if err := json.Unmarshal(data, &aux); err != nil {
+		return err
+	}
+
+	if len(aux.CommandRaw) > 0 {
+		var cmdArray []string
+		if err := json.Unmarshal(aux.CommandRaw, &cmdArray); err == nil {
+			r.Command = strings.Join(cmdArray, " ")
+		} else {
+			var cmdString string
+			if err := json.Unmarshal(aux.CommandRaw, &cmdString); err != nil {
+				return err
+			}
+			r.Command = cmdString
+		}
+	}
+
+	return nil
 }
 
 // SessionResponse represents a session in API responses
@@ -102,27 +134,27 @@ const (
 
 // CommandExecution represents a command execution within a session
 type CommandExecution struct {
-	ID          string        `json:"id"`
-	SessionID   string        `json:"sessionId"`
-	Command     []string      `json:"command"`
-	Cwd         string        `json:"cwd,omitempty"`
+	ID          string            `json:"id"`
+	SessionID   string            `json:"sessionId"`
+	Command     []string          `json:"command"`
+	Cwd         string            `json:"cwd,omitempty"`
 	Env         map[string]string `json:"env,omitempty"`
-	Status      CommandStatus `json:"status"`
-	PID         int           `json:"pid,omitempty"`
-	ExitCode    *int          `json:"exitCode,omitempty"`
-	StartedAt   *time.Time    `json:"startedAt,omitempty"`
-	CompletedAt *time.Time    `json:"completedAt,omitempty"`
-	Duration    *time.Duration `json:"duration,omitempty"`
-	Output      []string      `json:"output,omitempty"`
-	Error       string        `json:"error,omitempty"`
+	Status      CommandStatus     `json:"status"`
+	PID         int               `json:"pid,omitempty"`
+	ExitCode    *int              `json:"exitCode,omitempty"`
+	StartedAt   *time.Time        `json:"startedAt,omitempty"`
+	CompletedAt *time.Time        `json:"completedAt,omitempty"`
+	Duration    *time.Duration    `json:"duration,omitempty"`
+	Output      []string          `json:"output,omitempty"`
+	Error       string            `json:"error,omitempty"`
 }
 
 // CommandExecutionRequest represents a request to execute a command
 type CommandExecutionRequest struct {
-	Command []string            `json:"command"`
-	Cwd     string              `json:"cwd,omitempty"`
-	Env     map[string]string   `json:"env,omitempty"`
-	Timeout *time.Duration      `json:"timeout,omitempty"`
+	Command []string          `json:"command"`
+	Cwd     string            `json:"cwd,omitempty"`
+	Env     map[string]string `json:"env,omitempty"`
+	Timeout *time.Duration    `json:"timeout,omitempty"`
 }
 
 // CommandExecutionResponse represents the response from command execution
@@ -134,13 +166,13 @@ type CommandExecutionResponse struct {
 
 // SessionGroup represents a group of related sessions
 type SessionGroup struct {
-	ID          string            `json:"id"`
-	Name        string            `json:"name"`
-	Description string            `json:"description,omitempty"`
-	SessionIDs  []string          `json:"sessionIds"`
-	Tags        []string          `json:"tags,omitempty"`
-	CreatedAt   time.Time         `json:"createdAt"`
-	UpdatedAt   time.Time         `json:"updatedAt"`
+	ID          string                 `json:"id"`
+	Name        string                 `json:"name"`
+	Description string                 `json:"description,omitempty"`
+	SessionIDs  []string               `json:"sessionIds"`
+	Tags        []string               `json:"tags,omitempty"`
+	CreatedAt   time.Time              `json:"createdAt"`
+	UpdatedAt   time.Time              `json:"updatedAt"`
 	Metadata    map[string]interface{} `json:"metadata,omitempty"`
 }
 
@@ -154,7 +186,7 @@ type SessionTag struct {
 
 // BulkSessionOperation represents a bulk operation on multiple sessions
 type BulkSessionOperation struct {
-	Operation string      `json:"operation"` // "start", "stop", "delete", "tag", "resize"
+	Operation  string      `json:"operation"` // "start", "stop", "delete", "tag", "resize"
 	SessionIDs []string    `json:"sessionIds"`
 	Parameters interface{} `json:"parameters,omitempty"` // Operation-specific parameters
 }
@@ -169,32 +201,32 @@ type SessionDependency struct {
 
 // SessionHierarchy represents a hierarchical relationship between sessions
 type SessionHierarchy struct {
-	ParentID   string               `json:"parentId"`
-	ChildID    string               `json:"childId"`
-	Level      int                  `json:"level"`      // Depth in hierarchy
-	Path       []string             `json:"path"`       // Full path from root
-	Metadata   map[string]interface{} `json:"metadata,omitempty"`
+	ParentID string                 `json:"parentId"`
+	ChildID  string                 `json:"childId"`
+	Level    int                    `json:"level"` // Depth in hierarchy
+	Path     []string               `json:"path"`  // Full path from root
+	Metadata map[string]interface{} `json:"metadata,omitempty"`
 }
 
 // RemoteInstance represents a remote TunnelForge instance
 type RemoteInstance struct {
-	ID          string            `json:"id"`
-	Name        string            `json:"name"`
-	URL         string            `json:"url"`
-	Status      string            `json:"status"` // "online", "offline", "unknown"
-	LastSeen    time.Time         `json:"lastSeen"`
-	Version     string            `json:"version,omitempty"`
-	Region      string            `json:"region,omitempty"`
-	Tags        []string          `json:"tags,omitempty"`
-	Metadata    map[string]interface{} `json:"metadata,omitempty"`
+	ID       string                 `json:"id"`
+	Name     string                 `json:"name"`
+	URL      string                 `json:"url"`
+	Status   string                 `json:"status"` // "online", "offline", "unknown"
+	LastSeen time.Time              `json:"lastSeen"`
+	Version  string                 `json:"version,omitempty"`
+	Region   string                 `json:"region,omitempty"`
+	Tags     []string               `json:"tags,omitempty"`
+	Metadata map[string]interface{} `json:"metadata,omitempty"`
 }
 
 // RemoteSession represents a session running on a remote instance
 type RemoteSession struct {
-	Session     *Session         `json:"session"`
-	InstanceID  string           `json:"instanceId"`
-	InstanceURL string           `json:"instanceUrl"`
-	Distance    int              `json:"distance,omitempty"` // Network distance/routing cost
+	Session     *Session `json:"session"`
+	InstanceID  string   `json:"instanceId"`
+	InstanceURL string   `json:"instanceUrl"`
+	Distance    int      `json:"distance,omitempty"` // Network distance/routing cost
 }
 
 // RegistryConfig represents configuration for the remote registry
@@ -208,44 +240,44 @@ type RegistryConfig struct {
 
 // RegistryStats represents statistics for the remote registry
 type RegistryStats struct {
-	TotalInstances    int `json:"totalInstances"`
-	OnlineInstances   int `json:"onlineInstances"`
-	TotalRemoteSessions int `json:"totalRemoteSessions"`
-	LastDiscoveryTime *time.Time `json:"lastDiscoveryTime,omitempty"`
+	TotalInstances      int        `json:"totalInstances"`
+	OnlineInstances     int        `json:"onlineInstances"`
+	TotalRemoteSessions int        `json:"totalRemoteSessions"`
+	LastDiscoveryTime   *time.Time `json:"lastDiscoveryTime,omitempty"`
 }
 
 // ActivityEvent represents a user activity event
 type ActivityEvent struct {
-	ID          string                 `json:"id"`
-	Type        string                 `json:"type"`        // "session_created", "session_deleted", "command_executed", etc.
-	UserID      string                 `json:"userId,omitempty"`
-	SessionID   string                 `json:"sessionId,omitempty"`
-	CommandID   string                 `json:"commandId,omitempty"`
-	Timestamp   time.Time              `json:"timestamp"`
-	Duration    *time.Duration         `json:"duration,omitempty"`
-	Metadata    map[string]interface{} `json:"metadata,omitempty"`
-	IPAddress   string                 `json:"ipAddress,omitempty"`
-	UserAgent   string                 `json:"userAgent,omitempty"`
+	ID        string                 `json:"id"`
+	Type      string                 `json:"type"` // "session_created", "session_deleted", "command_executed", etc.
+	UserID    string                 `json:"userId,omitempty"`
+	SessionID string                 `json:"sessionId,omitempty"`
+	CommandID string                 `json:"commandId,omitempty"`
+	Timestamp time.Time              `json:"timestamp"`
+	Duration  *time.Duration         `json:"duration,omitempty"`
+	Metadata  map[string]interface{} `json:"metadata,omitempty"`
+	IPAddress string                 `json:"ipAddress,omitempty"`
+	UserAgent string                 `json:"userAgent,omitempty"`
 }
 
 // AnalyticsMetrics represents various analytics metrics
 type AnalyticsMetrics struct {
-	TotalSessionsCreated    int64         `json:"totalSessionsCreated"`
-	TotalCommandsExecuted   int64         `json:"totalCommandsExecuted"`
-	TotalActiveUsers        int64         `json:"totalActiveUsers"`
-	AverageSessionDuration  time.Duration `json:"averageSessionDuration"`
-	PeakConcurrentSessions  int64         `json:"peakConcurrentSessions"`
-	MostUsedCommands        []CommandStat `json:"mostUsedCommands"`
-	UserActivityByHour      []HourlyStat  `json:"userActivityByHour"`
-	SessionCreationByDay    []DailyStat   `json:"sessionCreationByDay"`
-	CommandExecutionByDay   []DailyStat   `json:"commandExecutionByDay"`
+	TotalSessionsCreated   int64         `json:"totalSessionsCreated"`
+	TotalCommandsExecuted  int64         `json:"totalCommandsExecuted"`
+	TotalActiveUsers       int64         `json:"totalActiveUsers"`
+	AverageSessionDuration time.Duration `json:"averageSessionDuration"`
+	PeakConcurrentSessions int64         `json:"peakConcurrentSessions"`
+	MostUsedCommands       []CommandStat `json:"mostUsedCommands"`
+	UserActivityByHour     []HourlyStat  `json:"userActivityByHour"`
+	SessionCreationByDay   []DailyStat   `json:"sessionCreationByDay"`
+	CommandExecutionByDay  []DailyStat   `json:"commandExecutionByDay"`
 }
 
 // CommandStat represents statistics for a command
 type CommandStat struct {
-	Command     string `json:"command"`
-	Count       int64  `json:"count"`
-	SuccessRate float64 `json:"successRate"`
+	Command     string        `json:"command"`
+	Count       int64         `json:"count"`
+	SuccessRate float64       `json:"successRate"`
 	AvgDuration time.Duration `json:"avgDuration"`
 }
 
@@ -263,23 +295,23 @@ type DailyStat struct {
 
 // UserActivity represents activity data for a specific user
 type UserActivity struct {
-	UserID            string        `json:"userId"`
-	LastActivity      time.Time     `json:"lastActivity"`
-	TotalSessions     int64         `json:"totalSessions"`
-	TotalCommands     int64         `json:"totalCommands"`
-	TotalTimeSpent    time.Duration `json:"totalTimeSpent"`
-	FavoriteCommands  []string      `json:"favoriteCommands"`
-	ActivityStreak    int           `json:"activityStreak"`
-	MostActiveHour    int           `json:"mostActiveHour"`
-	MostActiveDay     string        `json:"mostActiveDay"`
+	UserID           string        `json:"userId"`
+	LastActivity     time.Time     `json:"lastActivity"`
+	TotalSessions    int64         `json:"totalSessions"`
+	TotalCommands    int64         `json:"totalCommands"`
+	TotalTimeSpent   time.Duration `json:"totalTimeSpent"`
+	FavoriteCommands []string      `json:"favoriteCommands"`
+	ActivityStreak   int           `json:"activityStreak"`
+	MostActiveHour   int           `json:"mostActiveHour"`
+	MostActiveDay    string        `json:"mostActiveDay"`
 }
 
 // AnalyticsConfig represents configuration for the analytics system
 type AnalyticsConfig struct {
-	EnableTracking      bool          `json:"enableTracking"`
-	RetentionPeriod     time.Duration `json:"retentionPeriod"`
-	CollectionInterval  time.Duration `json:"collectionInterval"`
-	MaxEventsPerUser    int           `json:"maxEventsPerUser"`
-	EnableRealTime      bool          `json:"enableRealTime"`
-	ExportPath          string        `json:"exportPath"`
+	EnableTracking     bool          `json:"enableTracking"`
+	RetentionPeriod    time.Duration `json:"retentionPeriod"`
+	CollectionInterval time.Duration `json:"collectionInterval"`
+	MaxEventsPerUser   int           `json:"maxEventsPerUser"`
+	EnableRealTime     bool          `json:"enableRealTime"`
+	ExportPath         string        `json:"exportPath"`
 }

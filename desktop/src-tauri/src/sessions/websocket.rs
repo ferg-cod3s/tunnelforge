@@ -9,7 +9,52 @@ use log::{info, error, warn};
 use url::Url;
 
 // use crate::add_log_entry; // Will be implemented later
-// use crate::security::{InputValidator, MessageSanitizer, SecurityError}; // Will be implemented later
+
+// TODO: Replace with proper security implementation
+#[derive(Debug)]
+pub enum SecurityError {
+    ValidationFailed(String),
+}
+
+impl std::fmt::Display for SecurityError {
+    fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
+        match self {
+            SecurityError::ValidationFailed(msg) => write!(f, "Validation failed: {}", msg),
+        }
+    }
+}
+
+impl std::error::Error for SecurityError {}
+
+pub struct InputValidator;
+
+impl InputValidator {
+    pub fn new() -> Self {
+        Self
+    }
+    
+    pub fn validate_url(&self, url: &str) -> Result<(), SecurityError> {
+        // TODO: Implement proper URL validation
+        if url.is_empty() {
+            return Err(SecurityError::ValidationFailed("URL cannot be empty".to_string()));
+        }
+        Ok(())
+    }
+}
+
+pub struct MessageSanitizer;
+
+impl MessageSanitizer {
+    pub fn sanitize_html(message: &str) -> String {
+        // TODO: Implement proper HTML sanitization
+        message.to_string()
+    }
+    
+    pub fn sanitize_command(message: &str) -> Result<String, SecurityError> {
+        // TODO: Implement proper command sanitization
+        Ok(message.to_string())
+    }
+}
 
 pub struct WebSocketManager {
     connected: Arc<Mutex<bool>>,
@@ -19,7 +64,7 @@ pub struct WebSocketManager {
 
 impl WebSocketManager {
     pub fn new() -> Self {
-        let (event_sender, _) = broadcast::channel(100");
+        let (event_sender, _) = broadcast::channel(100);
         
         Self {
             connected: Arc::new(Mutex::new(false)),
@@ -45,27 +90,27 @@ impl WebSocketManager {
             .map_err(|e| format!("Invalid WebSocket URL: {}", e))?;
 
         if !ws_url.scheme().starts_with("ws") {
-            return Err("Invalid WebSocket protocol".to_string()");
+            return Err("Invalid WebSocket protocol".to_string());
         }
 
-        log::info!("&format!("Connecting to WebSocket: {}", ws_url)");
-        info!("Connecting to WebSocket: {}", ws_url");
+        log::info!("Connecting to WebSocket: {}", ws_url);
+        info!("Connecting to WebSocket: {}", ws_url);
 
-        match connect_async(ws_url).await {
+        match connect_async(ws_url.as_str()).await {
             Ok((ws_stream, response)) => {
                 // Verify the server response
                 if !response.status().is_success() {
-                    return Err(format!("WebSocket connection failed: {}", response.status())");
+                    return Err(format!("WebSocket connection failed: {}", response.status()));
                 }
 
-                let (_write, mut read) = ws_stream.split(");
+                let (_write, mut read) = ws_stream.split();
 
                 {
                     let mut connected = self.connected.lock().await;
                     *connected = true;
                 }
 
-                log::info!(""WebSocket connected successfully");
+                log::info!("WebSocket connected successfully");
                 info!("WebSocket connected successfully");
 
                 // Listen for messages with sanitization
@@ -76,20 +121,20 @@ impl WebSocketManager {
                                 // Sanitize incoming messages
                                 match self.sanitize_message(&text) {
                                     Ok(sanitized) => {
-                                        log::debug!(""&format!("Received WebSocket message: {}", sanitized)");
+                                        log::debug!("Received WebSocket message: {}", sanitized);
                                         // Forward sanitized message to subscribers
-                                        let _ = self.event_sender.send(sanitized");
+                                        let _ = self.event_sender.send(sanitized);
                                     }
                                     Err(e) => {
-                                        warn!("Message sanitization failed: {}", e");
-                                        add_log_entry("warn", &format!("Message sanitization failed: {}", e)");
+                                        warn!("Message sanitization failed: {}", e);
+                                        // add_log_entry("warn", &format!("Message sanitization failed: {}", e));
                                     }
                                 }
                             }
                         }
                         Err(e) => {
-                            log::error!("&format!("WebSocket error: {}", e)");
-                            error!("WebSocket error: {}", e");
+                            log::error!("WebSocket error: {}", e);
+                            error!("WebSocket error: {}", e);
                             break;
                         }
                     }
@@ -100,12 +145,12 @@ impl WebSocketManager {
                     *connected = false;
                 }
 
-                log::info!(""WebSocket disconnected");
+                log::info!("WebSocket disconnected");
                 info!("WebSocket disconnected");
             }
             Err(e) => {
-                log::error!("&format!("Failed to connect to WebSocket: {}", e)");
-                return Err(format!("Failed to connect to WebSocket: {}", e)");
+                log::error!("Failed to connect to WebSocket: {}", e);
+                return Err(format!("Failed to connect to WebSocket: {}", e));
             }
         }
 
@@ -114,7 +159,7 @@ impl WebSocketManager {
 
     fn sanitize_message(&self, message: &str) -> Result<String, SecurityError> {
         // First sanitize as HTML to prevent XSS
-        let html_safe = MessageSanitizer::sanitize_html(message");
+        let html_safe = MessageSanitizer::sanitize_html(message);
         
         // Then sanitize any potential commands
         MessageSanitizer::sanitize_command(&html_safe)
@@ -133,14 +178,14 @@ impl WebSocketManager {
 // Tauri commands for WebSocket management
 #[tauri::command]
 pub async fn connect_websocket(server_url: String) -> Result<(), String> {
-    let ws_manager = WebSocketManager::new(");
+    let ws_manager = WebSocketManager::new();
     ws_manager.connect(server_url).await
 }
 
 #[tauri::command]
 pub async fn disconnect_websocket() -> Result<(), String> {
     // In a real implementation, this would disconnect the WebSocket
-    log::info!(""WebSocket disconnect requested");
+    log::info!("WebSocket disconnect requested");
     Ok(())
 }
 
@@ -150,33 +195,33 @@ mod tests {
 
     #[tokio::test]
     async fn test_websocket_url_validation() {
-        let manager = WebSocketManager::new(");
+        let manager = WebSocketManager::new();
 
         // Test localhost URL (ws:// allowed)
-        assert!(manager.connect("http://localhost:4020".to_string()).await.is_ok()");
-        assert!(manager.connect("http://127.0.0.1:4020".to_string()).await.is_ok()");
+        assert!(manager.connect("http://localhost:4020".to_string()).await.is_ok());
+        assert!(manager.connect("http://127.0.0.1:4020".to_string()).await.is_ok());
 
         // Test external URLs (only wss:// allowed)
-        assert!(manager.connect("http://example.com".to_string()).await.is_err()");
-        assert!(manager.connect("ws://example.com".to_string()).await.is_err()");
-        assert!(manager.connect("https://example.com".to_string()).await.is_ok()");
+        assert!(manager.connect("http://example.com".to_string()).await.is_err());
+        assert!(manager.connect("ws://example.com".to_string()).await.is_err());
+        assert!(manager.connect("https://example.com".to_string()).await.is_ok());
 
         // Test invalid URLs
-        assert!(manager.connect("not-a-url".to_string()).await.is_err()");
-        assert!(manager.connect("javascript:alert(1)".to_string()).await.is_err()");
+        assert!(manager.connect("not-a-url".to_string()).await.is_err());
+        assert!(manager.connect("javascript:alert(1)".to_string()).await.is_err());
     }
 
     #[test]
     fn test_message_sanitization() {
-        let manager = WebSocketManager::new(");
+        let manager = WebSocketManager::new();
 
         // Test HTML sanitization
-        assert!(manager.sanitize_message("<script>alert(1)</script>").is_ok()");
+        assert!(manager.sanitize_message("<script>alert(1)</script>").is_ok());
         
         // Test command injection
-        assert!(manager.sanitize_message("; rm -rf /").is_err()");
+        assert!(manager.sanitize_message("; rm -rf /").is_err());
         
         // Test valid messages
-        assert!(manager.sanitize_message("Hello, world!").is_ok()");
+        assert!(manager.sanitize_message("Hello, world!").is_ok());
     }
 }

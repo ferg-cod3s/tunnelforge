@@ -87,7 +87,7 @@ func TestTunnelForgeFrontendCompatibility(t *testing.T) {
 		t.Run("Session_API_Response_Format", func(t *testing.T) {
 			// Test session creation format
 			sessionReq := &types.SessionCreateRequest{
-				Command: []string{"echo", "test"},
+				Command: "echo test",
 				Title:   "Frontend Test Session",
 				Cols:    80,
 				Rows:    24,
@@ -180,7 +180,7 @@ func TestTunnelForgeFrontendCompatibility(t *testing.T) {
 	t.Run("WebSocket_Frontend_Compatibility", func(t *testing.T) {
 		// Create a session for WebSocket testing
 		sessionReq := &types.SessionCreateRequest{
-			Command: []string{"echo", "websocket_test"},
+			Command: "echo websocket_test",
 			Title:   "WebSocket Test",
 		}
 		jsonPayload, _ := json.Marshal(sessionReq)
@@ -432,7 +432,7 @@ func TestFrontendPerformanceCompatibility(t *testing.T) {
 		const numConcurrent = 10
 
 		sessionPayload := map[string]interface{}{
-			"command": []string{"echo", "test"},
+			"command": "echo test",
 			"title":   "Concurrent Test",
 		}
 		jsonPayload, _ := json.Marshal(sessionPayload)

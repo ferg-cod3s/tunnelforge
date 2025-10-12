@@ -644,12 +644,27 @@ func TestFileSystemService_PathEncoding(t *testing.T) {
 	tempDir, fs, cleanup := setupTestEnvironment(t)
 	defer cleanup()
 
-	// Create a test file with special characters that need encoding
-	testFileName := "test file with spaces & symbols.txt"
-	testFilePath := filepath.Join(tempDir, testFileName)
-	err := os.WriteFile(testFilePath, []byte("test content"), 0644)
+	// Create a test directory with special characters that need encoding
+	testDirName := "test dir with spaces & symbols"
+	testDirPath := filepath.Join(tempDir, testDirName)
+	err := os.Mkdir(testDirPath, 0755)
+	if err != nil {
+		t.Fatal("Failed to create test directory:", err)
+	}
+
+	// Create a test file inside it to verify listing works
+	testFilePath := filepath.Join(testDirPath, "test.txt")
+	err = os.WriteFile(testFilePath, []byte("test content"), 0644)
 	if err != nil {
 		t.Fatal("Failed to create test file:", err)
+	}
+
+	// Create a Unicode directory
+	unicodeDirName := "测试目录"
+	unicodeDirPath := filepath.Join(tempDir, unicodeDirName)
+	err = os.Mkdir(unicodeDirPath, 0755)
+	if err != nil {
+		t.Fatal("Failed to create Unicode test directory:", err)
 	}
 
 	tests := []struct {
@@ -660,25 +675,25 @@ func TestFileSystemService_PathEncoding(t *testing.T) {
 	}{
 		{
 			name:           "Valid URL-encoded path",
-			encodedPath:    url.QueryEscape(testFileName),
+			encodedPath:    url.QueryEscape(testDirName),
 			expectedStatus: 200,
 			shouldSucceed:  true,
 		},
 		{
 			name:           "Valid URL-encoded path with subdirectory",
-			encodedPath:    url.QueryEscape(filepath.Join("subdir", testFileName)),
-			expectedStatus: 404, // Subdirectory doesn't exist
-			shouldSucceed:  false,
+			encodedPath:    url.QueryEscape(filepath.Join("subdir", testDirName)),
+			expectedStatus: 404,  // Subdirectory doesn't exist
+			shouldSucceed:  true, // Path validation should succeed even if path doesn't exist
 		},
 		{
 			name:           "Path with percent encoding",
-			encodedPath:    "test%20file%20with%20spaces%20%26%20symbols.txt",
+			encodedPath:    "test%20dir%20with%20spaces%20%26%20symbols",
 			expectedStatus: 200,
 			shouldSucceed:  true,
 		},
 		{
 			name:           "Path with tilde expansion",
-			encodedPath:    "~/" + url.QueryEscape(testFileName),
+			encodedPath:    "~/", // Just test home directory, which should exist
 			expectedStatus: 200,
 			shouldSucceed:  true,
 		},
@@ -690,7 +705,7 @@ func TestFileSystemService_PathEncoding(t *testing.T) {
 		},
 		{
 			name:           "Path with Unicode characters",
-			encodedPath:    url.QueryEscape("测试文件.txt"),
+			encodedPath:    url.QueryEscape(unicodeDirName),
 			expectedStatus: 200,
 			shouldSucceed:  true,
 		},
@@ -735,8 +750,8 @@ func TestFileSystemService_CommonUserDirectories(t *testing.T) {
 	}
 
 	tests := []struct {
-		path        string
-		isCommon    bool
+		path     string
+		isCommon bool
 	}{
 		{filepath.Join(homeDir, "Desktop"), true},
 		{filepath.Join(homeDir, "Documents"), true},

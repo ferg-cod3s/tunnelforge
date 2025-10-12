@@ -3,8 +3,8 @@
 package power
 
 import (
-	"runtime"
 	"fmt"
+	"runtime"
 	"sync"
 )
 
@@ -134,5 +134,6 @@ func (s *Service) GetStatus() map[string]interface{} {
 	return map[string]interface{}{
 		"enabled":         s.enabled,
 		"sleep_prevented": s.active,
+		"platform":        runtime.GOOS,
 	}
 }

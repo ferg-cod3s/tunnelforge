@@ -110,12 +110,15 @@ func TestPenetrationTestingAuthSystem(t *testing.T) {
 			resp, err := http.Post(baseURL+"/api/sessions", "application/json", bytes.NewBuffer(jsonPayload))
 			require.NoError(t, err)
 			defer resp.Body.Close()
+			require.Equal(t, http.StatusCreated, resp.StatusCode)
 
 			var session map[string]interface{}
 			err = json.NewDecoder(resp.Body).Decode(&session)
 			require.NoError(t, err)
 
-			sessionID := session["id"].(string)
+			sessionID, ok := session["id"].(string)
+			require.True(t, ok, "session id should be a string")
+			require.NotEmpty(t, sessionID)
 
 			// Test WebSocket connection with no authentication
 			wsURL := strings.Replace(httpServer.URL, "http://", "ws://", 1) + "/ws?sessionId=" + sessionID
@@ -143,12 +146,16 @@ func TestPenetrationTestingAuthSystem(t *testing.T) {
 				resp, err := http.Post(baseURL+"/api/sessions", "application/json", bytes.NewBuffer(jsonPayload))
 				require.NoError(t, err)
 				defer resp.Body.Close()
+				require.Equal(t, http.StatusCreated, resp.StatusCode)
 
 				var session map[string]interface{}
 				err = json.NewDecoder(resp.Body).Decode(&session)
 				require.NoError(t, err)
 
-				sessionIDs = append(sessionIDs, session["id"].(string))
+				sessionID, ok := session["id"].(string)
+				require.True(t, ok, "session id should be a string")
+				require.NotEmpty(t, sessionID)
+				sessionIDs = append(sessionIDs, sessionID)
 			}
 
 			// Verify session IDs are UUIDs (non-predictable)
@@ -203,7 +210,7 @@ func TestInputValidationSecurity(t *testing.T) {
 				defer resp.Body.Close()
 
 				// Should reject SQL injection attempts (our security is strict)
-				assert.Equal(t, http.StatusInternalServerError, resp.StatusCode,
+				assert.Equal(t, http.StatusBadRequest, resp.StatusCode,
 					"Should reject SQL injection payload: %s", payload)
 
 				// This demonstrates our strong security posture - we reject dangerous input entirely
@@ -233,7 +240,7 @@ func TestInputValidationSecurity(t *testing.T) {
 			defer resp.Body.Close()
 
 			// Should reject NoSQL injection attempts (our security is strict)
-			assert.Equal(t, http.StatusInternalServerError, resp.StatusCode,
+			assert.Equal(t, http.StatusBadRequest, resp.StatusCode,
 				"Should reject NoSQL injection payload: %s", payload)
 
 			// This demonstrates our strong security posture

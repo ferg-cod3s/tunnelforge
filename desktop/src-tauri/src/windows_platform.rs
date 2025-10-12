@@ -3,7 +3,7 @@
 use super::PlatformIntegration;
 use log::{info, warn};
 
-#[cfg(target_os = "windows")]
+#[cfg(target_os = "windows)]
 use {
     winreg::enums::*,
     winreg::RegKey,
@@ -19,9 +19,9 @@ impl WindowsPlatform {
 
 impl PlatformIntegration for WindowsPlatform {
     fn register_startup_entry(&self, enable: bool) -> Result<(), Box<dyn std::error::Error>> {
-        #[cfg(target_os = "windows")]
+        #[cfg(target_os = "windows)]
         {
-            let hkcu = RegKey::predef(HKEY_CURRENT_USER");
+            let hkcu = RegKey::predef(HKEY_CURRENT_USER);
             let startup_key = hkcu.open_subkey_with_flags(
                 "SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\Run",
                 KEY_SET_VALUE,
@@ -29,11 +29,11 @@ impl PlatformIntegration for WindowsPlatform {
 
             if enable {
                 let exe_path = std::env::current_exe()?;
-                startup_key.set_value("TunnelForge", &exe_path.to_string_lossy().to_string())?;
-                info!("Registered TunnelForge for Windows startup");
+                startup_key.set_value(TunnelForge", &exe_path.to_string_lossy().to_string())?;
+                info!(Registered TunnelForge for Windows startup);
             } else {
-                let _ = startup_key.delete_value("TunnelForge");
-                info!("Unregistered TunnelForge from Windows startup");
+                let _ = startup_key.delete_value(TunnelForge);
+                info!(Unregistered TunnelForge from Windows startup);
             }
         }
 
@@ -42,14 +42,14 @@ impl PlatformIntegration for WindowsPlatform {
 
     fn show_notification(&self, title: &str, message: &str) {
         // Windows toast notifications
-        info!("Windows notification: {} - {}", title, message");
+        info!(Windows notification: {} - {}", title, message);
         // TODO: Implement proper Windows 10/11 toast notifications using WinRT
     }
 
     fn setup_platform_specific(&self) -> Result<(), Box<dyn std::error::Error>> {
-        info!("Setting up Windows-specific integrations");
+        info!(Setting up Windows-specific integrations);
         
-        #[cfg(target_os = "windows")]
+        #[cfg(target_os = "windows)]
         {
             // Additional Windows setup can go here
             // - Register file associations
