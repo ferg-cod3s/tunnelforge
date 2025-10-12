@@ -15,13 +15,11 @@ import (
 	"time"
 
 	"github.com/gorilla/mux"
-	"github.com/rs/cors"
 
 	"github.com/ferg-cod3s/tunnelforge/go-server/internal/middleware"
 
-	"github.com/ferg-cod3s/tunnelforge/go-server/internal/auth"
 	"github.com/ferg-cod3s/tunnelforge/go-server/internal/analytics"
-	"github.com/ferg-cod3s/tunnelforge/go-server/internal/registry"
+	"github.com/ferg-cod3s/tunnelforge/go-server/internal/auth"
 	"github.com/ferg-cod3s/tunnelforge/go-server/internal/buffer"
 	"github.com/ferg-cod3s/tunnelforge/go-server/internal/config"
 	"github.com/ferg-cod3s/tunnelforge/go-server/internal/control"
@@ -30,13 +28,14 @@ import (
 	"github.com/ferg-cod3s/tunnelforge/go-server/internal/git"
 	"github.com/ferg-cod3s/tunnelforge/go-server/internal/logs"
 	"github.com/ferg-cod3s/tunnelforge/go-server/internal/persistence"
+	"github.com/ferg-cod3s/tunnelforge/go-server/internal/power"
 	"github.com/ferg-cod3s/tunnelforge/go-server/internal/push"
+	"github.com/ferg-cod3s/tunnelforge/go-server/internal/registry"
 	"github.com/ferg-cod3s/tunnelforge/go-server/internal/session"
 	"github.com/ferg-cod3s/tunnelforge/go-server/internal/static"
 	"github.com/ferg-cod3s/tunnelforge/go-server/internal/tmux"
-	"github.com/ferg-cod3s/tunnelforge/go-server/internal/websocket"
-	"github.com/ferg-cod3s/tunnelforge/go-server/internal/power"
 	"github.com/ferg-cod3s/tunnelforge/go-server/internal/tunnels"
+	"github.com/ferg-cod3s/tunnelforge/go-server/internal/websocket"
 	"github.com/ferg-cod3s/tunnelforge/go-server/pkg/types"
 )
 
@@ -64,8 +63,8 @@ type Server struct {
 	powerService       *power.Service
 	tunnelService      *tunnels.Service
 	startTime          time.Time
-	analyticsService *analytics.Service
-	registryService *registry.Service
+	analyticsService   *analytics.Service
+	registryService    *registry.Service
 	mu                 sync.RWMutex
 }
 
@@ -191,8 +190,8 @@ func New(cfg *Config) (*Server, error) {
 		logService:         logService,
 		tmuxService:        tmuxService,
 		controlService:     controlService,
-		registryService:     registryService,
-				analyticsService:    analyticsService,
+		registryService:    registryService,
+		analyticsService:   analyticsService,
 		passwordAuth:       passwordAuth,
 		powerService:       powerService,
 		tunnelService:      tunnelService,
@@ -302,15 +301,14 @@ func (s *Server) setupRoutes() {
 		})
 	}
 
-	// Conditionally protect current-user endpoint based on auth requirement
+	// Always protect current-user endpoint - it should return authenticated user info
+	protectedAuth := auth.NewRoute().Subrouter()
+	protectedAuth.Use(authMiddleware)
+	protectedAuth.HandleFunc("/current-user", s.handleCurrentUser).Methods("GET")
+
+	// Conditionally protect logout endpoint based on auth requirement
 	if s.config.AuthRequired {
-		protectedAuth := auth.NewRoute().Subrouter()
-		protectedAuth.Use(authMiddleware)
-		protectedAuth.HandleFunc("/current-user", s.handleCurrentUser).Methods("GET")
 		protectedAuth.HandleFunc("/logout", s.handleLogout).Methods("POST")
-	} else {
-		// When auth is not required, provide current-user endpoint without protection
-		auth.HandleFunc("/current-user", s.handleCurrentUser).Methods("GET")
 	}
 
 	// Session routes (protected if auth is required)
@@ -390,8 +388,8 @@ func (s *Server) setupRoutes() {
 
 	// Domain setup routes
 
- 	// Control stream route (for frontend compatibility)
- 	sessionRouter.HandleFunc("/control/stream", s.handleControlStream).Methods("GET")
+	// Control stream route (for frontend compatibility)
+	sessionRouter.HandleFunc("/control/stream", s.handleControlStream).Methods("GET")
 
 	// Static file serving (serve embedded frontend files)
 	staticHandler, err := static.GetStaticHandler()
@@ -401,51 +399,42 @@ func (s *Server) setupRoutes() {
 		// Serve static files at root, but only if not an API route
 		r.PathPrefix("/").Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 			// If it's an API route, WebSocket, or health check, don't serve static files
-			if strings.HasPrefix(r.URL.Path, "/api/") || 
-			   strings.HasPrefix(r.URL.Path, "/ws") || 
-			   strings.HasPrefix(r.URL.Path, "/buffers") || 
-			   strings.HasPrefix(r.URL.Path, "/health") {
+			if strings.HasPrefix(r.URL.Path, "/api/") ||
+				strings.HasPrefix(r.URL.Path, "/ws") ||
+				strings.HasPrefix(r.URL.Path, "/buffers") ||
+				strings.HasPrefix(r.URL.Path, "/health") {
 				http.NotFound(w, r)
 				return
 			}
-			
+
 			// The static handler now handles the root path internally
 			staticHandler.ServeHTTP(w, r)
 		}))
 	}
 
-	// CORS middleware
-	c := cors.New(cors.Options{
-		AllowedOrigins:   s.config.AllowedOrigins,
-		AllowedMethods:   []string{"GET", "POST", "PUT", "DELETE", "OPTIONS"},
-		AllowedHeaders:   []string{"Content-Type", "Authorization", "X-Requested-With", "X-CSRF-Token"},
-		AllowCredentials: true,
-	})
-
-	// Build middleware chain: Apply security middleware in order
+	// Start with the base router
 	var handler http.Handler = r
 
-	// Apply CORS first (innermost)
-	corsHandler := c.Handler(handler)
-
 	// Apply compression and security headers, but skip for WebSocket and SSE routes
+	baseHandler := handler // Capture the base handler before wrapping
 	handler = http.HandlerFunc(func(w http.ResponseWriter, req *http.Request) {
 		// Skip compression and security headers for WebSocket and SSE endpoints
-			if req.URL.Path == "/ws" || 
-				strings.HasPrefix(req.URL.Path, "/api/fs/") || 
-				req.URL.Path == "/buffers" ||
-				req.URL.Path == "/api/events" ||
-				req.URL.Path == "/api/repositories/discover" ||
-				req.URL.Path == "/api/control/stream" ||
-				strings.Contains(req.URL.Path, "/stream") {
+		if req.URL.Path == "/ws" ||
+			strings.HasPrefix(req.URL.Path, "/api/fs/") ||
+			req.URL.Path == "/buffers" ||
+			req.URL.Path == "/api/events" ||
+			req.URL.Path == "/api/repositories/discover" ||
+			req.URL.Path == "/api/control/stream" ||
+			strings.Contains(req.URL.Path, "/stream") {
 			// SSE and WebSocket endpoints need direct access to the connection
-			corsHandler.ServeHTTP(w, req)
+			// Apply only CORS for these routes (already applied above)
+			baseHandler.ServeHTTP(w, req)
 			return
 		}
 
 		// Apply compression and security headers for non-streaming routes
 		compressionHandler := middleware.Compression()(http.HandlerFunc(func(w http.ResponseWriter, req *http.Request) {
-			securityHandler := middleware.SecurityHeaders()(corsHandler)
+			securityHandler := middleware.SecurityHeaders()(baseHandler)
 			securityHandler.ServeHTTP(w, req)
 		}))
 		compressionHandler.ServeHTTP(w, req)
@@ -457,13 +446,13 @@ func (s *Server) setupRoutes() {
 		prevHandler := handler // Capture current handler before redefining
 		handler = http.HandlerFunc(func(w http.ResponseWriter, req *http.Request) {
 			// Skip rate limiting for WebSocket and SSE endpoints to avoid hijacking interference
-            if req.URL.Path == "/ws" || 
-               strings.HasPrefix(req.URL.Path, "/api/fs/") || 
-               req.URL.Path == "/buffers" ||
-               req.URL.Path == "/api/events" ||
-               req.URL.Path == "/api/repositories/discover" ||
-               req.URL.Path == "/api/control/stream" ||
-               strings.Contains(req.URL.Path, "/stream") {
+			if req.URL.Path == "/ws" ||
+				strings.HasPrefix(req.URL.Path, "/api/fs/") ||
+				req.URL.Path == "/buffers" ||
+				req.URL.Path == "/api/events" ||
+				req.URL.Path == "/api/repositories/discover" ||
+				req.URL.Path == "/api/control/stream" ||
+				strings.Contains(req.URL.Path, "/stream") {
 				prevHandler.ServeHTTP(w, req)
 				return
 			}
@@ -477,13 +466,13 @@ func (s *Server) setupRoutes() {
 		prevHandler := handler // Capture current handler before redefining
 		handler = http.HandlerFunc(func(w http.ResponseWriter, req *http.Request) {
 			// Skip request logging for WebSocket and SSE endpoints to avoid hijacking interference
-            if req.URL.Path == "/ws" || 
-               strings.HasPrefix(req.URL.Path, "/api/fs/") || 
-               req.URL.Path == "/buffers" ||
-               req.URL.Path == "/api/events" ||
-               req.URL.Path == "/api/repositories/discover" ||
-               req.URL.Path == "/api/control/stream" ||
-               strings.Contains(req.URL.Path, "/stream") {
+			if req.URL.Path == "/ws" ||
+				strings.HasPrefix(req.URL.Path, "/api/fs/") ||
+				req.URL.Path == "/buffers" ||
+				req.URL.Path == "/api/events" ||
+				req.URL.Path == "/api/repositories/discover" ||
+				req.URL.Path == "/api/control/stream" ||
+				strings.Contains(req.URL.Path, "/stream") {
 				prevHandler.ServeHTTP(w, req)
 				return
 			}
@@ -507,13 +496,30 @@ func (s *Server) setupRoutes() {
 		handler = ipWhitelist.Middleware(handler)
 	}
 
- 	s.httpServer = &http.Server{
- 		Addr:         fmt.Sprintf("%s:%s", s.config.Host, s.config.Port),
- 		Handler:      handler,
- 		ReadTimeout:  15 * time.Second,
- 		WriteTimeout: 15 * time.Second,
- 		IdleTimeout:  60 * time.Second,
- 	}
+	// Apply CORS last to ensure headers are set on all responses
+	finalHandler := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		// Set CORS headers for all requests
+		w.Header().Set("Access-Control-Allow-Origin", "*")
+		w.Header().Set("Access-Control-Allow-Methods", "GET, POST, PUT, DELETE, OPTIONS")
+		w.Header().Set("Access-Control-Allow-Headers", "Content-Type, Authorization, X-Requested-With, X-CSRF-Token")
+		w.Header().Set("Access-Control-Allow-Credentials", "true")
+
+		// Handle preflight requests
+		if r.Method == "OPTIONS" {
+			w.WriteHeader(http.StatusOK)
+			return
+		}
+
+		handler.ServeHTTP(w, r)
+	})
+
+	s.httpServer = &http.Server{
+		Addr:         fmt.Sprintf("%s:%s", s.config.Host, s.config.Port),
+		Handler:      finalHandler,
+		ReadTimeout:  15 * time.Second,
+		WriteTimeout: 15 * time.Second,
+		IdleTimeout:  60 * time.Second,
+	}
 }
 
 // Handler returns the HTTP handler for the server
@@ -548,14 +554,14 @@ func (s *Server) Start() error {
 		WithMessage("TunnelForge Go server started")
 	s.broadcastEvent(startEvent)
 
- 	log.Printf("Starting HTTP server on %s", s.httpServer.Addr)
- 	return s.httpServer.ListenAndServe()
+	log.Printf("Starting HTTP server on %s", s.httpServer.Addr)
+	return s.httpServer.ListenAndServe()
 }
 
 func (s *Server) Shutdown(ctx context.Context) error {
 	// Broadcast server shutdown event
-shutdownEvent := types.NewServerEvent(types.EventServerShutdown)
-shutdownEvent = shutdownEvent.WithMessage("TunnelForge Go server shutting down")
+	shutdownEvent := types.NewServerEvent(types.EventServerShutdown)
+	shutdownEvent = shutdownEvent.WithMessage("TunnelForge Go server shutting down")
 	// Stop analytics service
 	if err := s.analyticsService.Stop(); err != nil {
 		log.Printf("Failed to stop analytics service: %v", err)
@@ -593,8 +599,12 @@ shutdownEvent = shutdownEvent.WithMessage("TunnelForge Go server shutting down")
 
 func (s *Server) handleHealth(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "application/json")
-	fmt.Fprintf(w, `{"status":"ok","sessions":%d,"uptime":"%s"}`,
-		s.sessionManager.Count(), time.Since(s.startTime).String())
+	response := map[string]interface{}{
+		"status":   "ok",
+		"sessions": s.sessionManager.Count(),
+		"uptime":   time.Since(s.startTime).String(),
+	}
+	json.NewEncoder(w).Encode(response)
 }
 
 // API handlers for Phase 4 implementation
@@ -626,8 +636,12 @@ func (s *Server) handleListSessions(w http.ResponseWriter, r *http.Request) {
 		})
 	}
 
-	// Return sessions array directly to match frontend expectations
-	if err := json.NewEncoder(w).Encode(responses); err != nil {
+	// Return sessions with count to match frontend expectations
+	result := map[string]interface{}{
+		"sessions": responses,
+		"count":    len(responses),
+	}
+	if err := json.NewEncoder(w).Encode(result); err != nil {
 		log.Printf("Failed to encode sessions response: %v", err)
 		http.Error(w, "Failed to encode response", http.StatusInternalServerError)
 		return
@@ -1011,6 +1025,7 @@ func (s *Server) handleLogin(w http.ResponseWriter, r *http.Request) {
 		log.Printf("Failed to encode login response: %v", err)
 	}
 }
+
 // handleLogout handles user logout by revoking the JWT token
 func (s *Server) handleLogout(w http.ResponseWriter, r *http.Request) {
 	// Get the Authorization header
@@ -1076,50 +1091,14 @@ func (s *Server) handlePasswordAuth(w http.ResponseWriter, r *http.Request) {
 // handleCurrentUser returns current authenticated user info
 func (s *Server) handleCurrentUser(w http.ResponseWriter, r *http.Request) {
 	log.Printf("🔍 handleCurrentUser called - Method: %s, URL: %s", r.Method, r.URL.String())
-	log.Printf("🔍 Auth required: %v", s.config.AuthRequired)
-	log.Printf("🔍 Request headers: %v", r.Header)
 
 	// Extract user from context (set by JWT middleware)
 	userCtx := middleware.GetUserFromContext(r.Context())
 	log.Printf("🔍 User context from JWT middleware: %+v", userCtx)
 
-	// If no user context and auth is not required, return the system user
-	if userCtx == nil && !s.config.AuthRequired {
-		log.Printf("🔍 No user context and auth not required - getting system user")
-
-		// Get current system user
-		username := os.Getenv("USER")
-		log.Printf("🔍 USER env var: %q", username)
-		if username == "" {
-			username = os.Getenv("USERNAME")
-			log.Printf("🔍 USERNAME env var: %q", username)
-		}
-		if username == "" {
-			username = "unknown"
-			log.Printf("🔍 Fallback to 'unknown' username")
-		}
-
-		response := map[string]interface{}{
-			"success": true,
-			"userId":  username, // Frontend expects this field
-			"user": map[string]string{
-				"id":       username,
-				"username": username,
-				"role":     "admin", // Grant full access when auth is disabled
-			},
-		}
-
-		log.Printf("🔍 Sending response: %+v", response)
-		w.Header().Set("Content-Type", "application/json")
-		if err := json.NewEncoder(w).Encode(response); err != nil {
-			log.Printf("❌ Error encoding response: %v", err)
-		}
-		return
-	}
-
-	// If no user context and auth is required, return error
+	// If no user context, return unauthorized (middleware should prevent this, but check anyway)
 	if userCtx == nil {
-		log.Printf("🔍 No user context and auth is required - returning unauthorized")
+		log.Printf("🔍 No user context - returning unauthorized")
 		s.writeJSONError(w, "Authentication required", http.StatusUnauthorized)
 		return
 	}
@@ -1396,10 +1375,10 @@ func isLocalhost(ip string) bool {
 	}
 
 	// Check for localhost IPs
-	return parsedIP.IsLoopback() || 
-		   ip == "127.0.0.1" || 
-		   ip == "::1" || 
-		   ip == "localhost"
+	return parsedIP.IsLoopback() ||
+		ip == "127.0.0.1" ||
+		ip == "::1" ||
+		ip == "localhost"
 }
 
 // handleControlStream provides a Server-Sent Events stream for control events
@@ -1448,14 +1427,14 @@ func (s *Server) registerCloudflareRoutes(router *mux.Router) {
 	router.HandleFunc("/tunnels/cloudflare", s.handleCreateCloudflareTunnel).Methods("POST")
 	router.HandleFunc("/tunnels/cloudflare/{id}", s.handleGetCloudflareTunnel).Methods("GET")
 	router.HandleFunc("/tunnels/cloudflare/{id}", s.handleDeleteCloudflareTunnel).Methods("DELETE")
-	
+
 	// Domain management routes
 	router.HandleFunc("/domains", s.handleListDomains).Methods("GET")
 	router.HandleFunc("/domains", s.handleAssignDomain).Methods("POST")
 	router.HandleFunc("/domains/{domain}", s.handleGetDomain).Methods("GET")
 	router.HandleFunc("/domains/{domain}", s.handleRemoveDomain).Methods("DELETE")
 	router.HandleFunc("/domains/{domain}/status", s.handleCheckDomainStatus).Methods("GET")
-	
+
 	log.Printf("Cloudflare tunnel routes registered")
 }
 */
@@ -1468,14 +1447,14 @@ func (s *Server) handleListCloudflareTunnels(w http.ResponseWriter, r *http.Requ
 		s.writeJSONError(w, "Cloudflare tunnels not configured", http.StatusServiceUnavailable)
 		return
 	}
-	
+
 	tunnels, err := s.cloudflareService.ListTunnels()
 	if err != nil {
 		log.Printf("Failed to list Cloudflare tunnels: %v", err)
 		s.writeJSONError(w, fmt.Sprintf("Failed to list tunnels: %v", err), http.StatusInternalServerError)
 		return
 	}
-	
+
 	w.Header().Set("Content-Type", "application/json")
 	json.NewEncoder(w).Encode(map[string]interface{}{
 		"tunnels": tunnels,
@@ -1491,27 +1470,27 @@ func (s *Server) handleCreateCloudflareTunnel(w http.ResponseWriter, r *http.Req
 		s.writeJSONError(w, "Cloudflare tunnels not configured", http.StatusServiceUnavailable)
 		return
 	}
-	
+
 	var req struct {
 		Name string `json:"name"`
 	}
-	
+
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
 		s.writeJSONError(w, "Invalid JSON request", http.StatusBadRequest)
 		return
 	}
-	
+
 	if req.Name == "" {
 		s.writeJSONError(w, "Tunnel name is required", http.StatusBadRequest)
 		return
 	}
-	
+
 	// Validate tunnel name
 	if err := s.cloudflareService.ValidateTunnelName(req.Name); err != nil {
 		s.writeJSONError(w, err.Error(), http.StatusBadRequest)
 		return
 	}
-	
+
 	// Create tunnel (domain will be assigned later)
 	tunnel, err := s.cloudflareService.CreateTunnel(req.Name, "")
 	if err != nil {
@@ -1519,7 +1498,7 @@ func (s *Server) handleCreateCloudflareTunnel(w http.ResponseWriter, r *http.Req
 		s.writeJSONError(w, fmt.Sprintf("Failed to create tunnel: %v", err), http.StatusInternalServerError)
 		return
 	}
-	
+
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(http.StatusCreated)
 	json.NewEncoder(w).Encode(tunnel)
@@ -1531,22 +1510,22 @@ func (s *Server) handleGetCloudflareTunnel(w http.ResponseWriter, r *http.Reques
 		s.writeJSONError(w, "Cloudflare tunnels not configured", http.StatusServiceUnavailable)
 		return
 	}
-	
+
 	vars := mux.Vars(r)
 	tunnelID := vars["id"]
-	
+
 	if tunnelID == "" {
 		s.writeJSONError(w, "Tunnel ID is required", http.StatusBadRequest)
 		return
 	}
-	
+
 	tunnel, err := s.cloudflareService.GetTunnel(tunnelID)
 	if err != nil {
 		log.Printf("Failed to get Cloudflare tunnel: %v", err)
 		s.writeJSONError(w, fmt.Sprintf("Failed to get tunnel: %v", err), http.StatusInternalServerError)
 		return
 	}
-	
+
 	w.Header().Set("Content-Type", "application/json")
 	json.NewEncoder(w).Encode(tunnel)
 }
@@ -1557,22 +1536,22 @@ func (s *Server) handleDeleteCloudflareTunnel(w http.ResponseWriter, r *http.Req
 		s.writeJSONError(w, "Cloudflare tunnels not configured", http.StatusServiceUnavailable)
 		return
 	}
-	
+
 	vars := mux.Vars(r)
 	tunnelID := vars["id"]
-	
+
 	if tunnelID == "" {
 		s.writeJSONError(w, "Tunnel ID is required", http.StatusBadRequest)
 		return
 	}
-	
+
 	err := s.cloudflareService.DeleteTunnel(tunnelID)
 	if err != nil {
 		log.Printf("Failed to delete Cloudflare tunnel: %v", err)
 		s.writeJSONError(w, fmt.Sprintf("Failed to delete tunnel: %v", err), http.StatusInternalServerError)
 		return
 	}
-	
+
 	w.WriteHeader(http.StatusOK)
 	json.NewEncoder(w).Encode(map[string]interface{}{
 		"message": "Tunnel deleted successfully",
@@ -1585,14 +1564,14 @@ func (s *Server) handleListDomains(w http.ResponseWriter, r *http.Request) {
 		s.writeJSONError(w, "Domain management not configured", http.StatusServiceUnavailable)
 		return
 	}
-	
+
 	domains, err := s.domainManager.ListDomainAssignments()
 	if err != nil {
 		log.Printf("Failed to list domain assignments: %v", err)
 		s.writeJSONError(w, fmt.Sprintf("Failed to list domains: %v", err), http.StatusInternalServerError)
 		return
 	}
-	
+
 	w.Header().Set("Content-Type", "application/json")
 	json.NewEncoder(w).Encode(map[string]interface{}{
 		"domains": domains,
@@ -1605,25 +1584,25 @@ func (s *Server) handleAssignDomain(w http.ResponseWriter, r *http.Request) {
 		s.writeJSONError(w, "Domain management not configured", http.StatusServiceUnavailable)
 		return
 	}
-	
+
 	var req domain.AssignDomainRequest
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
 		s.writeJSONError(w, "Invalid JSON request", http.StatusBadRequest)
 		return
 	}
-	
+
 	if req.Domain == "" || req.TunnelID == "" {
 		s.writeJSONError(w, "Domain and tunnel ID are required", http.StatusBadRequest)
 		return
 	}
-	
+
 	assignment, err := s.domainManager.AssignDomain(req)
 	if err != nil {
 		log.Printf("Failed to assign domain: %v", err)
 		s.writeJSONError(w, fmt.Sprintf("Failed to assign domain: %v", err), http.StatusInternalServerError)
 		return
 	}
-	
+
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(http.StatusCreated)
 	json.NewEncoder(w).Encode(assignment)
@@ -1635,22 +1614,22 @@ func (s *Server) handleGetDomain(w http.ResponseWriter, r *http.Request) {
 		s.writeJSONError(w, "Domain management not configured", http.StatusServiceUnavailable)
 		return
 	}
-	
+
 	vars := mux.Vars(r)
 	domainName := vars["domain"]
-	
+
 	if domainName == "" {
 		s.writeJSONError(w, "Domain name is required", http.StatusBadRequest)
 		return
 	}
-	
+
 	assignment, err := s.domainManager.GetDomainAssignment(domainName)
 	if err != nil {
 		log.Printf("Failed to get domain assignment: %v", err)
 		s.writeJSONError(w, fmt.Sprintf("Failed to get domain: %v", err), http.StatusNotFound)
 		return
 	}
-	
+
 	w.Header().Set("Content-Type", "application/json")
 	json.NewEncoder(w).Encode(assignment)
 }
@@ -1661,22 +1640,22 @@ func (s *Server) handleRemoveDomain(w http.ResponseWriter, r *http.Request) {
 		s.writeJSONError(w, "Domain management not configured", http.StatusServiceUnavailable)
 		return
 	}
-	
+
 	vars := mux.Vars(r)
 	domainName := vars["domain"]
-	
+
 	if domainName == "" {
 		s.writeJSONError(w, "Domain name is required", http.StatusBadRequest)
 		return
 	}
-	
+
 	err := s.domainManager.RemoveDomainAssignment(domainName)
 	if err != nil {
 		log.Printf("Failed to remove domain assignment: %v", err)
 		s.writeJSONError(w, fmt.Sprintf("Failed to remove domain: %v", err), http.StatusInternalServerError)
 		return
 	}
-	
+
 	w.WriteHeader(http.StatusOK)
 	json.NewEncoder(w).Encode(map[string]interface{}{
 		"message": "Domain assignment removed successfully",
@@ -1689,22 +1668,22 @@ func (s *Server) handleCheckDomainStatus(w http.ResponseWriter, r *http.Request)
 		s.writeJSONError(w, "Domain management not configured", http.StatusServiceUnavailable)
 		return
 	}
-	
+
 	vars := mux.Vars(r)
 	domainName := vars["domain"]
-	
+
 	if domainName == "" {
 		s.writeJSONError(w, "Domain name is required", http.StatusBadRequest)
 		return
 	}
-	
+
 	status, err := s.domainManager.CheckDomainStatus(domainName)
 	if err != nil {
 		log.Printf("Failed to check domain status: %v", err)
 		s.writeJSONError(w, fmt.Sprintf("Failed to check domain status: %v", err), http.StatusInternalServerError)
 		return
 	}
-	
+
 	w.Header().Set("Content-Type", "application/json")
 	json.NewEncoder(w).Encode(map[string]interface{}{
 		"domain": domainName,
@@ -1721,7 +1700,7 @@ func (s *Server) registerSecureConfigRoutes(router *mux.Router) {
 	router.HandleFunc("/config/cloudflare/credentials", s.handleGetCloudflareCredentials).Methods("GET")
 	router.HandleFunc("/config/cloudflare/credentials", s.handleDeleteCloudflareCredentials).Methods("DELETE")
 	router.HandleFunc("/config/cloudflare/status", s.handleGetCloudflareStatus).Methods("GET")
-	
+
 	log.Printf("Secure configuration routes registered")
 }
 
@@ -1731,25 +1710,25 @@ func (s *Server) handleStoreCloudflareCredentials(w http.ResponseWriter, r *http
 		s.writeJSONError(w, "Secure configuration not available", http.StatusServiceUnavailable)
 		return
 	}
-	
+
 	var credentials config.CloudflareCredentials
 	if err := json.NewDecoder(r.Body).Decode(&credentials); err != nil {
 		s.writeJSONError(w, "Invalid JSON request", http.StatusBadRequest)
 		return
 	}
-	
+
 	if credentials.APIToken == "" || credentials.AccountID == "" {
 		s.writeJSONError(w, "API token and account ID are required", http.StatusBadRequest)
 		return
 	}
-	
+
 	err := s.secureConfigManager.StoreCloudflareCredentials(credentials)
 	if err != nil {
 		log.Printf("Failed to store Cloudflare credentials: %v", err)
 		s.writeJSONError(w, fmt.Sprintf("Failed to store credentials: %v", err), http.StatusInternalServerError)
 		return
 	}
-	
+
 	w.Header().Set("Content-Type", "application/json")
 	json.NewEncoder(w).Encode(map[string]interface{}{
 		"message": "Cloudflare credentials stored successfully",
@@ -1762,14 +1741,14 @@ func (s *Server) handleGetCloudflareCredentials(w http.ResponseWriter, r *http.R
 		s.writeJSONError(w, "Secure configuration not available", http.StatusServiceUnavailable)
 		return
 	}
-	
+
 	credentials, err := s.secureConfigManager.GetCloudflareCredentials()
 	if err != nil {
 		log.Printf("Failed to get Cloudflare credentials: %v", err)
 		s.writeJSONError(w, fmt.Sprintf("Failed to get credentials: %v", err), http.StatusInternalServerError)
 		return
 	}
-	
+
 	// Don't return the actual credentials for security, just indicate if they exist
 	w.Header().Set("Content-Type", "application/json")
 	json.NewEncoder(w).Encode(map[string]interface{}{
@@ -1783,14 +1762,14 @@ func (s *Server) handleDeleteCloudflareCredentials(w http.ResponseWriter, r *htt
 		s.writeJSONError(w, "Secure configuration not available", http.StatusServiceUnavailable)
 		return
 	}
-	
+
 	err := s.secureConfigManager.DeleteCloudflareCredentials()
 	if err != nil {
 		log.Printf("Failed to delete Cloudflare credentials: %v", err)
 		s.writeJSONError(w, fmt.Sprintf("Failed to delete credentials: %v", err), http.StatusInternalServerError)
 		return
 	}
-	
+
 	w.Header().Set("Content-Type", "application/json")
 	json.NewEncoder(w).Encode(map[string]interface{}{
 		"message": "Cloudflare credentials deleted successfully",
@@ -1802,7 +1781,7 @@ func (s *Server) handleGetCloudflareStatus(w http.ResponseWriter, r *http.Reques
 	status := map[string]interface{}{
 		"enabled": s.config.EnableCloudflareTunnels,
 	}
-	
+
 	if s.secureConfigManager != nil {
 		status["secure_storage_available"] = true
 		status["credentials_configured"] = s.secureConfigManager.HasCloudflareCredentials()
@@ -1810,9 +1789,9 @@ func (s *Server) handleGetCloudflareStatus(w http.ResponseWriter, r *http.Reques
 		status["secure_storage_available"] = false
 		status["credentials_configured"] = s.config.CloudflareAPIToken != "" && s.config.CloudflareAccountID != ""
 	}
-	
+
 	status["services_available"] = s.cloudflareService != nil
-	
+
 	w.Header().Set("Content-Type", "application/json")
 	json.NewEncoder(w).Encode(status)
 }
@@ -1826,31 +1805,31 @@ func (s *Server) handleAssignDomain(w http.ResponseWriter, r *http.Request) {
 		s.writeJSONError(w, "Domain management not configured", http.StatusServiceUnavailable)
 		return
 	}
-	
+
 	var req domain.AssignDomainRequest
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
 		s.writeJSONError(w, "Invalid JSON request", http.StatusBadRequest)
 		return
 	}
-	
+
 	if req.Domain == "" || req.TunnelID == "" {
 		s.writeJSONError(w, "Domain and tunnel ID are required", http.StatusBadRequest)
 		return
 	}
-	
+
 	assignment, err := s.domainManager.AssignDomain(req)
 	if err != nil {
 		log.Printf("Failed to assign domain: %v", err)
 		s.writeJSONError(w, fmt.Sprintf("Failed to assign domain: %v", err), http.StatusInternalServerError)
 		return
 	}
-	
+
 	// Try to associate the tunnel with an existing session
 	if err := s.associateTunnelWithSession(req.TunnelID, req.Domain); err != nil {
 		log.Printf("Warning: Failed to associate tunnel with session: %v", err)
 		// Don't fail the request, just log the warning
 	}
-	
+
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(http.StatusCreated)
 	json.NewEncoder(w).Encode(assignment)
@@ -1860,7 +1839,7 @@ func (s *Server) handleAssignDomain(w http.ResponseWriter, r *http.Request) {
 func (s *Server) associateTunnelWithSession(tunnelID, domain string) error {
 	// Get all sessions
 	sessions := s.sessionManager.List()
-	
+
 	// Look for an active session that doesn't already have a tunnel
 	for _, session := range sessions {
 		if session.Active && (session.TunnelInfo == nil || session.TunnelInfo.TunnelID == "") {
@@ -1869,12 +1848,12 @@ func (s *Server) associateTunnelWithSession(tunnelID, domain string) error {
 				log.Printf("Failed to associate tunnel %s with session %s: %v", tunnelID, session.ID, err)
 				continue
 			}
-			
+
 			log.Printf("Associated tunnel %s with session %s", tunnelID, session.ID)
 			return nil
 		}
 	}
-	
+
 	log.Printf("No active session found to associate with tunnel %s", tunnelID)
 	return fmt.Errorf("no active session available for tunnel association")
 }
@@ -1882,7 +1861,7 @@ func (s *Server) associateTunnelWithSession(tunnelID, domain string) error {
 // registerPowerRoutes registers power management API routes
 func (s *Server) registerPowerRoutes(router *mux.Router) {
 	api := router.PathPrefix("/api").Subrouter()
-	
+
 	// Power management endpoints
 	api.HandleFunc("/power/prevent-sleep", s.handlePreventSleep).Methods("POST")
 	api.HandleFunc("/power/allow-sleep", s.handleAllowSleep).Methods("POST")
@@ -1972,10 +1951,11 @@ func (s *Server) handlePowerStatus(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "application/json")
 	json.NewEncoder(w).Encode(status)
 }
+
 // registerTunnelRoutes registers tunnel management API routes
 func (s *Server) registerTunnelRoutes(router *mux.Router) {
 	api := router.PathPrefix("/api").Subrouter()
-	
+
 	// Tunnel management endpoints
 	api.HandleFunc("/tunnels", s.handleListTunnels).Methods("GET")
 	api.HandleFunc("/tunnels/{type}/start", s.handleStartTunnel).Methods("POST")
@@ -1992,7 +1972,7 @@ func (s *Server) handleListTunnels(w http.ResponseWriter, r *http.Request) {
 	}
 
 	tunnels := s.tunnelService.ListServices()
-	
+
 	w.Header().Set("Content-Type", "application/json")
 	json.NewEncoder(w).Encode(map[string]interface{}{
 		"tunnels": tunnels,
@@ -2008,7 +1988,7 @@ func (s *Server) handleStartTunnel(w http.ResponseWriter, r *http.Request) {
 
 	vars := mux.Vars(r)
 	tunnelTypeStr := vars["type"]
-	
+
 	var tunnelType tunnels.TunnelType
 	switch tunnelTypeStr {
 	case "cloudflare":
@@ -2074,7 +2054,7 @@ func (s *Server) handleStopTunnel(w http.ResponseWriter, r *http.Request) {
 
 	vars := mux.Vars(r)
 	tunnelTypeStr := vars["type"]
-	
+
 	var tunnelType tunnels.TunnelType
 	switch tunnelTypeStr {
 	case "cloudflare":
@@ -2125,7 +2105,7 @@ func (s *Server) handleTunnelStatus(w http.ResponseWriter, r *http.Request) {
 
 	vars := mux.Vars(r)
 	tunnelTypeStr := vars["type"]
-	
+
 	var tunnelType tunnels.TunnelType
 	switch tunnelTypeStr {
 	case "cloudflare":
@@ -2164,7 +2144,7 @@ func (s *Server) handleTunnelURL(w http.ResponseWriter, r *http.Request) {
 
 	vars := mux.Vars(r)
 	tunnelTypeStr := vars["type"]
-	
+
 	var tunnelType tunnels.TunnelType
 	switch tunnelTypeStr {
 	case "cloudflare":
@@ -2192,8 +2172,8 @@ func (s *Server) handleTunnelURL(w http.ResponseWriter, r *http.Request) {
 
 	w.Header().Set("Content-Type", "application/json")
 	json.NewEncoder(w).Encode(map[string]interface{}{
-		"url":   url,
-		"type":  tunnelType,
+		"url":  url,
+		"type": tunnelType,
 	})
 }
 
@@ -2202,7 +2182,7 @@ func (s *Server) handleTunnelURL(w http.ResponseWriter, r *http.Request) {
 // handleBulkCreateSessions creates multiple sessions at once
 func (s *Server) handleBulkCreateSessions(w http.ResponseWriter, r *http.Request) {
 	var reqs []*types.SessionCreateRequest
-	
+
 	if err := json.NewDecoder(r.Body).Decode(&reqs); err != nil {
 		s.writeJSONError(w, "Invalid JSON request", http.StatusBadRequest)
 		return
@@ -2223,18 +2203,18 @@ func (s *Server) handleBulkDeleteSessions(w http.ResponseWriter, r *http.Request
 	var req struct {
 		SessionIDs []string `json:"sessionIds"`
 	}
-	
+
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
 		s.writeJSONError(w, "Invalid JSON request", http.StatusBadRequest)
 		return
 	}
 
 	errors := s.sessionManager.BulkDeleteSessions(req.SessionIDs)
-	
+
 	response := map[string]interface{}{
 		"deleted": len(req.SessionIDs) - len(errors),
 	}
-	
+
 	if len(errors) > 0 {
 		response["errors"] = errors
 	}
@@ -2250,7 +2230,7 @@ func (s *Server) handleBulkResizeSessions(w http.ResponseWriter, r *http.Request
 		Cols       int      `json:"cols"`
 		Rows       int      `json:"rows"`
 	}
-	
+
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
 		s.writeJSONError(w, "Invalid JSON request", http.StatusBadRequest)
 		return
@@ -2262,11 +2242,11 @@ func (s *Server) handleBulkResizeSessions(w http.ResponseWriter, r *http.Request
 	}
 
 	errors := s.sessionManager.BulkResizeSessions(req.SessionIDs, req.Cols, req.Rows)
-	
+
 	response := map[string]interface{}{
 		"resized": len(req.SessionIDs) - len(errors),
 	}
-	
+
 	if len(errors) > 0 {
 		response["errors"] = errors
 	}
@@ -2278,7 +2258,7 @@ func (s *Server) handleBulkResizeSessions(w http.ResponseWriter, r *http.Request
 // handleListSessionGroups lists all session groups
 func (s *Server) handleListSessionGroups(w http.ResponseWriter, r *http.Request) {
 	groups := s.sessionManager.ListSessionGroups()
-	
+
 	w.Header().Set("Content-Type", "application/json")
 	json.NewEncoder(w).Encode(groups)
 }
@@ -2290,7 +2270,7 @@ func (s *Server) handleCreateSessionGroup(w http.ResponseWriter, r *http.Request
 		Description string   `json:"description,omitempty"`
 		Tags        []string `json:"tags,omitempty"`
 	}
-	
+
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
 		s.writeJSONError(w, "Invalid JSON request", http.StatusBadRequest)
 		return
@@ -2343,11 +2323,11 @@ func (s *Server) handleDeleteSessionGroup(w http.ResponseWriter, r *http.Request
 func (s *Server) handleAddSessionToGroup(w http.ResponseWriter, r *http.Request) {
 	vars := mux.Vars(r)
 	groupID := vars["groupId"]
-	
+
 	var req struct {
 		SessionID string `json:"sessionId"`
 	}
-	
+
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
 		s.writeJSONError(w, "Invalid JSON request", http.StatusBadRequest)
 		return
@@ -2427,7 +2407,7 @@ func (s *Server) handleCreateSessionTag(w http.ResponseWriter, r *http.Request) 
 		Color       string `json:"color,omitempty"`
 		Description string `json:"description,omitempty"`
 	}
-	
+
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
 		s.writeJSONError(w, "Invalid JSON request", http.StatusBadRequest)
 		return
@@ -2485,7 +2465,7 @@ func (s *Server) handleListRegistryInstances(w http.ResponseWriter, r *http.Requ
 // handleRegisterRegistryInstance registers a new remote instance
 func (s *Server) handleRegisterRegistryInstance(w http.ResponseWriter, r *http.Request) {
 	var instance types.RemoteInstance
-	
+
 	if err := json.NewDecoder(r.Body).Decode(&instance); err != nil {
 		s.writeJSONError(w, "Invalid JSON request", http.StatusBadRequest)
 		return
@@ -2616,7 +2596,7 @@ func (s *Server) handleGetUserActivity(w http.ResponseWriter, r *http.Request) {
 // handleExportAnalytics exports analytics data
 func (s *Server) handleExportAnalytics(w http.ResponseWriter, r *http.Request) {
 	filename := fmt.Sprintf("analytics_export_%d.json", time.Now().Unix())
-	
+
 	if err := s.analyticsService.ExportData(filename); err != nil {
 		s.writeJSONError(w, err.Error(), http.StatusInternalServerError)
 		return
