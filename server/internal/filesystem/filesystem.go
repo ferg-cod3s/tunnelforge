@@ -170,6 +170,44 @@ func getUserFriendlyError(err error) string {
 func (fs *FileSystemService) validatePath(requestedPath string) (string, error) {
 	log.Printf("🔍 Validating path: %s", requestedPath)
 
+	// Early detection of suspicious path patterns BEFORE URL decoding
+	suspiciousPatterns := []string{
+		"\\\\", // Windows-style backslashes (escape sequence)
+		"...",  // Multiple consecutive dots
+		"%00",  // Null byte injection
+		"\x00", // Null byte
+	}
+
+	for _, pattern := range suspiciousPatterns {
+		if strings.Contains(requestedPath, pattern) {
+			log.Printf("❌ Suspicious path pattern detected: %s contains %s", requestedPath, pattern)
+			return "", fmt.Errorf("access denied: suspicious path pattern")
+		}
+	}
+
+	// Check case-insensitive for UTF-8 overlong encodings
+	lowerPath := strings.ToLower(requestedPath)
+	if strings.Contains(lowerPath, "%c0%af") || strings.Contains(lowerPath, "%c0%2f") ||
+		strings.Contains(lowerPath, "%c1") || strings.Contains(lowerPath, "%e0%80%af") {
+		log.Printf("❌ UTF-8 overlong encoding detected in path: %s", requestedPath)
+		return "", fmt.Errorf("access denied: suspicious path pattern")
+	}
+
+	// Check for invalid UTF-8 sequences (already decoded by HTTP layer)
+	for i := 0; i < len(requestedPath); i++ {
+		// Check for 0xC0 0xAF pattern (overlong encoding of /)
+		if i < len(requestedPath)-1 && requestedPath[i] == 0xC0 && requestedPath[i+1] == 0xAF {
+			log.Printf("❌ Invalid UTF-8 overlong encoding bytes detected in path: %s", requestedPath)
+			return "", fmt.Errorf("access denied: invalid encoding")
+		}
+	}
+
+	// Detect Windows absolute paths (e.g., C:\, D:\, etc.)
+	if len(requestedPath) >= 2 && requestedPath[1] == ':' {
+		log.Printf("❌ Windows absolute path detected: %s", requestedPath)
+		return "", fmt.Errorf("access denied: Windows absolute paths not allowed")
+	}
+
 	// URL-decode the path first
 	decodedPath, err := url.QueryUnescape(requestedPath)
 	if err != nil {
@@ -177,6 +215,20 @@ func (fs *FileSystemService) validatePath(requestedPath string) (string, error) 
 		decodedPath = requestedPath
 	}
 	log.Printf("🔍 Decoded path: %s", decodedPath)
+
+	// Detect suspicious patterns in decoded path as well
+	for _, pattern := range suspiciousPatterns {
+		if strings.Contains(decodedPath, pattern) {
+			log.Printf("❌ Suspicious path pattern detected in decoded path: %s contains %s", decodedPath, pattern)
+			return "", fmt.Errorf("access denied: suspicious path pattern")
+		}
+	}
+
+	// Normalize Windows-style backslashes to forward slashes
+	if strings.Contains(decodedPath, "\\") {
+		decodedPath = strings.ReplaceAll(decodedPath, "\\", "/")
+		log.Printf("🔍 Normalized backslashes to forward slashes: %s", decodedPath)
+	}
 
 	// Handle tilde expansion for home directory
 	expandedPath := decodedPath
@@ -239,8 +291,8 @@ func (fs *FileSystemService) validatePath(requestedPath string) (string, error) 
 		log.Printf("✅ Path validation skipped for home directory access: %s", absPath)
 	}
 
- 	return absPath, nil
- }
+	return absPath, nil
+}
 
 // getFileInfo extracts metadata from os.FileInfo
 func (fs *FileSystemService) getFileInfo(path string, info os.FileInfo) FileInfo {
@@ -358,29 +410,29 @@ func (fs *FileSystemService) ListDirectory(w http.ResponseWriter, r *http.Reques
 
 	log.Printf("📁 ListDirectory found %d entries in %s", len(entries), fullPath)
 
- 	var files = make([]FileInfo, 0)
- 	var directories = make([]FileInfo, 0)
+	var files = make([]FileInfo, 0)
+	var directories = make([]FileInfo, 0)
 
- 	for _, entry := range entries {
- 		// Skip hidden files if not requested
- 		if !req.ShowHidden && strings.HasPrefix(entry.Name(), ".") {
- 			continue
- 		}
+	for _, entry := range entries {
+		// Skip hidden files if not requested
+		if !req.ShowHidden && strings.HasPrefix(entry.Name(), ".") {
+			continue
+		}
 
- 		entryPath := filepath.Join(fullPath, entry.Name())
- 		info, err := entry.Info()
- 		if err != nil {
- 			continue // Skip files we can't read
- 		}
+		entryPath := filepath.Join(fullPath, entry.Name())
+		info, err := entry.Info()
+		if err != nil {
+			continue // Skip files we can't read
+		}
 
- 		fileInfo := fs.getFileInfo(entryPath, info)
+		fileInfo := fs.getFileInfo(entryPath, info)
 
- 		if info.IsDir() {
- 			directories = append(directories, fileInfo)
- 		} else {
- 			files = append(files, fileInfo)
- 		}
- 	}
+		if info.IsDir() {
+			directories = append(directories, fileInfo)
+		} else {
+			files = append(files, fileInfo)
+		}
+	}
 
 	// Sort files and directories
 	fs.sortFiles(files, req.SortBy, req.SortDesc)
@@ -554,9 +606,9 @@ func (fs *FileSystemService) UploadFile(w http.ResponseWriter, r *http.Request) 
 			sentry.WithScope(func(scope *sentry.Scope) {
 				scope.SetTag("operation", "upload_file")
 				scope.SetContext("upload_info", map[string]interface{}{
-					"target_dir":     fullTargetDir,
-					"target_path":    targetPath,
-					"filename":       fileHeader.Filename,
+					"target_dir":  fullTargetDir,
+					"target_path": targetPath,
+					"filename":    fileHeader.Filename,
 				})
 				sentry.CaptureException(err)
 			})
