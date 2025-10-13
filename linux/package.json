@@ -15,7 +15,7 @@
     "build": "tauri build",
     "build:debug": "tauri build --debug",
     "build:appimage": "tauri build --target AppImage",
-    "build:deb": "tauri build --target deb", 
+    "build:deb": "tauri build --target deb",
     "build:rpm": "tauri build --target rpm",
     "clean": "cargo clean && rm -rf dist node_modules",
     "setup": "cargo install tauri-cli && npm install",
@@ -24,7 +24,7 @@
     "fmt": "cargo fmt"
   },
   "devDependencies": {
-    "@tauri-apps/cli": "^1.5.0"
+    "@tauri-apps/cli": "^2.8.4"
   },
   "dependencies": {},
   "engines": {
