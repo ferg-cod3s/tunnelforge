@@ -101,7 +101,6 @@ pub fn setup_app(_app: &mut tauri::App) -> Result<(), String> {
 
     log::info!("Setting up TunnelForge Desktop app");
 
-    log::info!("Setting up system tray interface");
 
     Ok(())
 }

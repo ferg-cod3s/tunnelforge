@@ -86,8 +86,15 @@ func New(cfg *Config) (*Server, error) {
 			log.Printf("Warning: Failed to initialize session persistence: %v", err)
 			sessionManager = session.NewManager()
 		} else {
-			// Create persistence service with auto-save
-			persistenceService = persistence.NewService(fileStore, true, fullConfig.PersistenceInterval)
+			// Create persistence service with auto-save and retention settings
+			persistenceService = persistence.NewServiceWithConfig(
+				fileStore,
+				true,
+				fullConfig.PersistenceInterval,
+				fullConfig.SessionMaxAge,
+				fullConfig.SessionCleanupAge,
+				fullConfig.MaxPersistedSessions,
+			)
 			persistenceService.Start()
 
 			// Create session manager with persistence

@@ -14,7 +14,7 @@
         "https://releases.tunnelforge.dev/desktop/{{current_version}}/{{target}}/{{arch}}"
       ],
       "dialog": true,
-      "pubkey": "dW50cnVzdGVkIGNvbW1lbnQ6IG1pbmlzaWduIHB1YmxpYyBrZXk6IEJBNTZDMzczNUIwQ0I4NUUKUldSZXVBeGJjOE5XdXRHQ0VRTnJPVFZXemxkZnQrTzRQalgxTmdza0pjZzJkN3ZlayswOWFHTG0K"
+      "pubkey": "dW50cnVzdGVkIGNvbW1lbnQ6IG1pbmlzaWduIHB1YmxpYyBrZXk6IDE0QkUwODc2QkEzNUQ5RDcKUldUWDJUVzZkZ2krRk9hMm44NFN1WThPS2FYRUx4blBIOTI0WDUrN1d4Y3Yyc3JxWDJzUDE1ZkkK"
     }
   },
   "bundle": {

@@ -56,11 +56,10 @@ type ServerEvent struct {
 	WorktreePath *string `json:"worktreePath,omitempty"`
 
 	// Test notification specific fields
-	Title *string `json:"title,omitempty"`
-	Body  *string `json:"body,omitempty"`
-	Data        map[string]interface{} `json:"data,omitempty"`
+	Title *string                `json:"title,omitempty"`
+	Body  *string                `json:"body,omitempty"`
+	Data  map[string]interface{} `json:"data,omitempty"`
 }
-	
 
 // GitEvent represents a Git repository event
 type GitEvent struct {

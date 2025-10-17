@@ -225,9 +225,15 @@ pub fn run() {
             app.manage(access_mode_service::AccessModeService::new(app_handle.clone()));
             app.manage(ngrok_service::NgrokService::new(app_handle.clone()));
             app.manage(cloudflare_service::CloudflareService::new(app_handle.clone()));
-            app.manage(ui::MainWindow::new());
+            let main_window = ui::MainWindow::new();
+            main_window.create_window(&app_handle)?;
+            app.manage(main_window);
             app.manage(ui::SettingsWindow::new());
             app.manage(ui::SessionWindow::new());
+
+            let mut tray_manager = ui::TrayManager::new(app_handle.clone());
+            tray_manager.setup_tray()?;
+            app.manage(tray_manager);
 
             startup_timer_clone.record_ui_init();
             setup_app(app).map_err(|e| Box::new(std::io::Error::new(std::io::ErrorKind::Other, e)) as Box<dyn std::error::Error>)

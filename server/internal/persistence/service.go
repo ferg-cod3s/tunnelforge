@@ -3,6 +3,7 @@ package persistence
 import (
 	"fmt"
 	"log"
+	"sort"
 	"sync"
 	"time"
 
@@ -11,21 +12,40 @@ import (
 
 // Service handles session persistence operations
 type Service struct {
-	store           SessionStore
-	autoSaveEnabled bool
-	saveInterval    time.Duration
-	stopChan        chan struct{}
-	wg              sync.WaitGroup
-	mu              sync.RWMutex
+	store                SessionStore
+	autoSaveEnabled      bool
+	saveInterval         time.Duration
+	sessionMaxAge        time.Duration
+	sessionCleanupAge    time.Duration
+	maxPersistedSessions int
+	stopChan             chan struct{}
+	wg                   sync.WaitGroup
+	mu                   sync.RWMutex
 }
 
 // NewService creates a new persistence service
 func NewService(store SessionStore, autoSaveEnabled bool, saveInterval time.Duration) *Service {
 	return &Service{
-		store:           store,
-		autoSaveEnabled: autoSaveEnabled,
-		saveInterval:    saveInterval,
-		stopChan:        make(chan struct{}),
+		store:                store,
+		autoSaveEnabled:      autoSaveEnabled,
+		saveInterval:         saveInterval,
+		sessionMaxAge:        24 * time.Hour,     // Default: only restore sessions < 24h old
+		sessionCleanupAge:    7 * 24 * time.Hour, // Default: delete sessions > 7 days old
+		maxPersistedSessions: 100,                // Default: keep max 100 sessions
+		stopChan:             make(chan struct{}),
+	}
+}
+
+// NewServiceWithConfig creates a new persistence service with full configuration
+func NewServiceWithConfig(store SessionStore, autoSaveEnabled bool, saveInterval, maxAge, cleanupAge time.Duration, maxSessions int) *Service {
+	return &Service{
+		store:                store,
+		autoSaveEnabled:      autoSaveEnabled,
+		saveInterval:         saveInterval,
+		sessionMaxAge:        maxAge,
+		sessionCleanupAge:    cleanupAge,
+		maxPersistedSessions: maxSessions,
+		stopChan:             make(chan struct{}),
 	}
 }
 
@@ -114,35 +134,159 @@ func (s *Service) ClearAll() error {
 	return nil
 }
 
-// RestoreSessions loads and restores all persisted sessions
+// RestoreSessions loads and restores all persisted sessions with age filtering and cleanup
 func (s *Service) RestoreSessions() ([]*types.Session, error) {
 	sessions, err := s.LoadAllSessions()
 	if err != nil {
 		return nil, err
 	}
 
-	if len(sessions) > 0 {
-		log.Printf("📁 Restored %d persisted sessions", len(sessions))
+	now := time.Now()
+	var validSessions []*types.Session
+	var toDelete []string
+	var toRestore []*types.Session
+
+	for _, session := range sessions {
+		age := now.Sub(session.UpdatedAt)
+
+		// Delete sessions older than cleanup age
+		if age > s.sessionCleanupAge {
+			toDelete = append(toDelete, session.ID)
+			log.Printf("🗑️  Deleting old session: %s (age: %v, title: %s)", session.ID, age.Round(time.Hour), session.Title)
+			continue
+		}
+
+		// Only restore sessions younger than max age
+		if age <= s.sessionMaxAge {
+			toRestore = append(toRestore, session)
+		} else {
+			// Keep but don't restore sessions between maxAge and cleanupAge
+			validSessions = append(validSessions, session)
+			log.Printf("⏸️  Skipping old session: %s (age: %v, title: %s)", session.ID, age.Round(time.Hour), session.Title)
+		}
 	}
 
-	return sessions, nil
+	// Delete old sessions
+	for _, id := range toDelete {
+		if err := s.DeleteSession(id); err != nil {
+			log.Printf("Warning: failed to delete old session %s: %v", id, err)
+		}
+	}
+
+	// Check if we have too many sessions after cleanup
+	totalSessions := len(toRestore) + len(validSessions)
+	if totalSessions > s.maxPersistedSessions {
+		excessCount := totalSessions - s.maxPersistedSessions
+
+		log.Printf("⚠️  Too many sessions (%d > %d), deleting %d oldest sessions", totalSessions, s.maxPersistedSessions, excessCount)
+
+		// Delete oldest sessions that we're not restoring
+		deleted := 0
+		for i := len(validSessions) - 1; i >= 0 && deleted < excessCount; i-- {
+			session := validSessions[i]
+			if err := s.DeleteSession(session.ID); err != nil {
+				log.Printf("Warning: failed to delete excess session %s: %v", session.ID, err)
+			} else {
+				log.Printf("🗑️  Deleted excess session: %s (title: %s)", session.ID, session.Title)
+				deleted++
+			}
+		}
+	}
+
+	if len(toDelete) > 0 {
+		log.Printf("📁 Cleaned up %d old sessions (> %v)", len(toDelete), s.sessionCleanupAge)
+	}
+
+	if len(toRestore) > 0 {
+		log.Printf("📁 Restored %d persisted sessions (< %v old)", len(toRestore), s.sessionMaxAge)
+	} else {
+		log.Printf("📁 No recent sessions to restore")
+	}
+
+	return toRestore, nil
 }
 
-// autoSaveLoop runs the periodic auto-save functionality
+// autoSaveLoop runs the periodic auto-save functionality and cleanup
 func (s *Service) autoSaveLoop() {
 	defer s.wg.Done()
 
-	ticker := time.NewTicker(s.saveInterval)
-	defer ticker.Stop()
+	// Ticker for auto-save (existing functionality)
+	saveTicker := time.NewTicker(s.saveInterval)
+	defer saveTicker.Stop()
+
+	// Ticker for periodic cleanup (every hour)
+	cleanupTicker := time.NewTicker(1 * time.Hour)
+	defer cleanupTicker.Stop()
 
 	for {
 		select {
-		case <-ticker.C:
+		case <-saveTicker.C:
 			// Auto-save is handled by the session manager calling SaveSession
-			// This loop exists for future enhancements like cleanup of old sessions
+			// No action needed here for auto-save
+		case <-cleanupTicker.C:
+			// Perform periodic cleanup of old sessions
+			s.performCleanup()
 		case <-s.stopChan:
 			return
 		}
+	}
+}
+
+// performCleanup removes old sessions and enforces session limits
+func (s *Service) performCleanup() {
+	log.Printf("🧹 Starting periodic session cleanup...")
+
+	sessions, err := s.LoadAllSessions()
+	if err != nil {
+		log.Printf("❌ Failed to load sessions for cleanup: %v", err)
+		return
+	}
+
+	now := time.Now()
+	var toDelete []string
+	var keptCount int
+
+	// Sort sessions by last updated time (newest first)
+	sort.Slice(sessions, func(i, j int) bool {
+		return sessions[i].UpdatedAt.After(sessions[j].UpdatedAt)
+	})
+
+	for _, session := range sessions {
+		age := now.Sub(session.UpdatedAt)
+		shouldDelete := false
+
+		// Delete sessions older than cleanup age
+		if age > s.sessionCleanupAge {
+			shouldDelete = true
+			log.Printf("🗑️  Cleanup: Deleting old session: %s (age: %v, title: %s)",
+				session.ID, age.Round(time.Hour), session.Title)
+		} else if keptCount >= s.maxPersistedSessions {
+			// Enforce session limit (keep only the newest sessions)
+			shouldDelete = true
+			log.Printf("🗑️  Cleanup: Deleting excess session: %s (title: %s, keeping only %d newest)",
+				session.ID, session.Title, s.maxPersistedSessions)
+		} else {
+			keptCount++
+		}
+
+		if shouldDelete {
+			toDelete = append(toDelete, session.ID)
+		}
+	}
+
+	// Delete the sessions
+	if len(toDelete) > 0 {
+		deletedCount := 0
+		for _, sessionID := range toDelete {
+			if err := s.DeleteSession(sessionID); err != nil {
+				log.Printf("❌ Failed to delete session %s during cleanup: %v", sessionID, err)
+			} else {
+				deletedCount++
+			}
+		}
+		log.Printf("✅ Cleanup completed: deleted %d sessions, kept %d sessions", deletedCount, keptCount)
+	} else {
+		log.Printf("✅ Cleanup completed: no sessions needed deletion")
 	}
 }
 
@@ -151,9 +295,9 @@ func (s *Service) GetStats() map[string]interface{} {
 	sessions, err := s.LoadAllSessions()
 	if err != nil {
 		return map[string]interface{}{
-			"error":          err.Error(),
+			"error":           err.Error(),
 			"autoSaveEnabled": s.autoSaveEnabled,
-			"saveInterval":   s.saveInterval.String(),
+			"saveInterval":    s.saveInterval.String(),
 		}
 	}
 

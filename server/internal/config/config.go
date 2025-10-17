@@ -24,9 +24,12 @@ type Config struct {
 	VAPIDKeyPath       string // Path to store VAPID keys for push notifications
 
 	// Session persistence configuration
-	EnablePersistence    bool   // Whether to enable session persistence
-	PersistenceDir       string // Directory to store persisted sessions
+	EnablePersistence    bool          // Whether to enable session persistence
+	PersistenceDir       string        // Directory to store persisted sessions
 	PersistenceInterval  time.Duration // Auto-save interval
+	SessionMaxAge        time.Duration // Max age for session restoration (default 24h)
+	SessionCleanupAge    time.Duration // Age at which sessions are deleted (default 7 days)
+	MaxPersistedSessions int           // Maximum number of sessions to keep (default 100)
 
 	// Security middleware configuration
 	EnableRateLimit   bool
@@ -53,18 +56,21 @@ func LoadConfig() *Config {
 		MaxSessions:        getEnvInt("MAX_SESSIONS", 50),
 		SessionTimeout:     getEnvInt("SESSION_TIMEOUT", 1440), // 24 hours
 		EnableAuth:         getEnvBool("ENABLE_AUTH", false),
-		AuthRequired:       getEnvBool("AUTH_REQUIRED", false),       // Whether auth is required for API access
-		AllowLocalBypass:   getEnvBool("ALLOW_LOCAL_BYPASS", true),   // Whether to allow local bypass auth (X-TunnelForge-Local header)
+		AuthRequired:       getEnvBool("AUTH_REQUIRED", false),     // Whether auth is required for API access
+		AllowLocalBypass:   getEnvBool("ALLOW_LOCAL_BYPASS", true), // Whether to allow local bypass auth (X-TunnelForge-Local header)
 		ServerName:         getEnv("SERVER_NAME", "TunnelForge Go Server"),
-		StaticDir:          getEnv("STATIC_DIR", "../web/public"),                           // Relative to web frontend
-		FileSystemBasePath: getEnv("FILESYSTEM_BASE_PATH", os.Getenv("HOME")),               // Default to user's home directory
-		GitBasePath:        getEnv("GIT_BASE_PATH", os.Getenv("HOME")),                      // Default to user's home directory
+		StaticDir:          getEnv("STATIC_DIR", "../web/public"),                            // Relative to web frontend
+		FileSystemBasePath: getEnv("FILESYSTEM_BASE_PATH", os.Getenv("HOME")),                // Default to user's home directory
+		GitBasePath:        getEnv("GIT_BASE_PATH", os.Getenv("HOME")),                       // Default to user's home directory
 		VAPIDKeyPath:       getEnv("VAPID_KEY_PATH", os.Getenv("HOME")+"/.tunnelforge/keys"), // Default to user's config directory
 
 		// Session persistence defaults
-		EnablePersistence:   getEnvBool("ENABLE_PERSISTENCE", true),                                    // Enable by default
-		PersistenceDir:      getEnv("PERSISTENCE_DIR", os.Getenv("HOME")+"/.tunnelforge/sessions"),     // Default to user's config directory
-		PersistenceInterval: getEnvDuration("PERSISTENCE_INTERVAL", 30*time.Second),                   // Auto-save every 30 seconds
+		EnablePersistence:    getEnvBool("ENABLE_PERSISTENCE", true),                                // Enable by default
+		PersistenceDir:       getEnv("PERSISTENCE_DIR", os.Getenv("HOME")+"/.tunnelforge/sessions"), // Default to user's config directory
+		PersistenceInterval:  getEnvDuration("PERSISTENCE_INTERVAL", 30*time.Second),                // Auto-save every 30 seconds
+		SessionMaxAge:        getEnvDuration("SESSION_MAX_AGE", 24*time.Hour),                       // Only restore sessions < 24h old
+		SessionCleanupAge:    getEnvDuration("SESSION_CLEANUP_AGE", 7*24*time.Hour),                 // Delete sessions > 7 days old
+		MaxPersistedSessions: getEnvInt("MAX_PERSISTED_SESSIONS", 100),                              // Keep max 100 sessions
 
 		// Security middleware defaults
 		EnableRateLimit:   getEnvBool("ENABLE_RATE_LIMIT", true),
@@ -76,10 +82,10 @@ func LoadConfig() *Config {
 		EnableRequestLog:  getEnvBool("ENABLE_REQUEST_LOG", true),
 
 		// Cloudflare tunnel defaults
-		EnableCloudflareTunnels: getEnvBool("ENABLE_CLOUDFLARE_TUNNELS", false),                                    // Disabled by default
-		CloudflareAPIToken:      getEnv("CLOUDFLARE_API_TOKEN", ""),                                               // Must be set to enable
-		CloudflareAccountID:     getEnv("CLOUDFLARE_ACCOUNT_ID", ""),                                              // Must be set to enable
-		CloudflareConfigDir:     getEnv("CLOUDFLARE_CONFIG_DIR", os.Getenv("HOME")+"/.tunnelforge/cloudflare"),     // Default config directory
+		EnableCloudflareTunnels: getEnvBool("ENABLE_CLOUDFLARE_TUNNELS", false),                                // Disabled by default
+		CloudflareAPIToken:      getEnv("CLOUDFLARE_API_TOKEN", ""),                                            // Must be set to enable
+		CloudflareAccountID:     getEnv("CLOUDFLARE_ACCOUNT_ID", ""),                                           // Must be set to enable
+		CloudflareConfigDir:     getEnv("CLOUDFLARE_CONFIG_DIR", os.Getenv("HOME")+"/.tunnelforge/cloudflare"), // Default config directory
 	}
 
 	return cfg

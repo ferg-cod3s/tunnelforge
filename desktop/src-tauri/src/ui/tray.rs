@@ -1,8 +1,8 @@
 // Native Tauri System Tray Implementation
 // This provides the system tray (menu bar) functionality for TunnelForge
 
-use tauri::{AppHandle, Manager, Emitter, tray::{TrayIconBuilder, TrayIcon, MouseButton, MouseButtonState}};
-use tauri::menu::{MenuBuilder, MenuItemBuilder, Menu, SubmenuBuilder};
+use tauri::{AppHandle, Manager, Emitter, tray::{TrayIconBuilder, TrayIcon}};
+use tauri::menu::{MenuBuilder, MenuItemBuilder, Menu};
 use std::sync::Arc;
 use std::sync::Mutex;
 
@@ -30,27 +30,17 @@ impl TrayManager {
         let app_handle = self.app_handle.clone();
         
         // Create the tray icon with a basic menu
+        let menu = Self::create_tray_menu(&app_handle, self.server_running, self.session_count, &self.access_mode)?;
+        let icon = tauri::image::Image::from_bytes(include_bytes!("../../icons/icon.png"))
+            .map_err(|e| format!("Failed to load icon: {}", e))?;
+            
         let tray = TrayIconBuilder::new()
             .tooltip("TunnelForge")
-            .icon(tauri::image::Image::from_bytes(include_bytes!("../../assets/icon.png"))
-                .map_err(|e| format!("Failed to load icon: {}", e))?)
-            .menu(&Self::create_tray_menu(&app_handle, self.server_running, self.session_count, &self.access_mode)?)
-            .on_menu_event(move |app, event| {
-                Self::handle_menu_event(app, event);
-            })
-            .on_tray_icon_event(|tray, event| {
-                if let tauri::tray::TrayIconEvent::Click {
-                    button: MouseButton::Left,
-                    button_state: MouseButtonState::Up,
-                    ..
-                } = event {
-                    let app = tray.app_handle();
-                    Self::toggle_main_window(app);
-                }
-            })
+            .icon(icon)
+            .menu(&menu)
             .build(&self.app_handle)
             .map_err(|e| format!("Failed to create tray icon: {}", e))?;
-        
+
         self.tray_icon = Some(Arc::new(Mutex::new(tray)));
         Ok(())
     }
@@ -230,7 +220,7 @@ impl TrayManager {
             
             // For now, we'll use a simple colored icon
             // In production, you'd load from the specified path
-            let icon = tauri::image::Image::from_bytes(include_bytes!("../../assets/icon.png"))
+            let icon = tauri::image::Image::from_bytes(include_bytes!("../../icons/icon.png"))
                 .map_err(|e| format!("Failed to load icon: {}", e))?;
                 
             tray.set_icon(Some(icon))
