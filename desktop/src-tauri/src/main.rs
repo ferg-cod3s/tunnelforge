@@ -2,7 +2,7 @@
 #![cfg_attr(not(debug_assertions), windows_subsystem = "windows")]
 
 use std::sync::Arc;
-use tauri::Manager;
+use tauri::{Manager, Listener};
 use tauri_plugin_log::{Target, TargetKind};
 use sentry;
 use once_cell::sync::OnceCell;
@@ -237,6 +237,38 @@ pub fn run() {
             let mut tray_manager = ui::TrayManager::new(app_handle.clone());
             tray_manager.setup_tray()?;
             app.manage(tray_manager);
+
+            // Listen for access mode changes and restart the server with new binding
+            let app_handle_clone = app_handle.clone();
+            app.listen("access-mode-changed", move |_event| {
+                log::info!("Received access-mode-changed event, restarting server with new binding...");
+                
+                let app_handle = app_handle_clone.clone();
+                
+                // Spawn a task to restart the server
+                #[cfg(not(mobile))]
+                {
+                    std::thread::spawn(move || {
+                        // Stop the server
+                        if let Some(state) = app_handle.try_state::<tunnelforge_desktop::AppState>() {
+                            if let Err(e) = server::stop_server_internal(&state) {
+                                log::error!("Failed to stop server during restart: {}", e);
+                            }
+                        }
+                        
+                        // Wait a moment for clean shutdown
+                        std::thread::sleep(std::time::Duration::from_millis(1000));
+                        
+                        // Start the server with new binding
+                        if let Some(state) = app_handle.try_state::<tunnelforge_desktop::AppState>() {
+                            match server::start_server_internal(&state, &app_handle) {
+                                Ok(_) => log::info!("Server restarted successfully with new access mode"),
+                                Err(e) => log::error!("Failed to restart server: {}", e),
+                            }
+                        }
+                    });
+                }
+            });
 
             startup_timer_clone.record_ui_init();
             setup_app(app).map_err(|e| Box::new(std::io::Error::new(std::io::ErrorKind::Other, e)) as Box<dyn std::error::Error>)

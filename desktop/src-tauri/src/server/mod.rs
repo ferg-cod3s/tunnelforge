@@ -18,6 +18,8 @@ use std::path::{Path, PathBuf};
 use log::{info, error};
 
 use tunnelforge_desktop::{AppState, ServerStatus};
+use crate::config::ConfigManager;
+use crate::access_mode_service::AccessMode;
 
 // Server management functions
 pub fn start_server_internal(state: &State<AppState>, _app: &AppHandle) -> Result<(), String> {
@@ -68,13 +70,16 @@ pub fn start_server_internal(state: &State<AppState>, _app: &AppHandle) -> Resul
         log::debug!("Using existing server binary");
     }
 
+    // Determine the HOST binding based on AccessMode
+    let host = get_server_host(_app);
+    
     // Set up server command
     let mut cmd = Command::new("./tunnelforge-server");
     cmd.current_dir(&server_dir)
        .env("PORT", state.server_port.to_string())
-       .env("HOST", "127.0.0.1");
+       .env("HOST", &host);
 
-    log::debug!("Starting server with PORT={} HOST=127.0.0.1", state.server_port);
+    log::debug!("Starting server with PORT={} HOST={}", state.server_port, host);
 
     // Platform-specific configuration
     #[cfg(target_os = "windows")]
@@ -87,7 +92,7 @@ pub fn start_server_internal(state: &State<AppState>, _app: &AppHandle) -> Resul
     match cmd.spawn() {
         Ok(child) => {
             let child_id = child.id();
-            let msg = format!("TunnelForge server started with PID: {}", child_id);
+            let msg = format!("TunnelForge server started with PID: {} (listening on {}:{})", child_id, host, state.server_port);
             info!("{}", msg);
             log::info!("{}", msg);
             *server_process = Some(child);
@@ -98,7 +103,7 @@ pub fn start_server_internal(state: &State<AppState>, _app: &AppHandle) -> Resul
 
             // Verify the server actually started
             if is_server_running(state.server_port) {
-                log::info!("Server started successfully and is responding");
+                log::info!("Server started successfully and is responding on {}:{}", host, state.server_port);
             } else {
                 log::warn!("Server process started but not responding on expected port");
             }
@@ -140,6 +145,31 @@ pub fn stop_server_internal(state: &State<AppState>) -> Result<(), String> {
         }
     } else {
         Ok(()) // Already stopped
+    }
+}
+
+// Helper function to get the server HOST binding based on AccessMode
+fn get_server_host(app: &AppHandle) -> String {
+    // Try to load the AccessMode from config
+    let access_mode = if let Ok(config_mgr) = ConfigManager::new(app) {
+        if let Ok(config) = config_mgr.load_config() {
+            config.access_mode
+        } else {
+            AccessMode::LocalhostOnly
+        }
+    } else {
+        AccessMode::LocalhostOnly
+    };
+
+    match access_mode {
+        AccessMode::NetworkAccess => {
+            log::info!("AccessMode set to NetworkAccess - binding to 0.0.0.0");
+            "0.0.0.0".to_string()
+        }
+        AccessMode::LocalhostOnly => {
+            log::info!("AccessMode set to LocalhostOnly - binding to 127.0.0.1");
+            "127.0.0.1".to_string()
+        }
     }
 }
 

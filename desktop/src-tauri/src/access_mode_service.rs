@@ -2,7 +2,7 @@
 // This provides access mode controls for TunnelForge (localhost vs network access)
 // Integrates with ConfigManager for persistent storage
 
-use tauri::{AppHandle, Manager};
+use tauri::{AppHandle, Manager, Emitter};
 use serde::{Serialize, Deserialize};
 use std::sync::Arc;
 use std::sync::Mutex;
@@ -215,11 +215,16 @@ impl AccessModeService {
         // Persist to config
         if let Ok(config_mgr) = ConfigManager::new(&self.app_handle) {
             config_mgr.update_config(|config| {
-                config.access_mode = mode;
+                config.access_mode = mode.clone();
                 config.server_port = port;
             })?;
         }
         
+        // Emit an event to notify the app to restart the server with new binding
+        log::info!("AccessMode updated to {:?}. Emitting restart event.", mode);
+        let _ = self.app_handle.emit("access-mode-changed", &mode);
+        
+        log::info!("Access mode change saved and notification event emitted");
         Ok(())
     }
 
@@ -292,3 +297,4 @@ pub async fn test_network_connectivity(app_handle: AppHandle) -> Result<Vec<Stri
     let access_mode_service = access_mode_service.inner();
     access_mode_service.test_network_connectivity().await
 }
+
