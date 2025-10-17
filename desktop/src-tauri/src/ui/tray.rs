@@ -29,8 +29,23 @@ impl TrayManager {
     pub fn setup_tray(&mut self) -> Result<(), String> {
         let app_handle = self.app_handle.clone();
         
+        // Load access mode from config
+        let access_mode_str = if let Ok(config_mgr) = crate::config::ConfigManager::new(&self.app_handle) {
+            if let Ok(config) = config_mgr.load_config() {
+                match config.access_mode {
+                    crate::access_mode_service::AccessMode::LocalhostOnly => "🔒 Localhost".to_string(),
+                    crate::access_mode_service::AccessMode::NetworkAccess => "🌐 Network".to_string(),
+                }
+            } else {
+                "localhost".to_string()
+            }
+        } else {
+            "localhost".to_string()
+        };
+        self.access_mode = access_mode_str.clone();
+        
         // Create the tray icon with a basic menu
-        let menu = Self::create_tray_menu(&app_handle, self.server_running, self.session_count, &self.access_mode)?;
+        let menu = Self::create_tray_menu(&app_handle, self.server_running, self.session_count, &access_mode_str)?;
         let icon = tauri::image::Image::from_bytes(include_bytes!("../../icons/icon.png"))
             .map_err(|e| format!("Failed to load icon: {}", e))?;
             
