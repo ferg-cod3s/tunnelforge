@@ -1,10 +1,12 @@
 // Access Mode Service Implementation
 // This provides access mode controls for TunnelForge (localhost vs network access)
+// Integrates with ConfigManager for persistent storage
 
 use tauri::{AppHandle, Manager};
 use serde::{Serialize, Deserialize};
 use std::sync::Arc;
 use std::sync::Mutex;
+use crate::config::ConfigManager;
 
 #[derive(Serialize, Deserialize, Clone, Debug, PartialEq)]
 pub enum AccessMode {
@@ -28,10 +30,21 @@ pub struct AccessModeService {
 
 impl AccessModeService {
     pub fn new(app_handle: AppHandle) -> Self {
+        // Try to load access mode from config, default to localhost
+        let current_mode = if let Ok(config_mgr) = ConfigManager::new(&app_handle) {
+            if let Ok(config) = config_mgr.load_config() {
+                config.access_mode
+            } else {
+                AccessMode::LocalhostOnly
+            }
+        } else {
+            AccessMode::LocalhostOnly
+        };
+
         Self {
             app_handle,
             status: Arc::new(Mutex::new(AccessModeStatus {
-                current_mode: AccessMode::LocalhostOnly,
+                current_mode,
                 server_port: 4021,
                 network_interfaces: vec![],
                 can_bind_network: false,
@@ -193,9 +206,18 @@ impl AccessModeService {
     pub async fn set_access_mode(&self, mode: AccessMode, port: u16) -> Result<(), String> {
         println!("Setting access mode to {:?} on port {}", mode, port);
         
+        // Update in-memory status
         if let Ok(mut status) = self.status.lock() {
-            status.current_mode = mode;
+            status.current_mode = mode.clone();
             status.server_port = port;
+        }
+
+        // Persist to config
+        if let Ok(config_mgr) = ConfigManager::new(&self.app_handle) {
+            config_mgr.update_config(|config| {
+                config.access_mode = mode;
+                config.server_port = port;
+            })?;
         }
         
         Ok(())
@@ -251,7 +273,7 @@ pub async fn check_network_access(app_handle: AppHandle) -> Result<(), String> {
 }
 
 #[tauri::command]
-pub async fn set_access_mode(app_handle: AppHandle, mode: AccessMode, port: u16) -> Result<(), String> {
+pub async fn set_access_mode_command(app_handle: AppHandle, mode: AccessMode, port: u16) -> Result<(), String> {
     let access_mode_service = app_handle.state::<AccessModeService>();
     let access_mode_service = access_mode_service.inner();
     access_mode_service.set_access_mode(mode, port).await

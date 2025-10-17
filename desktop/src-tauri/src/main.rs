@@ -132,6 +132,9 @@ pub fn run() {
             config::update_server_port,
             config::toggle_auto_start,
             config::set_theme,
+            config::set_access_mode,
+            config::get_access_mode,
+            config::toggle_access_mode,
 
             power::start_power_monitoring,
             power::stop_power_monitoring,
@@ -215,7 +218,7 @@ pub fn run() {
 
             access_mode_service::get_access_mode_status,
             access_mode_service::check_network_access,
-            access_mode_service::set_access_mode,
+            access_mode_service::set_access_mode_command,
             access_mode_service::get_current_binding,
             access_mode_service::test_network_connectivity,
         ])
