@@ -4,6 +4,7 @@
   import SettingToggle from './SettingToggle.svelte';
   import SettingInput from './SettingInput.svelte';
   import SettingSelect from './SettingSelect.svelte';
+  import NetworkAccessSettings from './NetworkAccessSettings.svelte';
   import SettingsSection from './SettingsSection.svelte';
   import {
     type AppPreferences,
@@ -459,6 +460,7 @@
               </div>
             </div>
           </SettingsSection>
+          <NetworkAccessSettings />
         {:else if activeTab === 'notifications'}
           <SettingsSection title="Notifications" description={renderSubscriptionStatus()}>
             {#if !isNotificationsSupported()}
