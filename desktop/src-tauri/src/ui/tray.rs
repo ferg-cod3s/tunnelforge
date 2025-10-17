@@ -98,6 +98,12 @@ impl TrayManager {
             .build(app_handle)
             .map_err(|e| format!("Failed to create access mode menu item: {}", e))?;
             
+        let toggle_access_mode_item = MenuItemBuilder::new("Toggle Network Access")
+            .id("toggle_access_mode")
+            .enabled(true)
+            .build(app_handle)
+            .map_err(|e| format!("Failed to create toggle access mode menu item: {}", e))?;
+            
         let start_server_item = MenuItemBuilder::new("Start Server")
             .id("start_server")
             .enabled(!server_running)
@@ -131,6 +137,7 @@ impl TrayManager {
             .item(&server_status_item)
             .item(&session_count_item)
             .item(&access_mode_item)
+            .item(&toggle_access_mode_item)
             .separator()
             .item(&start_server_item)
             .item(&stop_server_item)
@@ -150,6 +157,7 @@ impl TrayManager {
             "settings" => Self::show_settings_window(app),
             "start_server" => Self::start_server(app),
             "stop_server" => Self::stop_server(app),
+            "toggle_access_mode" => Self::toggle_access_mode(app),
             "restart_server" => Self::restart_server(app),
             "quit" => Self::quit_application(app),
             _ => {}
@@ -185,6 +193,10 @@ impl TrayManager {
 
     fn stop_server(app: &AppHandle) {
         let _ = app.emit("stop_server", ());
+    }
+
+    fn toggle_access_mode(app: &AppHandle) {
+        let _ = app.emit("toggle_access_mode", ());
     }
 
     fn restart_server(app: &AppHandle) {
