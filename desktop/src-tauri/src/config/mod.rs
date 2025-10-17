@@ -6,6 +6,7 @@ use std::path::PathBuf;
 use tauri::{AppHandle, Manager};
 use std::fs;
 use std::io::{Read, Write};
+use crate::access_mode_service::AccessMode;
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct AppConfig {
@@ -18,6 +19,12 @@ pub struct AppConfig {
     pub minimize_to_tray: bool,
     pub server_host: String,
     pub server_executable_path: Option<PathBuf>,
+    #[serde(default = "default_access_mode")]
+    pub access_mode: AccessMode,
+}
+
+fn default_access_mode() -> AccessMode {
+    AccessMode::LocalhostOnly
 }
 
 impl Default for AppConfig {
@@ -32,6 +39,7 @@ impl Default for AppConfig {
             minimize_to_tray: true,
             server_host: "127.0.0.1".to_string(),
             server_executable_path: None,
+            access_mode: AccessMode::LocalhostOnly,
         }
     }
 }
@@ -134,4 +142,31 @@ pub async fn set_theme(app: AppHandle, theme: String) -> Result<AppConfig, Strin
     config_manager.update_config(|config| {
         config.theme = theme;
     })
+}
+
+#[tauri::command]
+pub async fn set_access_mode(app: AppHandle, mode: AccessMode) -> Result<AppConfig, String> {
+    let config_manager = ConfigManager::new(&app)?;
+    config_manager.update_config(|config| {
+        config.access_mode = mode;
+    })
+}
+
+#[tauri::command]
+pub async fn get_access_mode(app: AppHandle) -> Result<AccessMode, String> {
+    let config_manager = ConfigManager::new(&app)?;
+    let config = config_manager.load_config()?;
+    Ok(config.access_mode)
+}
+
+#[tauri::command]
+pub async fn toggle_access_mode(app: AppHandle) -> Result<AccessMode, String> {
+    let config_manager = ConfigManager::new(&app)?;
+    let new_mode = config_manager.update_config(|config| {
+        config.access_mode = match config.access_mode {
+            AccessMode::LocalhostOnly => AccessMode::NetworkAccess,
+            AccessMode::NetworkAccess => AccessMode::LocalhostOnly,
+        };
+    })?;
+    Ok(new_mode.access_mode)
 }

@@ -14,7 +14,8 @@ pub trait PlatformIntegration {
 }
 
 // Import modules
-mod config;
+pub mod config;
+pub mod access_mode_service;
 mod linux_platform;
 mod cloudflare_service; // Cloudflare tunnel integration
 // mod security; // Temporarily disabled due to secrecy crate API changes
@@ -108,20 +109,16 @@ pub fn setup_app(_app: &mut tauri::App) -> Result<(), String> {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use std::env;
 
     #[test]
-    #[test]
-    fn test_sentry_logging_integration() {
-        env::set_var("SENTRY_DSN", "https://test@test.ingest.sentry.io/test");
-        env::set_var("SENTRY_ENVIRONMENT", "test");
-
-        assert_eq!(env::var("SENTRY_DSN").unwrap(), "https://test@test.ingest.sentry.io/test");
-        assert_eq!(env::var("SENTRY_ENVIRONMENT").unwrap(), "test");
+    fn test_app_state_initialization() {
+        let state = init_app_state();
+        assert_eq!(state.server_port, 4021);
     }
 
     #[test]
-    fn test_secure_operations_logging() {
-        assert!(true, "Logging setup should be functional");
+    fn test_logging() {
+        add_log_entry("info", "test message");
+        // Basic smoke test to ensure logging doesn't panic
     }
 }
