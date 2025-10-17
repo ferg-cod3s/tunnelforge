@@ -39,11 +39,42 @@
     const unsubscribe = sessions.subscribe(value => {
       sessionsList = value;
     });
+
+    // Setup Tauri event listeners if available
+    setupTauriEventListeners();
     
     return () => {
       unsubscribe();
     };
   });
+
+  async function setupTauriEventListeners() {
+    try {
+      // Only import if we're in a Tauri environment
+      const { listen } = await import('@tauri-apps/api/event');
+      const { invoke } = await import('@tauri-apps/api/core');
+      
+      // Listen for toggle_access_mode event from tray
+      const unlistenToggleAccessMode = await listen<void>('toggle_access_mode', async () => {
+        logger.log('📡 Received toggle_access_mode event from tray');
+        try {
+          // Invoke the toggle command
+          await invoke('toggle_access_mode');
+          logger.log('✅ Successfully toggled access mode from tray event');
+        } catch (error) {
+          logger.error('Failed to toggle access mode from tray event', error);
+        }
+      });
+
+      // Return cleanup function
+      return () => {
+        unlistenToggleAccessMode?.();
+      };
+    } catch (error) {
+      // Not in Tauri environment or other error - this is OK for web builds
+      logger.log('⚠️ Tauri events not available (running in web mode)');
+    }
+  }
 
   function handleAuthSuccess(detail: AuthResponse) {
     logger.log('✅ Authentication successful', { userId: detail.userId });
