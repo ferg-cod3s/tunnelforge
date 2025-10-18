@@ -1,0 +1,103 @@
+# Docker Compose for TunnelForge Beta Deployment
+# Quick start option without Kubernetes/ECS
+# Usage: docker-compose up -d
+
+version: '3.8'
+
+services:
+  # PostgreSQL Database
+  postgres:
+    image: postgres:15-alpine
+    container_name: tunnelforge-db
+    environment:
+      POSTGRES_USER: tunnelforge
+      POSTGRES_PASSWORD: ${DB_PASSWORD:-changeme}
+      POSTGRES_DB: tunnelforge
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    ports:
+      - "5432:5432"
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U tunnelforge -d tunnelforge"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - tunnelforge
+    restart: unless-stopped
+
+  # Redis Cache
+  redis:
+    image: redis:7-alpine
+    container_name: tunnelforge-cache
+    command: redis-server --appendonly yes
+    volumes:
+      - redis_data:/data
+    ports:
+      - "6379:6379"
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - tunnelforge
+    restart: unless-stopped
+
+  # TunnelForge Application Server
+  app:
+    build:
+      context: ..
+      dockerfile: server/Dockerfile
+    container_name: tunnelforge-app
+    environment:
+      PORT: 4021
+      DATABASE_URL: postgres://tunnelforge:${DB_PASSWORD:-changeme}@postgres:5432/tunnelforge
+      REDIS_URL: redis://redis:6379/0
+      JWT_SECRET: ${JWT_SECRET:-change-me-in-production}
+      NODE_ENV: ${ENVIRONMENT:-staging}
+      LOG_LEVEL: ${LOG_LEVEL:-info}
+    ports:
+      - "4021:4021"
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:4021/api/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+    networks:
+      - tunnelforge
+    restart: unless-stopped
+    volumes:
+      - ./logs:/app/logs
+
+  # Nginx Reverse Proxy & Load Balancer
+  nginx:
+    image: nginx:alpine
+    container_name: tunnelforge-proxy
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - ./nginx.conf:/etc/nginx/nginx.conf:ro
+      - ./ssl:/etc/nginx/ssl:ro
+    depends_on:
+      - app
+    networks:
+      - tunnelforge
+    restart: unless-stopped
+
+volumes:
+  postgres_data:
+    driver: local
+  redis_data:
+    driver: local
+
+networks:
+  tunnelforge:
+    driver: bridge
