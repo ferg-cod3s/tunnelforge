@@ -1,15 +1,25 @@
 import { defineConfig, devices } from '@playwright/test';
+import path from 'path';
+import { fileURLToPath } from 'url';
 
 /**
- * Playwright configuration for TunnelForge Desktop E2E tests
+ * Playwright configuration for TunnelForge Web E2E tests
  * 
- * This configuration is designed to test the Tauri desktop application
- * by connecting to the development server or built app.
+ * This configuration tests the TunnelForge web frontend by connecting to
+ * the Go backend server on port 4021 (instead of the non-existent Tauri HTTP server).
+ * 
+ * Strategy:
+ * - Week 1: Test web frontend (Playwright on Go server port 4021)
+ * - Week 2: Expand web test coverage 
+ * - Week 3: Add WebDriver tests for native Tauri desktop app
  * 
  * @see https://playwright.dev/docs/test-configuration
  */
+
+const __dirname = path.dirname(fileURLToPath(import.meta.url));
+
 export default defineConfig({
-  testDir: './tests/e2e',
+  testDir: './tests/e2e-web',
   
   /* Run tests in files in parallel */
   fullyParallel: true,
@@ -21,31 +31,33 @@ export default defineConfig({
   retries: process.env.CI ? 2 : 0,
   
   /* Opt out of parallel tests on CI. */
-  workers: process.env.CI ? 1 : undefined,
+  workers: process.env.CI ? 1 : 1,
   
   /* Reporter to use. See https://playwright.dev/docs/test-reporters */
   reporter: [
-    ['html'],
+    ['html', { outputFolder: 'test-results/playwright-html-report' }],
     ['json', { outputFile: 'test-results/results.json' }],
+    ['junit', { outputFile: 'test-results/junit.xml' }],
+    ['list'],
   ],
   
   /* Shared settings for all the projects below. See https://playwright.dev/docs/api/class-testoptions. */
   use: {
-    /* Base URL to use in actions like `await page.goto('/')`. */
-    baseURL: 'http://localhost:1420', // Default Tauri dev server
+    /* Base URL - Go server on port 4021 (not Tauri on 1420) */
+    baseURL: 'http://localhost:4021',
     
     /* Global timeout for assertions */
     expect: {
-      timeout: 10000, // 10 seconds for desktop app assertions
+      timeout: 10000, // 10 seconds for web assertions
     },
     
     /* Action timeout (click, fill, etc.) */
-    actionTimeout: 15000, // 15 seconds for desktop app actions
+    actionTimeout: 15000, // 15 seconds for web actions
     
     /* Navigation timeout */
-    navigationTimeout: 30000, // 30 seconds for desktop app navigation
+    navigationTimeout: 30000, // 30 seconds for page navigation
     
-    /* Collect trace when retrying the failed test. See https://playwright.dev/docs/trace-viewer */
+    /* Collect trace when retrying the failed test. */
     trace: 'on-first-retry',
     
     /* Take screenshot on failure */
@@ -54,106 +66,77 @@ export default defineConfig({
     /* Record video on failure */
     video: 'retain-on-failure',
     
-    /* Additional context options for desktop app testing */
-    viewport: { width: 1280, height: 800 }, // Default desktop size
-    ignoreHTTPSErrors: true, // In case of self-signed certs
+    /* Viewport for desktop testing */
+    viewport: { width: 1280, height: 800 },
+    ignoreHTTPSErrors: true,
   },
 
-  /* Configure projects for major browsers and desktop environments */
+  /* Configure projects for major browsers */
   projects: [
     {
-      name: 'desktop-chromium',
-      use: { 
-        ...devices['Desktop Chrome'],
-        // Desktop-specific settings
-        channel: 'chromium',
-        launchOptions: {
-          // Tauri apps might need specific launch options
-          args: [
-            '--disable-web-security', // For local file access
-            '--allow-running-insecure-content',
-            '--disable-features=VizDisplayCompositor', // Reduce GPU usage
-          ],
-        },
-      },
+      name: 'chromium',
+      use: { ...devices['Desktop Chrome'] },
     },
-    
+
     {
-      name: 'desktop-firefox',
-      use: { 
-        ...devices['Desktop Firefox'],
-        // Firefox-specific settings for desktop testing
-      },
+      name: 'firefox',
+      use: { ...devices['Desktop Firefox'] },
     },
-    
+
     {
-      name: 'desktop-webkit',
-      use: { 
-        ...devices['Desktop Safari'],
-        // Safari/WebKit settings
-      },
+      name: 'webkit',
+      use: { ...devices['Desktop Safari'] },
     },
-    
-    // Mobile testing for responsive design
-    {
-      name: 'mobile-chrome',
-      use: { 
-        ...devices['Pixel 5'],
-      },
-    },
-    
-    {
-      name: 'mobile-safari',
-      use: { 
-        ...devices['iPhone 12'],
-      },
-    },
+
+    /* Test against mobile viewports. */
+    // {
+    //   name: 'Mobile Chrome',
+    //   use: { ...devices['Pixel 5'] },
+    // },
+    // {
+    //   name: 'Mobile Safari',
+    //   use: { ...devices['iPhone 12'] },
+    // },
   ],
 
-   /* Global test setup and teardown */
-   globalSetup: './tests/global-setup.ts',
-   globalTeardown: './tests/global-teardown.ts',
-  
-  /* Run your local dev server before starting the tests */
-  webServer: process.env.CI ? undefined : {
-    command: 'bun run tauri dev',
-    port: 1420,
-    timeout: 60000, // 1 minute for Tauri to start
-    reuseExistingServer: !process.env.CI,
-    stdout: 'pipe',
-    stderr: 'pipe',
+  /* Start web server before running tests */
+  webServer: {
+    /* 
+     * Start Go server instead of Tauri dev mode
+     * This is much simpler and actually works since Go server exposes HTTP on 4021
+     */
+    command: 'cd ../.. && go run ./server/cmd/server/main.go',
+    port: 4021,
+    timeout: 120000, // 2 minutes - Go server starts much faster than Tauri
+    reuseExistingServer: true, // Allow reusing existing server during development
     env: {
       // Test-specific environment variables
-      TAURI_ENV: 'test',
+      PORT: '4021',
       TUNNELFORGE_TEST_MODE: 'true',
-      RUST_LOG: 'debug',
+      SENTRY_GO_DSN: '', // Disable Sentry during tests
     },
   },
-  
+
   /* Output directories */
-  outputDir: 'test-results/',
-  
+  outputDir: 'test-results/output',
+
   /* Test match patterns */
   testMatch: [
     '**/*.spec.ts',
     '**/*.test.ts',
   ],
-  
+
   /* Test ignore patterns */
   testIgnore: [
     '**/node_modules/**',
     '**/dist/**',
     '**/build/**',
+    '**/*-old/**', // Ignore backup tests
   ],
-  
+
   /* Timeout for each test */
-  timeout: 60000, // 1 minute per test for desktop operations
-  
-  /* Timeout for expect assertions */
-  expect: {
-    timeout: 10000, // 10 seconds for assertions
-  },
-  
+  timeout: 60000, // 1 minute per test
+
   /* Maximum time for the entire test suite */
   globalTimeout: 600000, // 10 minutes total
 });
