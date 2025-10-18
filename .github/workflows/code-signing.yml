@@ -12,10 +12,10 @@ on:
         default: 'release'
 
 jobs:
-  setup-signing-windows:
-    name: Setup Windows Code Signing
-    runs-on: windows-latest
-    if: inputs.platform == 'windows'
+   setup-signing-windows:
+     name: Setup Windows Code Signing
+     runs-on: windows-latest
+     if: inputs.platform == 'windows' && secrets.WIN_CSC_CONTENT != ''
 
     steps:
       - name: Checkout
@@ -50,10 +50,10 @@ jobs:
           path: certificates/
           retention-days: 1
 
-  setup-signing-macos:
-    name: Setup macOS Code Signing
-    runs-on: macos-latest
-    if: inputs.platform == 'macos'
+   setup-signing-macos:
+     name: Setup macOS Code Signing
+     runs-on: macos-latest
+     if: inputs.platform == 'macos' && secrets.MACOS_DEVELOPER_CERT != ''
 
     steps:
       - name: Checkout
@@ -100,10 +100,10 @@ jobs:
           rm -rf TestApp.app TestApp.dmg
           security delete-keychain build.keychain
 
-  setup-signing-linux:
-    name: Setup Linux Code Signing
-    runs-on: ubuntu-latest
-    if: inputs.platform == 'linux'
+   setup-signing-linux:
+     name: Setup Linux Code Signing
+     runs-on: ubuntu-latest
+     if: inputs.platform == 'linux' && secrets.GPG_PRIVATE_KEY != ''
 
     steps:
       - name: Checkout
@@ -134,11 +134,15 @@ jobs:
           echo "Configure dpkg-sig with GPG key"
           # dpkg-sig configuration would go here
 
-  sign-artifacts:
-    name: Sign Release Artifacts
-    runs-on: ${{ inputs.platform == 'windows' && 'windows-latest' || inputs.platform == 'macos' && 'macos-latest' || 'ubuntu-latest' }}
-    needs: [setup-signing-windows, setup-signing-macos, setup-signing-linux]
-    if: inputs.sign_type == 'release'
+   sign-artifacts:
+     name: Sign Release Artifacts
+     runs-on: ${{ inputs.platform == 'windows' && 'windows-latest' || inputs.platform == 'macos' && 'macos-latest' || 'ubuntu-latest' }}
+     needs: [setup-signing-windows, setup-signing-macos, setup-signing-linux]
+     if: inputs.sign_type == 'release' && (
+       (inputs.platform == 'windows' && secrets.WIN_CSC_PATH != '' && secrets.WIN_CSC_KEY_PASSWORD != '') ||
+       (inputs.platform == 'macos' && secrets.MACOS_KEYCHAIN_PASSWORD != '' && secrets.MACOS_DEVELOPER_ID != '') ||
+       (inputs.platform == 'linux' && secrets.GPG_PRIVATE_KEY != '')
+     )
 
     steps:
       - name: Download unsigned artifacts
@@ -147,9 +151,9 @@ jobs:
           pattern: tunnelforge-${{ inputs.platform }}-*
           path: artifacts/
 
-      - name: Sign Windows artifacts
-        if: inputs.platform == 'windows'
-        run: |
+       - name: Sign Windows artifacts
+         if: inputs.platform == 'windows' && secrets.WIN_CSC_PATH != '' && secrets.WIN_CSC_KEY_PASSWORD != ''
+         run: |
           # Sign MSI files
           for file in artifacts/**/*.msi; do
             if [ -f "$file" ]; then
@@ -166,9 +170,9 @@ jobs:
             fi
           done
 
-      - name: Sign macOS artifacts
-        if: inputs.platform == 'macos'
-        run: |
+       - name: Sign macOS artifacts
+         if: inputs.platform == 'macos' && secrets.MACOS_KEYCHAIN_PASSWORD != '' && secrets.MACOS_DEVELOPER_ID != ''
+         run: |
           # Unlock keychain
           security unlock-keychain -p "${{ secrets.MACOS_KEYCHAIN_PASSWORD }}" build.keychain
           
@@ -188,9 +192,9 @@ jobs:
             fi
           done
 
-      - name: Sign Linux artifacts
-        if: inputs.platform == 'linux'
-        run: |
+       - name: Sign Linux artifacts
+         if: inputs.platform == 'linux' && secrets.GPG_PRIVATE_KEY != ''
+         run: |
           # Sign DEB packages
           for file in artifacts/**/*.deb; do
             if [ -f "$file" ]; then
