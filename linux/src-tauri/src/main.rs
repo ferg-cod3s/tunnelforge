@@ -14,6 +14,9 @@ use tauri::{AppHandle, Emitter, Manager, RunEvent, State};
 use serde::{Deserialize, Serialize};
 use log::{error, info};
 
+mod settings;
+mod services;
+
 // Application state
 struct AppState {
     server_process: Arc<Mutex<Option<Child>>>,
@@ -289,7 +292,42 @@ fn main() {
             get_app_settings,
             update_app_settings,
             create_new_session,
-            copy_server_url
+            copy_server_url,
+            settings::general::get_general_settings,
+            settings::general::update_general_settings,
+            settings::general::toggle_launch_at_login,
+            settings::general::install_cli,
+            settings::general::uninstall_cli,
+            settings::general::is_cli_installed,
+            settings::dashboard::get_dashboard_settings,
+            settings::dashboard::update_dashboard_settings,
+            settings::dashboard::get_server_metrics,
+            settings::dashboard::get_system_resources,
+            settings::dashboard::ping_server,
+            settings::remote_access::get_remote_access_settings,
+            settings::remote_access::get_tailscale_status,
+            settings::remote_access::connect_tailscale,
+            settings::remote_access::disconnect_tailscale,
+            settings::remote_access::start_ngrok_tunnel,
+            settings::remote_access::stop_ngrok_tunnel,
+            settings::remote_access::authenticate_cloudflare,
+            settings::remote_access::start_cloudflare_tunnel,
+            settings::remote_access::stop_cloudflare_tunnel,
+            services::terminal::detect_available_terminals,
+            services::terminal::get_terminal_preferences,
+            services::terminal::update_terminal_preferences,
+            services::terminal::launch_terminal,
+            services::terminal::get_default_shell,
+            services::terminal::detect_desktop_environment,
+            services::startup::is_startup_enabled,
+            services::startup::enable_startup,
+            services::startup::disable_startup,
+            services::startup::get_startup_service_status,
+            services::keyring::store_credential,
+            services::keyring::get_credential,
+            services::keyring::delete_credential,
+            services::keyring::list_credentials,
+            services::keyring::is_keyring_available,
         ])
         .build(tauri::generate_context!())
         .expect("error while running tauri application")
