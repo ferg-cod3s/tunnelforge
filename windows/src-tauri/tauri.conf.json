@@ -4,7 +4,8 @@
   "identifier": "dev.tunnelforge.windows",
   "build": {
     "beforeDevCommand": "",
-    "beforeBuildCommand": ""
+    "beforeBuildCommand": "",
+    "frontendDist": "."
   },
   "bundle": {
     "active": true,
@@ -43,15 +44,16 @@
       {
         "fullscreen": false,
         "resizable": true,
-        "title": "TunnelForge",
+        "title": "TunnelForge - Windows JavaScript Test",
         "width": 1200,
         "height": 800,
         "minWidth": 800,
         "minHeight": 600,
-        "visible": false,
+        "visible": true,
         "decorations": true,
         "alwaysOnTop": false,
-        "skipTaskbar": false
+        "skipTaskbar": false,
+        "url": "immediate-test.html"
       }
     ],
     "security": {
