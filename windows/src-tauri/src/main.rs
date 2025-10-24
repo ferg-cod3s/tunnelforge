@@ -7,6 +7,7 @@
 
 use std::process::{Child, Command};
 use std::sync::{Arc, Mutex};
+use std::fs;
 
 use tauri::{
     AppHandle, State
@@ -132,6 +133,48 @@ fn save_settings(settings: AppSettings) -> Result<(), String> {
     Ok(())
 }
 
+// ===== DIAGNOSTIC COMMANDS FOR JAVASCRIPT TESTING =====
+
+#[tauri::command]
+async fn write_diagnostics(path: String, content: String) -> Result<(), String> {
+    let temp_path = if cfg!(target_os = "windows") {
+        // Use Windows temp directory
+        std::env::var("TEMP").unwrap_or_else(|_| "C:\\temp".to_string())
+    } else {
+        "/tmp".to_string()
+    };
+    
+    let full_path = if path.starts_with('/') || path.starts_with('\\') || path.contains(':') {
+        path.clone()
+    } else {
+        format!("{}\\{}", temp_path, path)
+    };
+    
+    match fs::write(&full_path, content) {
+        Ok(_) => {
+            info!("Diagnostics written to: {}", full_path);
+            Ok(())
+        }
+        Err(e) => {
+            error!("Failed to write diagnostics to {}: {}", full_path, e);
+            Err(format!("Failed to write diagnostics: {}", e))
+        }
+    }
+}
+
+#[tauri::command]
+async fn test_rust_command() -> Result<String, String> {
+    let response = serde_json::json!({
+        "status": "success",
+        "message": "Rust command executed successfully",
+        "timestamp": chrono::Utc::now().to_rfc3339(),
+        "platform": "windows",
+        "tauri_version": "2.8"
+    });
+    
+    Ok(response.to_string())
+}
+
 #[cfg(target_os = "windows")]
 fn setup_windows_registry() -> Result<(), Box<dyn std::error::Error>> {
     let hkcu = RegKey::predef(HKEY_CURRENT_USER);
@@ -185,8 +228,63 @@ fn main() {
             start_server,
             stop_server,
             get_settings,
-            save_settings
+            save_settings,
+            // Diagnostic commands for JavaScript testing
+            write_diagnostics,
+            test_rust_command
         ])
+        .setup(|app| {
+            // Write initialization diagnostics
+            let temp_path = if cfg!(target_os = "windows") {
+                std::env::var("TEMP").unwrap_or_else(|_| "C:\\temp".to_string())
+            } else {
+                "/tmp".to_string()
+            };
+            
+            let init_data = serde_json::json!({
+                "source": "rust_initialization",
+                "timestamp": chrono::Utc::now().to_rfc3339(),
+                "platform": "windows",
+                "tauri_available": true,
+                "app_handle_created": true
+            });
+            
+            if let Err(e) = fs::write(format!("{}\\tauri-rust-init.json", temp_path), init_data.to_string()) {
+                error!("Failed to write init diagnostics: {}", e);
+            } else {
+                info!("Initialization diagnostics written to: {}\\tauri-rust-init.json", temp_path);
+            }
+            
+            Ok(())
+        })
+        .on_page_load(|webview, _payload| {
+            // Inject JavaScript after page loads
+            let js = r#"
+                setTimeout(() => {
+                    if (window.__TAURI_INVOKE__) {
+                        window.__TAURI_INVOKE__('write_diagnostics', {
+                            path: 'tauri-post-load.json',
+                            content: JSON.stringify({
+                                source: 'page_load_event',
+                                timestamp: new Date().toISOString(),
+                                tauri_invoke_available: true,
+                                platform: 'windows'
+                            })
+                        }).catch(err => {
+                            console.error('Failed to write post-load diagnostics:', err);
+                        });
+                    } else {
+                        console.error('Tauri invoke not available in page load');
+                    }
+                }, 1000);
+            "#;
+            
+            if let Err(e) = webview.eval(js) {
+                log::error!("❌ Page load injection failed: {}", e);
+            } else {
+                info!("JavaScript injection scheduled for page load");
+            }
+        })
         .run(tauri::generate_context!())
         .expect("error while running tauri application");
 }
