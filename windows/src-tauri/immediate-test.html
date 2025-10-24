@@ -1,0 +1,382 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>TunnelForge Windows - JavaScript Test</title>
+    <style>
+        body {
+            font-family: 'Courier New', monospace;
+            background: #0a0a0a;
+            color: #00ff00;
+            margin: 0;
+            padding: 20px;
+            min-height: 100vh;
+        }
+        
+        .terminal {
+            background: #000;
+            border: 2px solid #00ff00;
+            border-radius: 8px;
+            padding: 20px;
+            max-width: 800px;
+            margin: 0 auto;
+        }
+        
+        .header {
+            color: #00ff00;
+            margin-bottom: 20px;
+            text-align: center;
+        }
+        
+        .test-section {
+            margin: 15px 0;
+            padding: 10px;
+            border-left: 3px solid #00ff00;
+            background: rgba(0, 255, 0, 0.1);
+        }
+        
+        .success {
+            color: #00ff00;
+        }
+        
+        .error {
+            color: #ff0000;
+        }
+        
+        .info {
+            color: #ffff00;
+        }
+        
+        .result {
+            background: #111;
+            padding: 10px;
+            border-radius: 4px;
+            margin: 10px 0;
+            white-space: pre-wrap;
+            font-size: 12px;
+        }
+        
+        .loading {
+            color: #ffff00;
+        }
+        
+        .status {
+            display: inline-block;
+            padding: 4px 8px;
+            border-radius: 4px;
+            font-weight: bold;
+            margin: 2px;
+        }
+        
+        .status.success {
+            background: #00ff00;
+            color: #000;
+        }
+        
+        .status.error {
+            background: #ff0000;
+            color: #fff;
+        }
+        
+        .status.pending {
+            background: #ffff00;
+            color: #000;
+        }
+    </style>
+</head>
+<body>
+    <div class="terminal">
+        <div class="header">
+            <h1>🔧 TunnelForge Windows - JavaScript Integration Test</h1>
+            <p>Testing Tauri v2 JavaScript-Rust communication on Windows</p>
+        </div>
+        
+        <div class="test-section">
+            <h3>🔍 Environment Detection</h3>
+            <div id="environment"></div>
+        </div>
+        
+        <div class="test-section">
+            <h3>🔗 Tauri API Availability</h3>
+            <div id="tauri-api"></div>
+        </div>
+        
+        <div class="test-section">
+            <h3>📝 Diagnostic Commands Test</h3>
+            <div id="diagnostic-test"></div>
+        </div>
+        
+        <div class="test-section">
+            <h3>🖥️ Server Status Test</h3>
+            <div id="server-test"></div>
+        </div>
+        
+        <div class="test-section">
+            <h3>📋 Final Results</h3>
+            <div id="final-results"></div>
+        </div>
+    </div>
+
+    <script>
+        class TunnelForgeTest {
+            constructor() {
+                this.results = {
+                    environment: null,
+                    tauri_api: null,
+                    diagnostic_test: null,
+                    server_test: null,
+                    overall: null
+                };
+                this.tempPath = this.getTempPath();
+            }
+
+            getTempPath() {
+                // For Windows, we'll write to TEMP environment variable
+                // The actual path will be determined by the Rust command
+                return 'tauri-windows-test.json';
+            }
+
+            async runTests() {
+                this.log('info', 'Starting TunnelForge Windows JavaScript integration tests...');
+                
+                await this.testEnvironment();
+                await this.testTauriAPI();
+                await this.testDiagnosticCommands();
+                await this.testServerStatus();
+                await this.writeFinalResults();
+                
+                this.log('success', 'All tests completed!');
+            }
+
+            async testEnvironment() {
+                const env = {
+                    userAgent: navigator.userAgent,
+                    platform: navigator.platform,
+                    language: navigator.language,
+                    timestamp: new Date().toISOString(),
+                    windowLocation: window.location.href,
+                    screenResolution: `${screen.width}x${screen.height}`
+                };
+
+                this.results.environment = {
+                    status: 'success',
+                    data: env
+                };
+
+                this.updateSection('environment', `
+                    <div class="status success">✓ Environment Detected</div>
+                    <div class="result">${JSON.stringify(env, null, 2)}</div>
+                `);
+            }
+
+            async testTauriAPI() {
+                const checks = {
+                    'window.__TAURI__': typeof window.__TAURI__,
+                    'window.__TAURI_INVOKE__': typeof window.__TAURI_INVOKE__,
+                    'window.__TAURI__core': window.__TAURI__ ? typeof window.__TAURI__.core : 'undefined',
+                    'window.__TAURI__event': window.__TAURI__ ? typeof window.__TAURI__.event : 'undefined',
+                    'window.__TAURI__app': window.__TAURI__ ? typeof window.__TAURI__.app : 'undefined'
+                };
+
+                const tauriAvailable = typeof window.__TAURI_INVOKE__ === 'function';
+                
+                this.results.tauri_api = {
+                    status: tauriAvailable ? 'success' : 'error',
+                    data: checks
+                };
+
+                this.updateSection('tauri-api', `
+                    <div class="status ${tauriAvailable ? 'success' : 'error'}">
+                        ${tauriAvailable ? '✓' : '✗'} Tauri API ${tauriAvailable ? 'Available' : 'Not Available'}
+                    </div>
+                    <div class="result">${JSON.stringify(checks, null, 2)}</div>
+                `);
+            }
+
+            async testDiagnosticCommands() {
+                if (typeof window.__TAURI_INVOKE__ !== 'function') {
+                    this.results.diagnostic_test = {
+                        status: 'error',
+                        error: 'Tauri invoke not available'
+                    };
+                    
+                    this.updateSection('diagnostic-test', `
+                        <div class="status error">✗ Cannot test - Tauri API not available</div>
+                    `);
+                    return;
+                }
+
+                try {
+                    this.log('info', 'Testing write_diagnostics command...');
+                    
+                    const diagnosticData = {
+                        source: 'windows_javascript_test',
+                        timestamp: new Date().toISOString(),
+                        test_type: 'diagnostic_command',
+                        platform: 'windows',
+                        tauri_available: true,
+                        user_agent: navigator.userAgent
+                    };
+
+                    const result = await window.__TAURI_INVOKE__('write_diagnostics', {
+                        path: this.tempPath,
+                        content: JSON.stringify(diagnosticData, null, 2)
+                    });
+
+                    this.log('info', 'Testing test_rust_command...');
+                    
+                    const rustResult = await window.__TAURI_INVOKE__('test_rust_command');
+                    const rustData = JSON.parse(rustResult);
+
+                    this.results.diagnostic_test = {
+                        status: 'success',
+                        data: {
+                            write_result: result,
+                            rust_command_result: rustData
+                        }
+                    };
+
+                    this.updateSection('diagnostic-test', `
+                        <div class="status success">✓ Diagnostic Commands Working</div>
+                        <div class="result">
+                            <strong>write_diagnostics result:</strong>
+                            ${JSON.stringify(result, null, 2)}
+                            
+                            <strong>test_rust_command result:</strong>
+                            ${JSON.stringify(rustData, null, 2)}
+                        </div>
+                    `);
+
+                } catch (error) {
+                    this.results.diagnostic_test = {
+                        status: 'error',
+                        error: error.message
+                    };
+
+                    this.updateSection('diagnostic-test', `
+                        <div class="status error">✗ Diagnostic Commands Failed</div>
+                        <div class="result error">${error.message}</div>
+                    `);
+                }
+            }
+
+            async testServerStatus() {
+                if (typeof window.__TAURI_INVOKE__ !== 'function') {
+                    this.results.server_test = {
+                        status: 'error',
+                        error: 'Tauri invoke not available'
+                    };
+                    
+                    this.updateSection('server-test', `
+                        <div class="status error">✗ Cannot test - Tauri API not available</div>
+                    `);
+                    return;
+                }
+
+                try {
+                    this.log('info', 'Testing get_server_status command...');
+                    
+                    const status = await window.__TAURI_INVOKE__('get_server_status');
+
+                    this.results.server_test = {
+                        status: 'success',
+                        data: status
+                    };
+
+                    this.updateSection('server-test', `
+                        <div class="status success">✓ Server Status Retrieved</div>
+                        <div class="result">${JSON.stringify(status, null, 2)}</div>
+                    `);
+
+                } catch (error) {
+                    this.results.server_test = {
+                        status: 'error',
+                        error: error.message
+                    };
+
+                    this.updateSection('server-test', `
+                        <div class="status error">✗ Server Status Failed</div>
+                        <div class="result error">${error.message}</div>
+                    `);
+                }
+            }
+
+            async writeFinalResults() {
+                const finalResults = {
+                    test_summary: {
+                        timestamp: new Date().toISOString(),
+                        platform: 'windows',
+                        total_tests: 4,
+                        passed: Object.values(this.results).filter(r => r && r.status === 'success').length,
+                        failed: Object.values(this.results).filter(r => r && r.status === 'error').length
+                    },
+                    detailed_results: this.results,
+                    environment: {
+                        user_agent: navigator.userAgent,
+                        platform: navigator.platform,
+                        tauri_available: typeof window.__TAURI_INVOKE__ === 'function'
+                    }
+                };
+
+                this.results.overall = {
+                    status: finalResults.test_summary.failed === 0 ? 'success' : 'partial',
+                    data: finalResults
+                };
+
+                // Write to file using diagnostic command
+                if (typeof window.__TAURI_INVOKE__ === 'function') {
+                    try {
+                        await window.__TAURI_INVOKE__('write_diagnostics', {
+                            path: 'tauri-windows-test-final.json',
+                            content: JSON.stringify(finalResults, null, 2)
+                        });
+                    } catch (error) {
+                        this.log('error', `Failed to write final results: ${error.message}`);
+                    }
+                }
+
+                const successRate = (finalResults.test_summary.passed / finalResults.test_summary.total * 100).toFixed(1);
+                
+                this.updateSection('final-results', `
+                    <div class="status ${this.results.overall.status === 'success' ? 'success' : 'error'}">
+                        ${this.results.overall.status === 'success' ? '✓' : '⚠'} 
+                        Overall Status: ${successRate}% Success Rate
+                    </div>
+                    <div class="result">
+                        <strong>Test Summary:</strong>
+                        ${JSON.stringify(finalResults.test_summary, null, 2)}
+                        
+                        <strong>Expected Diagnostic Files:</strong>
+                        • tauri-windows-test.json (diagnostic test data)
+                        • tauri-windows-test-final.json (final results)
+                        • tauri-rust-init.json (Rust initialization)
+                        • tauri-post-load.json (page load event)
+                    </div>
+                `);
+            }
+
+            updateSection(sectionId, content) {
+                const element = document.getElementById(sectionId);
+                if (element) {
+                    element.innerHTML = content;
+                }
+            }
+
+            log(level, message) {
+                console.log(`[${level.toUpperCase()}] ${message}`);
+            }
+        }
+
+        // Run tests when page loads
+        document.addEventListener('DOMContentLoaded', async () => {
+            const tester = new TunnelForgeTest();
+            
+            // Add a small delay to ensure Tauri is fully initialized
+            setTimeout(() => {
+                tester.runTests();
+            }, 500);
+        });
+    </script>
+</body>
+</html>
