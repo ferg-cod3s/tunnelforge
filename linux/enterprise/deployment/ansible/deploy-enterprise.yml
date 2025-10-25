@@ -1,0 +1,299 @@
+---
+# TunnelForge Enterprise Deployment Playbook
+# Deploys TunnelForge across enterprise infrastructure with centralized management
+
+- name: TunnelForge Enterprise Deployment
+  hosts: all
+  become: yes
+  vars:
+    tunnelforge_version: "{{ tunnelforge_version | default('2024.01.27') }}"
+    tunnelforge_repo_url: "{{ tunnelforge_repo_url | default('https://packages.tunnelforge.dev') }}"
+    tunnelforge_management_server: "{{ tunnelforge_management_server | default('mgmt.tunnelforge.local') }}"
+    tunnelforge_port: "{{ tunnelforge_port | default(4021) }}"
+    tunnelforge_config_dir: "/etc/tunnelforge"
+    tunnelforge_data_dir: "/var/lib/tunnelforge"
+    tunnelforge_log_dir: "/var/log/tunnelforge"
+    tunnelforge_user: "tunnelforge"
+    tunnelforge_group: "tunnelforge"
+    
+  pre_tasks:
+    - name: Check system compatibility
+      assert:
+        that:
+          - ansible_os_family in ['Debian', 'RedHat', 'Suse']
+          - ansible_distribution_version is version('18', '>=')
+        fail_msg: "System {{ ansible_distribution }} {{ ansible_distribution_version }} is not supported"
+        success_msg: "System compatibility check passed"
+
+    - name: Display deployment information
+      debug:
+        msg:
+          - "TunnelForge Enterprise Deployment"
+          - "Version: {{ tunnelforge_version }}"
+          - "Management Server: {{ tunnelforge_management_server }}"
+          - "Target Port: {{ tunnelforge_port }}"
+          - "Deploying to: {{ inventory_hostname }}"
+
+  tasks:
+    # System Preparation
+    - name: Create TunnelForge system user
+      user:
+        name: "{{ tunnelforge_user }}"
+        group: "{{ tunnelforge_group }}"
+        system: yes
+        shell: /bin/false
+        home: "{{ tunnelforge_data_dir }}"
+        create_home: no
+
+    - name: Create required directories
+      file:
+        path: "{{ item }}"
+        state: directory
+        owner: "{{ tunnelforge_user }}"
+        group: "{{ tunnelforge_group }}"
+        mode: '0755'
+      loop:
+        - "{{ tunnelforge_config_dir }}"
+        - "{{ tunnelforge_data_dir }}"
+        - "{{ tunnelforge_log_dir }}"
+        - "{{ tunnelforge_config_dir }}/certs"
+        - "{{ tunnelforge_config_dir }}/policies"
+
+    # Package Installation
+    - name: Install prerequisites (Debian/Ubuntu)
+      apt:
+        name:
+          - curl
+          - gnupg
+          - ca-certificates
+          - lsb-release
+          - systemd
+          - logrotate
+        update_cache: yes
+        state: present
+      when: ansible_os_family == "Debian"
+
+    - name: Install prerequisites (RHEL/CentOS)
+      yum:
+        name:
+          - curl
+          - gnupg
+          - ca-certificates
+          - systemd
+          - logrotate
+        state: present
+      when: ansible_os_family == "RedHat"
+
+    - name: Add TunnelForge repository GPG key
+      apt_key:
+        url: "{{ tunnelforge_repo_url }}/tunnelforge.gpg"
+        state: present
+      when: ansible_os_family == "Debian"
+
+    - name: Add TunnelForge repository (Debian/Ubuntu)
+      apt_repository:
+        repo: "deb [arch=amd64,arm64] {{ tunnelforge_repo_url }}/apt {{ ansible_distribution_release }} main"
+        state: present
+        update_cache: yes
+      when: ansible_os_family == "Debian"
+
+    - name: Add TunnelForge repository (RHEL/CentOS)
+      yum_repository:
+        name: tunnelforge
+        description: TunnelForge Enterprise Repository
+        baseurl: "{{ tunnelforge_repo_url }}/yum/\$basearch"
+        gpgkey: "{{ tunnelforge_repo_url }}/tunnelforge.gpg"
+        enabled: yes
+        gpgcheck: yes
+      when: ansible_os_family == "RedHat"
+
+    - name: Install TunnelForge Enterprise package
+      package:
+        name: "tunnelforge-enterprise={{ tunnelforge_version }}*"
+        state: present
+      notify: restart tunnelforge
+
+    # Configuration Management
+    - name: Generate TunnelForge configuration
+      template:
+        src: templates/tunnelforge.conf.j2
+        dest: "{{ tunnelforge_config_dir }}/tunnelforge.conf"
+        owner: "{{ tunnelforge_user }}"
+        group: "{{ tunnelforge_group }}"
+        mode: '0640'
+        backup: yes
+      notify: restart tunnelforge
+
+    - name: Configure enterprise policies
+      template:
+        src: templates/enterprise-policies.json.j2
+        dest: "{{ tunnelforge_config_dir }}/policies/enterprise.json"
+        owner: "{{ tunnelforge_user }}"
+        group: "{{ tunnelforge_group }}"
+        mode: '0640'
+      notify: restart tunnelforge
+
+    - name: Configure management server connection
+      template:
+        src: templates/management-config.json.j2
+        dest: "{{ tunnelforge_config_dir }}/management.json"
+        owner: "{{ tunnelforge_user }}"
+        group: "{{ tunnelforge_group }}"
+        mode: '0640'
+      notify: restart tunnelforge
+
+    # Security Configuration
+    - name: Generate TLS certificates (self-signed)
+      command:
+        cmd: |
+          openssl req -x509 -nodes -days 365 -newkey rsa:2048 \
+            -keyout {{ tunnelforge_config_dir }}/certs/server.key \
+            -out {{ tunnelforge_config_dir }}/certs/server.crt \
+            -subj "/C=US/ST=State/L=City/O=Organization/CN={{ inventory_hostname }}"
+        creates: "{{ tunnelforge_config_dir }}/certs/server.crt"
+      when: enterprise_generate_self_signed_cert | default(true)
+
+    - name: Set certificate permissions
+      file:
+        path: "{{ item }}"
+        owner: "{{ tunnelforge_user }}"
+        group: "{{ tunnelforge_group }}"
+        mode: '0600'
+      loop:
+        - "{{ tunnelforge_config_dir }}/certs/server.key"
+        - "{{ tunnelforge_config_dir }}/certs/server.crt"
+
+    - name: Configure firewall rules
+      block:
+        - name: Open TunnelForge port (UFW)
+          ufw:
+            rule: allow
+            port: "{{ tunnelforge_port }}"
+            proto: tcp
+          when: ansible_os_family == "Debian" and "'ufw' in ansible_facts.packages"
+
+        - name: Open TunnelForge port (firewalld)
+          firewalld:
+            port: "{{ tunnelforge_port }}/tcp"
+            permanent: yes
+            state: enabled
+            immediate: yes
+          when: ansible_os_family == "RedHat" and "'firewalld' in ansible_facts.packages"
+
+    # Service Configuration
+    - name: Configure systemd service
+      template:
+        src: templates/tunnelforge.service.j2
+        dest: /etc/systemd/system/tunnelforge.service
+        owner: root
+        group: root
+        mode: '0644'
+      notify:
+        - reload systemd
+        - restart tunnelforge
+
+    - name: Configure log rotation
+      template:
+        src: templates/logrotate.j2
+        dest: /etc/logrotate.d/tunnelforge
+        owner: root
+        group: root
+        mode: '0644'
+
+    # Monitoring Integration
+    - name: Install monitoring agent (optional)
+      include_tasks: tasks/setup-monitoring.yml
+      when: enterprise_enable_monitoring | default(false)
+
+    - name: Configure audit logging
+      template:
+        src: templates/audit-config.json.j2
+        dest: "{{ tunnelforge_config_dir }}/audit.json"
+        owner: "{{ tunnelforge_user }}"
+        group: "{{ tunnelforge_group }}"
+        mode: '0640'
+      when: enterprise_enable_audit | default(true)
+
+    # Integration Setup
+    - name: Configure SSO integration (optional)
+      include_tasks: tasks/setup-sso.yml
+      when: enterprise_enable_sso | default(false)
+
+    - name: Configure SIEM integration (optional)
+      include_tasks: tasks/setup-siem.yml
+      when: enterprise_enable_siem | default(false)
+
+    - name: Configure LDAP integration (optional)
+      include_tasks: tasks/setup-ldap.yml
+      when: enterprise_enable_ldap | default(false)
+
+  handlers:
+    - name: reload systemd
+      systemd:
+        daemon_reload: yes
+
+    - name: restart tunnelforge
+      systemd:
+        name: tunnelforge
+        state: restarted
+        enabled: yes
+
+    - name: restart monitoring
+      systemd:
+        name: tunnelforge-monitor
+        state: restarted
+        enabled: yes
+      when: enterprise_enable_monitoring | default(false)
+
+  post_tasks:
+    - name: Verify TunnelForge service status
+      systemd:
+        name: tunnelforge
+      register: service_status
+
+    - name: Display deployment status
+      debug:
+        msg:
+          - "TunnelForge deployment completed successfully!"
+          - "Service status: {{ 'Running' if service_status.status.ActiveState == 'active' else 'Not running' }}"
+          - "Configuration directory: {{ tunnelforge_config_dir }}"
+          - "Data directory: {{ tunnelforge_data_dir }}"
+          - "Log directory: {{ tunnelforge_log_dir }}"
+          - "Management server: {{ tunnelforge_management_server }}"
+          - "Port: {{ tunnelforge_port }}"
+
+    - name: Display next steps
+      debug:
+        msg:
+          - "Next steps:"
+          - "1. Access TunnelForge at https://{{ inventory_hostname }}:{{ tunnelforge_port }}"
+          - "2. Configure enterprise policies in the management console"
+          - "3. Set up user authentication and authorization"
+          - "4. Configure monitoring and alerting"
+          - "5. Test all integrations (SSO, SIEM, LDAP)"
+
+    - name: Generate deployment report
+      template:
+        src: templates/deployment-report.j2
+        dest: "/tmp/tunnelforge-deployment-{{ inventory_hostname }}-{{ ansible_date_time.epoch }}.json"
+        owner: root
+        group: root
+        mode: '0644'
+      vars:
+        deployment_timestamp: "{{ ansible_date_time.iso8601 }}"
+        deployment_status: "{{ 'Success' if service_status.status.ActiveState == 'active' else 'Failed' }}"
+
+# Rescue block for error handling
+  rescue:
+    - name: Display deployment error
+      debug:
+        msg: "Deployment failed on {{ inventory_hostname }}. Check logs for details."
+
+    - name: Capture deployment logs
+      shell: |
+        journalctl -u tunnelforge --no-pager -n 50 > /tmp/tunnelforge-deployment-error-{{ inventory_hostname }}.log
+      ignore_errors: yes
+
+    - name: Fail the playbook
+      fail:
+        msg: "TunnelForge deployment failed on {{ inventory_hostname }}. Check /tmp/tunnelforge-deployment-error-{{ inventory_hostname }}.log for details."

@@ -8,6 +8,44 @@ This document tracks all updates, changes, and progress made during the cross-pl
 
 ## Major Updates Made
 
+### 2025-01-27: Desktop Frontend Configuration Fix
+
+**Agent**: Claude Code  
+**Task**: Fix desktop app frontend confusion and restore proper settings interface
+
+**Problem Identified**: 
+- Desktop Tauri app was loading web terminal interface (`../dist`) instead of desktop settings interface (`../dist-desktop`)
+- This caused confusion where desktop app showed web sharing interface instead of native settings
+
+**Changes Made**:
+1. **Fixed Tauri Configuration**:
+   - Updated `desktop/src-tauri/tauri.conf.json` 
+   - Changed `frontendDist` from `"../dist"` to `"../dist-desktop"`
+   - This ensures Tauri loads desktop settings, not web terminal
+
+2. **Restored Desktop Frontend Files**:
+   - `desktop/dist-desktop/index.html` - Complete settings interface with navigation
+   - `desktop/dist-desktop/app.js` - Tauri integration with v1/v2 API detection
+   - `desktop/dist-desktop/style.css` - Professional styling matching VibeTunnel design
+
+3. **Desktop Interface Features**:
+   - **Navigation Sidebar**: General, Notifications, Power Management, Integrations, Server
+   - **Settings Panels**: Full configuration options for each category
+   - **Tauri Integration**: Proper JavaScript with fallback API detection
+   - **Status Display**: Server status, Tauri detection banner
+   - **Actions**: Open Web UI, View Logs, Test Tauri functionality
+
+**Critical Configuration Note**:
+```
+# CORRECT (Desktop Settings App):
+frontendDist: "../dist-desktop"
+
+# INCORRECT (Web Terminal Interface):  
+frontendDist: "../dist"
+```
+
+**Impact**: Desktop app now correctly shows native settings interface matching VibeTunnel Mac app functionality, resolving frontend confusion.
+
 ### 2025-01-27: Cross-Platform Roadmap Update
 
 **Agent**: Claude Code  

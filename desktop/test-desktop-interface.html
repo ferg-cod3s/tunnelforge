@@ -1,0 +1,215 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>TunnelForge Desktop Interface Test</title>
+    <style>
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            margin: 0;
+            padding: 20px;
+            background: #1e1e1e;
+            color: #ffffff;
+        }
+        .container {
+            max-width: 800px;
+            margin: 0 auto;
+        }
+        .header {
+            text-align: center;
+            margin-bottom: 30px;
+        }
+        .logo {
+            font-size: 24px;
+            font-weight: bold;
+            color: #00ff88;
+        }
+        .test-section {
+            background: #2a2a2a;
+            border-radius: 8px;
+            padding: 20px;
+            margin-bottom: 20px;
+        }
+        .test-button {
+            background: #00ff88;
+            color: #000;
+            border: none;
+            padding: 10px 20px;
+            border-radius: 4px;
+            cursor: pointer;
+            margin: 5px;
+            font-weight: bold;
+        }
+        .test-button:hover {
+            background: #00cc6a;
+        }
+        .result {
+            background: #333;
+            padding: 10px;
+            border-radius: 4px;
+            margin-top: 10px;
+            font-family: monospace;
+            white-space: pre-wrap;
+        }
+        .success { color: #00ff88; }
+        .error { color: #ff4444; }
+        .info { color: #4488ff; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <div class="logo">⚡ TunnelForge Desktop</div>
+            <p>Desktop Interface Testing - Tauri v2 Integration</p>
+        </div>
+
+        <div class="test-section">
+            <h3>🔧 Tauri Integration Test</h3>
+            <button class="test-button" onclick="testTauriAPI()">Test Tauri API</button>
+            <button class="test-button" onclick="testLegacyInvoke()">Test Legacy Invoke</button>
+            <button class="test-button" onclick="testServerStatus()">Test Server Status</button>
+            <div id="tauri-result" class="result"></div>
+        </div>
+
+        <div class="test-section">
+            <h3>🖥️ System Information</h3>
+            <button class="test-button" onclick="showSystemInfo()">Show System Info</button>
+            <div id="system-result" class="result"></div>
+        </div>
+
+        <div class="test-section">
+            <h3>🌐 External Links</h3>
+            <button class="test-button" onclick="openWebUI()">Open Web Interface</button>
+            <button class="test-button" onclick="openSettings()">Open Settings</button>
+            <div id="external-result" class="result"></div>
+        </div>
+
+        <div class="test-section">
+            <h3>📊 Real-time Status</h3>
+            <div id="status" class="result info">Checking status...</div>
+        </div>
+    </div>
+
+    <script>
+        let resultDiv = document.getElementById('tauri-result');
+        let systemDiv = document.getElementById('system-result');
+        let externalDiv = document.getElementById('external-result');
+        let statusDiv = document.getElementById('status');
+
+        function log(element, message, type = 'info') {
+            const timestamp = new Date().toLocaleTimeString();
+            const className = type === 'success' ? 'success' : type === 'error' ? 'error' : 'info';
+            element.innerHTML = `<span class="${className}">[${timestamp}] ${message}</span>`;
+        }
+
+        function testTauriAPI() {
+            log(resultDiv, 'Testing modern Tauri API...', 'info');
+            
+            if (window.__TAURI__ && window.__TAURI__.core && window.__TAURI__.core.invoke) {
+                log(resultDiv, '✅ Modern API available! Testing write_diagnostics...', 'success');
+                
+                window.__TAURI__.core.invoke('write_diagnostics', {
+                    timestamp: new Date().toISOString(),
+                    test_type: 'modern_api',
+                    interface: 'desktop_test_page'
+                }).then(result => {
+                    log(resultDiv, `✅ Modern API success: ${JSON.stringify(result)}`, 'success');
+                }).catch(error => {
+                    log(resultDiv, `❌ Modern API error: ${error.message}`, 'error');
+                });
+            } else {
+                log(resultDiv, '❌ Modern API not available', 'error');
+            }
+        }
+
+        function testLegacyInvoke() {
+            log(resultDiv, 'Testing legacy Tauri invoke...', 'info');
+            
+            if (window.__TAURI_INVOKE__) {
+                log(resultDiv, '✅ Legacy invoke available! Testing write_diagnostics...', 'success');
+                
+                window.__TAURI_INVOKE__('write_diagnostics', {
+                    timestamp: new Date().toISOString(),
+                    test_type: 'legacy_api',
+                    interface: 'desktop_test_page'
+                }).then(result => {
+                    log(resultDiv, `✅ Legacy API success: ${JSON.stringify(result)}`, 'success');
+                }).catch(error => {
+                    log(resultDiv, `❌ Legacy API error: ${error.message}`, 'error');
+                });
+            } else {
+                log(resultDiv, '❌ Legacy invoke not available', 'error');
+            }
+        }
+
+        function testServerStatus() {
+            log(resultDiv, 'Testing server status command...', 'info');
+            
+            const invokeFn = window.__TAURI__?.core?.invoke || window.__TAURI_INVOKE__;
+            if (invokeFn) {
+                invokeFn('get_server_status').then(result => {
+                    log(resultDiv, `✅ Server status: ${JSON.stringify(result)}`, 'success');
+                }).catch(error => {
+                    log(resultDiv, `❌ Server status error: ${error.message}`, 'error');
+                });
+            } else {
+                log(resultDiv, '❌ No invoke method available', 'error');
+            }
+        }
+
+        function showSystemInfo() {
+            log(systemDiv, 'Collecting system information...', 'info');
+            
+            const info = {
+                userAgent: navigator.userAgent,
+                platform: navigator.platform,
+                language: navigator.language,
+                cookieEnabled: navigator.cookieEnabled,
+                onLine: navigator.onLine,
+                screen: `${screen.width}x${screen.height}`,
+                colorDepth: screen.colorDepth,
+                pixelDepth: screen.pixelDepth,
+                tauri: !!window.__TAURI__,
+                tauriCore: !!(window.__TAURI__ && window.__TAURI__.core),
+                tauriInvoke: !!window.__TAURI_INVOKE__,
+                location: window.location.href,
+                timestamp: new Date().toISOString()
+            };
+            
+            log(systemDiv, JSON.stringify(info, null, 2), 'success');
+        }
+
+        function openWebUI() {
+            log(externalDiv, 'Opening main web interface...', 'info');
+            window.open('http://localhost:4021/', '_blank');
+        }
+
+        function openSettings() {
+            log(externalDiv, 'Opening settings page...', 'info');
+            window.open('http://localhost:4021/settings', '_blank');
+        }
+
+        // Auto-update status
+        function updateStatus() {
+            const status = {
+                tauri: !!window.__TAURI__,
+                tauriCore: !!(window.__TAURI__ && window.__TAURI__.core),
+                legacyInvoke: !!window.__TAURI_INVOKE__,
+                timestamp: new Date().toLocaleString()
+            };
+            
+            log(statusDiv, `Status: ${JSON.stringify(status)}`, 'info');
+        }
+
+        // Initialize
+        document.addEventListener('DOMContentLoaded', () => {
+            log(statusDiv, 'Desktop interface loaded successfully!', 'success');
+            updateStatus();
+            
+            // Update status every 5 seconds
+            setInterval(updateStatus, 5000);
+        });
+    </script>
+</body>
+</html>

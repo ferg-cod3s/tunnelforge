@@ -52,10 +52,37 @@ impl MainWindow {
         let state = self.state.lock().unwrap();
         
         // Create a window that loads the local settings HTML
+        // TEMPORARY: Load immediate-test.html for diagnostics
+        // Create initialization script for Tauri v2 - runs AFTER Tauri APIs are loaded
+let init_script = r#"
+            (function() {
+                try {
+                    // Add legacy __TAURI_INVOKE__ support
+                    if (window.__TAURI__ && window.__TAURI__.core && window.__TAURI__.core.invoke) {
+                        window.__TAURI_INVOKE__ = window.__TAURI__.core.invoke;
+                    }
+                    
+                    if (window.__TAURI_INVOKE__) {
+                        window.__TAURI_INVOKE__('write_diagnostics', {
+                            path: '/tmp/tauri-rust-injected.json',
+                            content: JSON.stringify({
+                                source: 'rust_injection',
+                                timestamp: new Date().toISOString(),
+                                tauri_available: true,
+                                legacy_invoke_available: true
+                            })
+                        });
+                    }
+                } catch (e) {
+                    console.error('Injection failed:', e);
+                }
+            })();
+        "#;
+        
         let webview_window = WebviewWindowBuilder::new(
             app_handle,
             "main",
-            WebviewUrl::App("index.html".into())
+            WebviewUrl::App("immediate-test.html".into())
         )
         .title(&state.title)
         .inner_size(state.width, state.height)
@@ -65,6 +92,7 @@ impl MainWindow {
         .visible(state.visible)
         .decorations(true)
         .user_agent("TunnelForge-Desktop/1.0 (Tauri)")
+        .initialization_script(init_script)  // Use Tauri v2's proper initialization method
         .center()
         .build()
         .map_err(|e| format!("Failed to create main window: {}", e))?;
@@ -73,6 +101,43 @@ impl MainWindow {
         #[cfg(debug_assertions)]
         {
             webview_window.open_devtools();
+        }
+
+        // Inject JavaScript to verify WebView execution and use Tauri commands
+        let test_script = r#"
+            (function() {
+                const logToRust = (msg) => {
+                    try {
+                        if (window.__TAURI_INTERNALS__?.postMessage) {
+                            window.__TAURI_INTERNALS__.postMessage({
+                                cmd: 'log',
+                                level: 'info',
+                                message: msg
+                            });
+                        }
+                    } catch(e) {}
+                    console.log(msg);
+                };
+
+                // Log all detection results
+                logToRust('=== TAURI DETECTION START ===');
+                logToRust('Protocol: ' + window.location.protocol);
+                logToRust('Origin: ' + window.location.origin);
+                logToRust('__TAURI_INVOKE__ exists: ' + (typeof window.__TAURI_INVOKE__ !== 'undefined'));
+                logToRust('__TAURI__ exists: ' + (typeof window.__TAURI__ !== 'undefined'));
+                logToRust('__TAURI_INTERNALS__ exists: ' + (typeof window.__TAURI_INTERNALS__ !== 'undefined'));
+                
+                // List all window keys containing 'tauri'
+                const tauriKeys = Object.keys(window).filter(k => k.toLowerCase().includes('tauri'));
+                logToRust('Tauri-related keys: ' + tauriKeys.join(', '));
+                logToRust('=== TAURI DETECTION END ===');
+            })();
+        "#;
+        
+        if let Err(e) = webview_window.eval(test_script) {
+            log::error!("Failed to inject test JavaScript: {}", e);
+        } else {
+            log::info!("✅ Test JavaScript injected into WebView");
         }
 
         *window = Some(webview_window);

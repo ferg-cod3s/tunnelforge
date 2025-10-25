@@ -272,9 +272,26 @@ pub async fn get_settings_config(_app_handle: AppHandle) -> Result<SettingsConfi
 }
 
 #[tauri::command]
-pub async fn save_settings_config(_app_handle: AppHandle, config: SettingsConfig) -> Result<(), String> {
+pub async fn save_settings_config(app_handle: AppHandle, config: SettingsConfig) -> Result<(), String> {
+    log::info!("🔧 Saving settings config: {:?}", config);
+    
+    // Send to Sentry for monitoring
+    let _sentry_id = sentry::capture_message(
+        &format!("Saving settings: {:?}", config),
+        sentry::Level::Info
+    );
+    
     // TODO: Save to persistent storage
-    info!("Saving settings config: {:?}", config);
+    // For now, just validate the data
+    let port: u16 = config.server_port.parse().map_err(|e| format!("Invalid port format: {}", e))?;
+    if port < 1024 || port > 65535 {
+        let error_msg = format!("Invalid server port: {}", port);
+        log::error!("❌ {}", error_msg);
+        sentry::capture_message(&error_msg, sentry::Level::Error);
+        return Err(error_msg);
+    }
+    
+    log::info!("✅ Settings validation completed successfully");
     Ok(())
 }
 

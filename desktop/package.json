@@ -35,7 +35,16 @@
     "test:ui": "playwright test --ui",
     "test:settings": "playwright test tests/settings.spec.ts",
     "test:headed": "playwright test --headed",
-    "test:debug": "playwright test --debug"
+    "test:debug": "playwright test --debug",
+    "test:tauri": "playwright test --config=playwright.config.tauri.enhanced.ts",
+    "test:tauri:headed": "playwright test --config=playwright.config.tauri.enhanced.ts --headed",
+    "test:tauri:debug": "playwright test --config=playwright.config.tauri.enhanced.ts --debug",
+    "test:tauri:ui": "playwright test --config=playwright.config.tauri.enhanced.ts --ui",
+    "test:desktop": "playwright test --config=playwright.config.tauri.enhanced.ts tests/e2e-desktop",
+    "test:desktop:headed": "playwright test --config=playwright.config.tauri.enhanced.ts tests/e2e-desktop --headed",
+    "test:desktop:debug": "playwright test --config=playwright.config.tauri.enhanced.ts tests/e2e-desktop --debug",
+    "test:wsl": "DISPLAY=:99 PLAYWRIGHT_BROWSERS_PATH=0 playwright test --config=playwright.config.tauri.enhanced.ts tests/e2e-desktop",
+    "test:wsl:headed": "DISPLAY=:99 HEADED=true PLAYWRIGHT_BROWSERS_PATH=0 playwright test --config=playwright.config.tauri.enhanced.ts tests/e2e-desktop --headed"
   },
   "dependencies": {
     "@tauri-apps/api": "^2",

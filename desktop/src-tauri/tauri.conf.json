@@ -2,7 +2,7 @@
   "$schema": "../gen/schemas/desktop-schema.json",
   "build": {
     "beforeBuildCommand": "echo 'Building TunnelForge Native Desktop App'",
-    "frontendDist": "../dist"
+    "frontendDist": "../dist-desktop"
   },
   "productName": "TunnelForge",
   "version": "1.0.0",
@@ -35,9 +35,9 @@
     "longDescription": "TunnelForge allows you to share terminal sessions through any web browser with a beautiful, fast native desktop interface."
   },
   "app": {
-    "withGlobalTauri": false,
+    "withGlobalTauri": true,
     "security": {
-      "csp": "default-src 'self'; connect-src 'self' https://*.tunnelforge.dev wss://*.tunnelforge.dev; img-src 'self' data: https:; style-src 'self' 'unsafe-inline'; script-src 'self'"
+      "csp": "default-src 'self'; connect-src 'self' http://localhost:* ws://localhost:* https://*.tunnelforge.dev wss://*.tunnelforge.dev; img-src 'self' data: https:; style-src 'self' 'unsafe-inline'; script-src 'self'"
     },
     "windows": [],
     "trayIcon": {

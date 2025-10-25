@@ -1,0 +1,385 @@
+name: TunnelForge CI/CD Pipeline
+
+on:
+  push:
+    branches: [ main, develop ]
+  pull_request:
+    branches: [ main ]
+  release:
+    types: [ published ]
+
+env:
+  CARGO_TERM_COLOR: always
+  RUST_BACKTRACE: 1
+
+jobs:
+  # Code Quality and Security
+  lint-and-security:
+    name: Lint and Security Scan
+    runs-on: ubuntu-latest
+    steps:
+    - uses: actions/checkout@v4
+    
+    - name: Install Rust
+      uses: dtolnay/rust-toolchain@stable
+      with:
+        components: rustfmt, clippy
+        
+    - name: Rustfmt check
+      run: cargo fmt --all -- --check
+      
+    - name: Clippy
+      run: cargo clippy --all-targets --all-features -- -D warnings
+      
+    - name: Security audit
+      uses: actions-rs/audit-check@v1
+      with:
+        token: ${{ secrets.GITHUB_TOKEN }}
+        
+    - name: Dependency check
+      run: cargo deny check
+
+  # Unit Tests
+  unit-tests:
+    name: Unit Tests
+    strategy:
+      matrix:
+        os: [ubuntu-latest, windows-latest, macos-latest]
+        rust: [stable, beta]
+    runs-on: ${{ matrix.os }}
+    steps:
+    - uses: actions/checkout@v4
+    
+    - name: Install Rust ${{ matrix.rust }}
+      uses: dtolnay/rust-toolchain@master
+      with:
+        toolchain: ${{ matrix.rust }}
+        
+    - name: Cache cargo registry
+      uses: actions/cache@v3
+      with:
+        path: ~/.cargo/registry
+        key: ${{ runner.os }}-cargo-registry-${{ hashFiles('**/Cargo.lock') }}
+        
+    - name: Cache cargo index
+      uses: actions/cache@v3
+      with:
+        path: ~/.cargo/git
+        key: ${{ runner.os }}-cargo-index-${{ hashFiles('**/Cargo.lock') }}
+        
+    - name: Cache cargo build
+      uses: actions/cache@v3
+      with:
+        path: target
+        key: ${{ runner.os }}-cargo-build-target-${{ hashFiles('**/Cargo.lock') }}
+        
+    - name: Install system dependencies (Linux)
+      if: matrix.os == 'ubuntu-latest'
+      run: |
+        sudo apt-get update
+        sudo apt-get install -y pkg-config libssl-dev libgtk-3-dev libwebkit2gtk-4.0-dev
+        
+    - name: Install system dependencies (macOS)
+      if: matrix.os == 'macos-latest'
+      run: |
+        brew install openssl
+        
+    - name: Run unit tests
+      run: cargo test --lib --bins --verbose
+      
+    - name: Generate coverage report
+      if: matrix.os == 'ubuntu-latest' && matrix.rust == 'stable'
+      run: |
+        cargo install cargo-tarpaulin
+        cargo tarpaulin --out Xml --output-dir ./coverage
+        
+    - name: Upload coverage to Codecov
+      if: matrix.os == 'ubuntu-latest' && matrix.rust == 'stable'
+      uses: codecov/codecov-action@v3
+      with:
+        file: ./coverage/cobertura.xml
+        flags: unittests
+        name: codecov-umbrella
+
+  # Integration Tests
+  integration-tests:
+    name: Integration Tests
+    runs-on: ubuntu-latest
+    needs: [lint-and-security]
+    steps:
+    - uses: actions/checkout@v4
+    
+    - name: Install Rust
+      uses: dtolnay/rust-toolchain@stable
+      
+    - name: Install Go
+      uses: actions/setup-go@v4
+      with:
+        go-version: '1.21'
+        
+    - name: Install Node.js
+      uses: actions/setup-node@v4
+      with:
+        node-version: '20'
+        cache: 'npm'
+        cache-dependency-path: '../web/package.json'
+        
+    - name: Cache cargo
+      uses: actions/cache@v3
+      with:
+        path: target
+        key: ${{ runner.os }}-cargo-build-target-${{ hashFiles('**/Cargo.lock') }}
+        
+    - name: Build Go server
+      run: |
+        cd ../../development/go-server
+        go mod download
+        go build -o tunnelforge-server .
+        
+    - name: Build web frontend
+      run: |
+        cd ../web
+        npm ci
+        npm run build
+        
+    - name: Run integration tests
+      run: |
+        chmod +x run_tests.sh
+        ./run_tests.sh --integration-only --coverage
+        
+    - name: Upload test artifacts
+      uses: actions/upload-artifact@v3
+      if: always()
+      with:
+        name: integration-test-logs
+        path: test_logs/
+        retention-days: 7
+
+  # Platform Tests
+  platform-tests:
+    name: Platform Tests
+    strategy:
+      matrix:
+        os: [ubuntu-latest, windows-latest, macos-latest]
+    runs-on: ${{ matrix.os }}
+    needs: [unit-tests]
+    steps:
+    - uses: actions/checkout@v4
+    
+    - name: Install Rust
+      uses: dtolnay/rust-toolchain@stable
+      
+    - name: Install system dependencies (Linux)
+      if: matrix.os == 'ubuntu-latest'
+      run: |
+        sudo apt-get update
+        sudo apt-get install -y pkg-config libssl-dev libgtk-3-dev libwebkit2gtk-4.0-dev
+        
+    - name: Install system dependencies (macOS)
+      if: matrix.os == 'macos-latest'
+      run: |
+        brew install openssl
+        
+    - name: Run platform tests
+      run: cargo test --test platform_tests --verbose
+
+  # Build Applications
+  build-apps:
+    name: Build Applications
+    strategy:
+      matrix:
+        include:
+          - os: ubuntu-latest
+            platform: linux
+            target: x86_64-unknown-linux-gnu
+          - os: windows-latest
+            platform: windows
+            target: x86_64-pc-windows-msvc
+          - os: macos-latest
+            platform: macos
+            target: x86_64-apple-darwin
+          - os: macos-latest
+            platform: macos
+            target: aarch64-apple-darwin
+    runs-on: ${{ matrix.os }}
+    needs: [integration-tests, platform-tests]
+    steps:
+    - uses: actions/checkout@v4
+    
+    - name: Install Rust
+      uses: dtolnay/rust-toolchain@stable
+      with:
+        targets: ${{ matrix.target }}
+        
+    - name: Install Node.js
+      uses: actions/setup-node@v4
+      with:
+        node-version: '20'
+        cache: 'npm'
+        cache-dependency-path: '../web/package.json'
+        
+    - name: Install system dependencies (Linux)
+      if: matrix.os == 'ubuntu-latest'
+      run: |
+        sudo apt-get update
+        sudo apt-get install -y pkg-config libssl-dev libgtk-3-dev libwebkit2gtk-4.0-dev
+        
+    - name: Install system dependencies (macOS)
+      if: matrix.os == 'macos-latest'
+      run: |
+        brew install openssl
+        
+    - name: Build web frontend
+      run: |
+        cd ../web
+        npm ci
+        npm run build
+        
+    - name: Build Tauri app
+      uses: tauri-apps/tauri-action@v0
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      with:
+        tauriScript: npm run tauri
+        args: --target ${{ matrix.target }}
+        
+    - name: Upload build artifacts
+      uses: actions/upload-artifact@v3
+      with:
+        name: tunnelforge-${{ matrix.platform }}-${{ matrix.target }}
+        path: |
+          src-tauri/target/${{ matrix.target }}/release/bundle/
+          !src-tauri/target/${{ matrix.target }}/release/bundle/**/*.dSYM/
+        retention-days: 30
+
+  # Security Scanning
+  security-scan:
+    name: Advanced Security Scanning
+    runs-on: ubuntu-latest
+    needs: [build-apps]
+    steps:
+    - uses: actions/checkout@v4
+    
+    - name: Run Trivy vulnerability scanner
+      uses: aquasecurity/trivy-action@master
+      with:
+        scan-type: 'fs'
+        scan-ref: '.'
+        format: 'sarif'
+        output: 'trivy-results.sarif'
+        
+    - name: Upload Trivy scan results to GitHub Security tab
+      uses: github/codeql-action/upload-sarif@v2
+      with:
+        sarif_file: 'trivy-results.sarif'
+        
+    - name: CodeQL Analysis
+      uses: github/codeql-action/analyze@v2
+      with:
+        languages: javascript, rust
+
+  # Release (only on release events)
+  release:
+    name: Create Release
+    runs-on: ubuntu-latest
+    needs: [security-scan]
+    if: github.event_name == 'release'
+    steps:
+    - uses: actions/checkout@v4
+    
+    - name: Download all artifacts
+      uses: actions/download-artifact@v3
+      
+    - name: Create release assets
+      run: |
+        mkdir -p release-assets
+        
+        # Organize assets by platform
+        for dir in tunnelforge-*/; do
+          platform=$(echo $dir | cut -d'-' -f2)
+          mkdir -p "release-assets/${platform}"
+          
+          # Copy all bundles to platform-specific folder
+          cp -r "${dir}"/*/*.deb "release-assets/${platform}/" 2>/dev/null || true
+          cp -r "${dir}"/*/*.rpm "release-assets/${platform}/" 2>/dev/null || true
+          cp -r "${dir}"/*/*.msi "release-assets/${platform}/" 2>/dev/null || true
+          cp -r "${dir}"/*/*.dmg "release-assets/${platform}/" 2>/dev/null || true
+          cp -r "${dir}"/*/*.AppImage "release-assets/${platform}/" 2>/dev/null || true
+        done
+        
+        # Create checksums
+        cd release-assets
+        find . -type f -exec sha256sum {} + > SHA256SUMS
+        
+    - name: Upload release assets
+      uses: softprops/action-gh-release@v1
+      with:
+        files: |
+          release-assets/**/*
+          release-assets/SHA256SUMS
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+  # Deploy to staging (on develop branch)
+  deploy-staging:
+    name: Deploy to Staging
+    runs-on: ubuntu-latest
+    needs: [build-apps, security-scan]
+    if: github.ref == 'refs/heads/develop'
+    environment: staging
+    steps:
+    - uses: actions/checkout@v4
+    
+    - name: Download artifacts
+      uses: actions/download-artifact@v3
+      with:
+        pattern: tunnelforge-linux-*
+        path: ./artifacts
+        
+    - name: Deploy to staging server
+      run: |
+        echo "Deploying to staging environment..."
+        # Add deployment logic here
+        # This could involve:
+        # - Uploading to staging server
+        # - Running smoke tests
+        # - Updating staging documentation
+        
+  # Deploy to production (on main branch releases)
+  deploy-production:
+    name: Deploy to Production
+    runs-on: ubuntu-latest
+    needs: [release]
+    if: github.event_name == 'release'
+    environment: production
+    steps:
+    - uses: actions/checkout@v4
+    
+    - name: Deploy to production
+      run: |
+        echo "Deploying to production environment..."
+        # Add production deployment logic here
+        # This could involve:
+        # - Publishing to package managers
+        # - Updating download pages
+        # - Notifying users
+        # - Enabling auto-updates
+
+  # Notifications
+  notify:
+    name: Notify Results
+    runs-on: ubuntu-latest
+    needs: [deploy-staging, deploy-production]
+    if: always()
+    steps:
+    - name: Notify on success
+      if: needs.deploy-staging.result == 'success' || needs.deploy-production.result == 'success'
+      run: |
+        echo "✅ Pipeline completed successfully!"
+        # Add notification logic (Slack, Discord, etc.)
+        
+    - name: Notify on failure
+      if: failure()
+      run: |
+        echo "❌ Pipeline failed!"
+        # Add failure notification logic

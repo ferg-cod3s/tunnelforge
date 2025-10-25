@@ -1,0 +1,478 @@
+{
+  "policy_name": "TunnelForge Enterprise Security Policy",
+  "policy_version": "1.0.0",
+  "policy_type": "security",
+  "created_date": "2024-01-27T00:00:00Z",
+  "last_updated": "2024-01-27T00:00:00Z",
+  "description": "Comprehensive security policy for TunnelForge enterprise deployments",
+  "scope": {
+    "applicable_to": [
+      "tunnelforge-server",
+      "tunnelforge-client",
+      "tunnelforge-management",
+      "tunnelforge-monitoring"
+    ],
+    "environments": [
+      "production",
+      "staging",
+      "development"
+    ],
+    "platforms": [
+      "windows",
+      "macos",
+      "linux"
+    ]
+  },
+  "authentication": {
+    "requirements": {
+      "minimum_password_length": 12,
+      "password_complexity": {
+        "require_uppercase": true,
+        "require_lowercase": true,
+        "require_numbers": true,
+        "require_special_characters": true,
+        "forbidden_patterns": [
+          "password",
+          "123456",
+          "qwerty",
+          "admin"
+        ]
+      },
+      "password_expiry_days": 90,
+      "account_lockout_threshold": 5,
+      "account_lockout_duration_minutes": 30,
+      "session_timeout_minutes": 60,
+      "mfa_required": true,
+      "mfa_methods": [
+        "totp",
+        "hardware_token",
+        "push_notification"
+      ]
+    },
+    "sso_configuration": {
+      "saml_required": true,
+      "oauth2_required": true,
+      "openid_connect_required": true,
+      "token_expiry_minutes": 30,
+      "refresh_token_expiry_days": 7,
+      "idp_metadata_validation": true
+    }
+  },
+  "authorization": {
+    "rbac_enabled": true,
+    "default_deny": true,
+    "role_hierarchy": {
+      "super_admin": [
+        "admin",
+        "operator",
+        "user",
+        "readonly"
+      ],
+      "admin": [
+        "operator",
+        "user",
+        "readonly"
+      ],
+      "operator": [
+        "user",
+        "readonly"
+      ],
+      "user": [
+        "readonly"
+      ]
+    },
+    "permissions": {
+      "super_admin": [
+        "user.create",
+        "user.delete",
+        "user.modify",
+        "policy.create",
+        "policy.delete",
+        "policy.modify",
+        "server.deploy",
+        "server.stop",
+        "server.start",
+        "security.audit",
+        "compliance.view",
+        "system.configure"
+      ],
+      "admin": [
+        "user.create",
+        "user.modify",
+        "policy.create",
+        "policy.modify",
+        "server.deploy",
+        "security.audit",
+        "compliance.view"
+      ],
+      "operator": [
+        "server.start",
+        "server.stop",
+        "security.audit",
+        "compliance.view"
+      ],
+      "user": [
+        "session.create",
+        "session.manage",
+        "tunnel.create",
+        "tunnel.manage"
+      ],
+      "readonly": [
+        "session.view",
+        "tunnel.view",
+        "compliance.view"
+      ]
+    }
+  },
+  "network_security": {
+    "tls_configuration": {
+      "minimum_version": "1.2",
+      "preferred_version": "1.3",
+      "cipher_suites": [
+        "TLS_AES_256_GCM_SHA384",
+        "TLS_CHACHA20_POLY1305_SHA256",
+        "TLS_AES_128_GCM_SHA256"
+      ],
+      "certificate_validation": true,
+      "ocsp_stapling": true,
+      "hsts_enabled": true,
+      "hsts_max_age": 31536000
+    },
+    "firewall_rules": {
+      "default_deny": true,
+      "allowed_ports": [
+        {
+          "port": 4021,
+          "protocol": "tcp",
+          "source": "management_network",
+          "description": "TunnelForge management interface"
+        },
+        {
+          "port": 8443,
+          "protocol": "tcp",
+          "source": "corporate_network",
+          "description": "TunnelForge web interface"
+        }
+      ],
+      "blocked_ports": [
+        23,    # Telnet
+        21,    # FTP
+        3389,  # RDP (unless explicitly allowed)
+        5900   # VNC (unless explicitly allowed)
+      ]
+    },
+    "network_segmentation": {
+      "management_isolated": true,
+      "data_isolated": true,
+      "monitoring_isolated": true,
+      "dmz_required": true
+    }
+  },
+  "data_protection": {
+    "encryption_at_rest": {
+      "enabled": true,
+      "algorithm": "AES-256-GCM",
+      "key_rotation_days": 90,
+      "key_management": "hsm",
+      "hsm_configuration": {
+        "provider": "aws_cloudhsm",
+        "key_type": "aes_256",
+        "backup_required": true
+      }
+    },
+    "encryption_in_transit": {
+      "enabled": true,
+      "algorithm": "AES-256-GCM",
+      "key_exchange": "ECDHE",
+      "perfect_forward_secrecy": true
+    },
+    "data_classification": {
+      "public": {
+        "retention_days": 365,
+        "backup_required": false
+      },
+      "internal": {
+        "retention_days": 1095,
+        "backup_required": true,
+        "backup_frequency_days": 7
+      },
+      "confidential": {
+        "retention_days": 2555,
+        "backup_required": true,
+        "backup_frequency_days": 1,
+        "encryption_required": true
+      },
+      "restricted": {
+        "retention_days": 3650,
+        "backup_required": true,
+        "backup_frequency_days": 1,
+        "encryption_required": true,
+        "access_logging": true,
+        "approval_required": true
+      }
+    },
+    "data_loss_prevention": {
+      "enabled": true,
+      "sensitive_data_patterns": [
+        "credit_card_numbers",
+        "social_security_numbers",
+        "bank_account_numbers",
+        "personal_identifiable_information",
+        "protected_health_information"
+      ],
+      "actions": [
+        "block",
+        "alert",
+        "quarantine",
+        "log"
+      ]
+    }
+  },
+  "audit_and_logging": {
+    "audit_logging": {
+      "enabled": true,
+      "log_all_events": true,
+      "retention_days": 2555,
+      "log_format": "json",
+      "log_fields": [
+        "timestamp",
+        "user_id",
+        "action",
+        "resource",
+        "result",
+        "source_ip",
+        "user_agent",
+        "session_id"
+      ],
+      "critical_events": [
+        "user.login",
+        "user.logout",
+        "user.create",
+        "user.delete",
+        "policy.modify",
+        "server.deploy",
+        "security.violation",
+        "data.access",
+        "configuration.change"
+      ]
+    },
+    "log_protection": {
+      "integrity_protection": true,
+      "encryption": true,
+      "tamper_detection": true,
+      "backup_required": true
+    },
+    "real_time_monitoring": {
+      "enabled": true,
+      "alert_thresholds": {
+        "failed_login_attempts": 5,
+        "unusual_access_patterns": true,
+        "privilege_escalation": true,
+        "data_access_anomalies": true
+      }
+    }
+  },
+  "vulnerability_management": {
+    "scanning": {
+      "enabled": true,
+      "frequency": "daily",
+      "scanner_types": [
+        "vulnerability_scanner",
+        "malware_scanner",
+        "configuration_scanner"
+      ],
+      "scan_scope": [
+        "operating_system",
+        "applications",
+        "network_services",
+        "configurations"
+      ]
+    },
+    "patch_management": {
+      "auto_patch_critical": true,
+      "patch_window": "sunday_02:00-04:00_utc",
+      "testing_required": true,
+      "rollback_capability": true,
+      "approval_required": {
+        "critical": false,
+        "high": true,
+        "medium": true,
+        "low": true
+      }
+    },
+    "vulnerability_response": {
+      "critical_response_hours": 24,
+      "high_response_days": 7,
+      "medium_response_days": 30,
+      "low_response_days": 90
+    }
+  },
+  "compliance": {
+    "frameworks": [
+      {
+        "name": "SOC_2_Type_II",
+        "enabled": true,
+        "controls": [
+          "CC1.1",
+          "CC2.1",
+          "CC6.1",
+          "CC7.1"
+        ]
+      },
+      {
+        "name": "ISO_27001",
+        "enabled": true,
+        "controls": [
+          "A.9.1.1",
+          "A.9.2.1",
+          "A.12.1.1",
+          "A.14.2.5"
+        ]
+      },
+      {
+        "name": "HIPAA",
+        "enabled": false,
+        "controls": [
+          "164.308(a)(1)",
+          "164.312(a)(1)",
+          "164.312(b)"
+        ]
+      },
+      {
+        "name": "FedRAMP",
+        "enabled": false,
+        "controls": [
+          "AC-1",
+          "AC-2",
+          "SC-8",
+          "SC-13"
+        ]
+      }
+    ],
+    "reporting": {
+      "automated_reports": true,
+      "report_frequency": "monthly",
+      "report_formats": [
+        "json",
+        "pdf",
+        "csv"
+      ],
+      "distribution": [
+        "security_team",
+        "compliance_officer",
+        "management"
+      ]
+    }
+  },
+  "incident_response": {
+    "incident_classification": {
+      "critical": {
+        "response_time_minutes": 15,
+        "escalation_required": true,
+        "notification_required": [
+          "ciso",
+          "security_team",
+          "management"
+        ]
+      },
+      "high": {
+        "response_time_minutes": 60,
+        "escalation_required": true,
+        "notification_required": [
+          "security_team",
+          "management"
+        ]
+      },
+      "medium": {
+        "response_time_hours": 4,
+        "escalation_required": false,
+        "notification_required": [
+          "security_team"
+        ]
+      },
+      "low": {
+        "response_time_hours": 24,
+        "escalation_required": false,
+        "notification_required": [
+          "security_team"
+        ]
+      }
+    },
+    "response_procedures": {
+      "containment": true,
+      "eradication": true,
+      "recovery": true,
+      "lessons_learned": true,
+      "documentation_required": true
+    }
+  },
+  "backup_and_recovery": {
+    "backup_policy": {
+      "frequency": "daily",
+      "retention_days": 90,
+      "offsite_backup": true,
+      "encryption_required": true,
+      "integrity_checks": true,
+      "test_restores": true,
+      "restore_test_frequency": "monthly"
+    },
+    "disaster_recovery": {
+      "rpo_hours": 4,
+      "rto_hours": 8,
+      "dr_site_required": true,
+      "failover_automated": true,
+      "dr_tests_required": true,
+      "dr_test_frequency": "quarterly"
+    }
+  },
+  "monitoring_and_alerting": {
+    "performance_monitoring": {
+      "enabled": true,
+      "metrics_collected": [
+        "cpu_usage",
+        "memory_usage",
+        "disk_usage",
+        "network_throughput",
+        "response_times",
+        "error_rates"
+      ],
+      "alert_thresholds": {
+        "cpu_usage_percent": 80,
+        "memory_usage_percent": 85,
+        "disk_usage_percent": 90,
+        "response_time_ms": 5000,
+        "error_rate_percent": 5
+      }
+    },
+    "security_monitoring": {
+      "enabled": true,
+      "threat_detection": true,
+      "anomaly_detection": true,
+      "behavioral_analysis": true,
+      "threat_intelligence_integration": true
+    }
+  },
+  "policy_enforcement": {
+    "automated_enforcement": true,
+    "violation_actions": [
+      "block",
+      "alert",
+      "log",
+      "quarantine"
+    ],
+    "exception_process": {
+      "approval_required": true,
+      "temporary_exceptions": true,
+      "exception_duration_days": 30,
+      "documentation_required": true,
+      "review_required": true
+    }
+  },
+  "review_and_maintenance": {
+    "policy_review_frequency": "quarterly",
+    "risk_assessment_frequency": "annual",
+    "penetration_testing_frequency": "annual",
+    "security_training_frequency": "annual",
+    "awareness_program_frequency": "quarterly"
+  }
+}

@@ -1,0 +1,159 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Tauri v2 Detection Test</title>
+    <style>
+        body {
+            font-family: system-ui, -apple-system, sans-serif;
+            max-width: 800px;
+            margin: 50px auto;
+            padding: 20px;
+            background: #1a1a1a;
+            color: #e0e0e0;
+        }
+        .test-section {
+            background: #2a2a2a;
+            border-radius: 8px;
+            padding: 20px;
+            margin: 20px 0;
+        }
+        .status { padding: 10px; margin: 10px 0; border-radius: 4px; }
+        .success { background: #1a472a; border: 1px solid #2d7a4a; }
+        .error { background: #471a1a; border: 1px solid #7a2d2d; }
+        .info { background: #1a2a47; border: 1px solid #2d4a7a; }
+        pre { background: #1a1a1a; padding: 15px; border-radius: 4px; overflow-x: auto; }
+        button { 
+            background: #4CAF50; 
+            color: white; 
+            border: none; 
+            padding: 10px 20px; 
+            border-radius: 4px; 
+            cursor: pointer;
+            margin: 5px;
+        }
+        button:hover { background: #45a049; }
+    </style>
+</head>
+<body>
+    <h1>🔧 Tauri v2 Detection Test</h1>
+    
+    <div class="test-section">
+        <h2>Environment Detection</h2>
+        <div id="env-status"></div>
+        <pre id="env-details"></pre>
+    </div>
+    
+    <div class="test-section">
+        <h2>Test Tauri Commands</h2>
+        <button onclick="testOpenUrl()">Test Open URL</button>
+        <button onclick="testGetConfig()">Test Get Config</button>
+        <button onclick="testServerStatus()">Test Server Status</button>
+        <div id="test-results" style="margin-top: 20px;"></div>
+    </div>
+    
+    <div class="test-section">
+        <h2>Console Logs</h2>
+        <pre id="console-logs"></pre>
+    </div>
+
+    <script src="app.js"></script>
+    <script>
+        // Capture console logs
+        const logs = [];
+        const originalLog = console.log;
+        const originalError = console.error;
+        const originalWarn = console.warn;
+        
+        console.log = function(...args) {
+            logs.push(['LOG', ...args]);
+            updateConsole();
+            originalLog.apply(console, args);
+        };
+        
+        console.error = function(...args) {
+            logs.push(['ERROR', ...args]);
+            updateConsole();
+            originalError.apply(console, args);
+        };
+        
+        console.warn = function(...args) {
+            logs.push(['WARN', ...args]);
+            updateConsole();
+            originalWarn.apply(console, args);
+        };
+        
+        function updateConsole() {
+            const consoleEl = document.getElementById('console-logs');
+            consoleEl.textContent = logs.map(log => {
+                const [level, ...args] = log;
+                return `[${level}] ${args.map(a => typeof a === 'object' ? JSON.stringify(a) : a).join(' ')}`;
+            }).join('\n');
+            consoleEl.scrollTop = consoleEl.scrollHeight;
+        }
+        
+        // Display environment status
+        setTimeout(() => {
+            const envStatus = document.getElementById('env-status');
+            const envDetails = document.getElementById('env-details');
+            
+            const details = {
+                'In Tauri': isInTauri,
+                'Protocol': window.location.protocol,
+                'Origin': window.location.origin,
+                'User Agent': navigator.userAgent.includes('Tauri') ? 'Tauri detected' : 'No Tauri in UA',
+                'window.__TAURI__': typeof window.__TAURI__,
+                'window.__TAURI_INVOKE__': typeof window.__TAURI_INVOKE__,
+                'tauriInvoke variable': typeof tauriInvoke,
+                'invokeTauri function': typeof invokeTauri
+            };
+            
+            envDetails.textContent = JSON.stringify(details, null, 2);
+            
+            if (isInTauri || window.__TAURI_INVOKE__) {
+                envStatus.innerHTML = '<div class="status success">✅ Tauri environment detected!</div>';
+            } else {
+                envStatus.innerHTML = '<div class="status info">ℹ️ Running in demo mode (not in Tauri)</div>';
+            }
+        }, 500);
+        
+        // Test functions
+        async function testOpenUrl() {
+            const resultsEl = document.getElementById('test-results');
+            resultsEl.innerHTML = '<div class="status info">Testing open_external_url command...</div>';
+            
+            try {
+                await invokeTauri('open_external_url', { url: 'http://localhost:4021' });
+                resultsEl.innerHTML = '<div class="status success">✅ open_external_url command succeeded!</div>';
+            } catch (error) {
+                resultsEl.innerHTML = `<div class="status error">❌ Error: ${error.message}</div>`;
+            }
+        }
+        
+        async function testGetConfig() {
+            const resultsEl = document.getElementById('test-results');
+            resultsEl.innerHTML = '<div class="status info">Testing get_config command...</div>';
+            
+            try {
+                const config = await invokeTauri('get_config');
+                resultsEl.innerHTML = `<div class="status success">✅ Config retrieved!</div><pre>${JSON.stringify(config, null, 2)}</pre>`;
+            } catch (error) {
+                resultsEl.innerHTML = `<div class="status error">❌ Error: ${error.message}</div>`;
+            }
+        }
+        
+        async function testServerStatus() {
+            const resultsEl = document.getElementById('test-results');
+            resultsEl.innerHTML = '<div class="status info">Testing get_server_status command...</div>';
+            
+            try {
+                const status = await invokeTauri('get_server_status');
+                resultsEl.innerHTML = `<div class="status success">✅ Server status retrieved!</div><pre>${JSON.stringify(status, null, 2)}</pre>`;
+            } catch (error) {
+                resultsEl.innerHTML = `<div class="status error">❌ Error: ${error.message}</div>`;
+            }
+        }
+    </script>
+</body>
+</html>

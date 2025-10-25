@@ -1,0 +1,265 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>TunnelForge Desktop Test</title>
+    <style>
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            margin: 0;
+            padding: 20px;
+            background: #f5f5f5;
+        }
+        .container {
+            max-width: 800px;
+            margin: 0 auto;
+            background: white;
+            border-radius: 8px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+            overflow: hidden;
+        }
+        .header {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            padding: 20px;
+            text-align: center;
+        }
+        .content {
+            padding: 20px;
+        }
+        .status {
+            display: flex;
+            align-items: center;
+            margin: 10px 0;
+            padding: 10px;
+            border-radius: 4px;
+            background: #f8f9fa;
+        }
+        .status.online { background: #d4edda; color: #155724; }
+        .status.offline { background: #f8d7da; color: #721c24; }
+        .status.unknown { background: #fff3cd; color: #856404; }
+        .indicator {
+            width: 12px;
+            height: 12px;
+            border-radius: 50%;
+            margin-right: 10px;
+        }
+        .indicator.online { background: #28a745; }
+        .indicator.offline { background: #dc3545; }
+        .indicator.unknown { background: #ffc107; }
+        button {
+            background: #007bff;
+            color: white;
+            border: none;
+            padding: 10px 20px;
+            border-radius: 4px;
+            cursor: pointer;
+            margin: 5px;
+        }
+        button:hover { background: #0056b3; }
+        button.secondary { background: #6c757d; }
+        button.secondary:hover { background: #545b62; }
+        .server-info {
+            background: #f8f9fa;
+            padding: 15px;
+            border-radius: 4px;
+            margin: 10px 0;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>⚡ TunnelForge Desktop Test</h1>
+            <p>Testing desktop app connection to Go server</p>
+        </div>
+
+        <div class="content">
+            <div id="tauriStatus" class="status">
+                <div id="tauriIndicator" class="indicator online"></div>
+                <div>
+                    <strong>Tauri Detection:</strong> <span id="tauriText">Simulated</span>
+                </div>
+            </div>
+
+            <div id="serverStatus" class="status unknown">
+                <div id="statusIndicator" class="indicator unknown"></div>
+                <div>
+                    <strong>Server Status:</strong> <span id="statusText">Checking...</span>
+                </div>
+            </div>
+
+            <div id="serverInfo" class="server-info" style="display: none;">
+                <strong>Server Details:</strong><br>
+                PID: <span id="serverPID">N/A</span><br>
+                Port: <span id="serverPort">4021</span><br>
+                URL: <span id="serverURL">http://localhost:4021</span>
+            </div>
+
+            <div style="margin: 20px 0;">
+                <button id="checkStatus">Check Status</button>
+                <button id="startServer" class="secondary">Start Server</button>
+                <button id="stopServer" class="secondary">Stop Server</button>
+                <button id="restartServer" class="secondary">Restart Server</button>
+            </div>
+
+            <div style="margin: 20px 0;">
+                <button id="openWebUI">Open Web UI</button>
+                <button id="openLogs" class="secondary">View Logs</button>
+            </div>
+
+            <div id="messages"></div>
+        </div>
+    </div>
+
+    <script>
+        // Mock Tauri API for testing
+        const mockTauri = {
+            async invoke(command, args = {}) {
+                console.log('🔧 Mock Tauri invoke:', command, args);
+
+                // Simulate network delay
+                await new Promise(resolve => setTimeout(resolve, 500));
+
+                switch (command) {
+                    case 'get_server_status':
+                        return {
+                            running: true,
+                            pid: 3176117,
+                            port: 4021,
+                            url: 'http://localhost:4021'
+                        };
+
+                    case 'start_server':
+                        showMessage('Server started successfully', 'success');
+                        return { success: true, message: 'Server started' };
+
+                    case 'stop_server':
+                        showMessage('Server stopped successfully', 'success');
+                        return { success: true, message: 'Server stopped' };
+
+                    case 'restart_server':
+                        showMessage('Server restarted successfully', 'success');
+                        return { success: true, message: 'Server restarted' };
+
+                    default:
+                        throw new Error(`Unknown command: ${command}`);
+                }
+            }
+        };
+
+        // UI elements
+        const statusIndicator = document.getElementById('statusIndicator');
+        const statusText = document.getElementById('statusText');
+        const serverInfo = document.getElementById('serverInfo');
+        const serverPID = document.getElementById('serverPID');
+        const serverPort = document.getElementById('serverPort');
+        const serverURL = document.getElementById('serverURL');
+        const messages = document.getElementById('messages');
+
+        // Update server status
+        async function updateServerStatus() {
+            try {
+                console.log('🔄 Updating server status...');
+                const status = await mockTauri.invoke('get_server_status');
+
+                if (status && status.running) {
+                    statusIndicator.className = 'indicator online';
+                    statusText.textContent = 'Server Online';
+                    document.getElementById('serverStatus').className = 'status online';
+
+                    if (status.pid) serverPID.textContent = status.pid;
+                    if (status.port) serverPort.textContent = status.port;
+                    if (status.url) serverURL.textContent = status.url;
+
+                    serverInfo.style.display = 'block';
+                } else {
+                    statusIndicator.className = 'indicator offline';
+                    statusText.textContent = 'Server Offline';
+                    document.getElementById('serverStatus').className = 'status offline';
+                    serverInfo.style.display = 'none';
+                }
+            } catch (error) {
+                console.error('❌ Failed to update server status:', error);
+                statusIndicator.className = 'indicator unknown';
+                statusText.textContent = 'Connection Error';
+                document.getElementById('serverStatus').className = 'status unknown';
+                serverInfo.style.display = 'none';
+            }
+        }
+
+        // Show messages
+        function showMessage(text, type = 'info') {
+            const message = document.createElement('div');
+            message.style.cssText = `
+                padding: 10px;
+                margin: 10px 0;
+                border-radius: 4px;
+                border-left: 4px solid;
+            `;
+
+            const colors = {
+                success: '#28a745',
+                error: '#dc3545',
+                info: '#007bff',
+                warning: '#ffc107'
+            };
+
+            message.style.borderLeftColor = colors[type] || colors.info;
+            message.style.backgroundColor = colors[type] + '20';
+            message.textContent = text;
+
+            messages.appendChild(message);
+
+            // Auto-remove after 5 seconds
+            setTimeout(() => message.remove(), 5000);
+        }
+
+        // Event listeners
+        document.getElementById('checkStatus').addEventListener('click', updateServerStatus);
+
+        document.getElementById('startServer').addEventListener('click', async () => {
+            try {
+                await mockTauri.invoke('start_server');
+                setTimeout(updateServerStatus, 2000);
+            } catch (error) {
+                showMessage('Failed to start server: ' + error.message, 'error');
+            }
+        });
+
+        document.getElementById('stopServer').addEventListener('click', async () => {
+            try {
+                await mockTauri.invoke('stop_server');
+                updateServerStatus();
+            } catch (error) {
+                showMessage('Failed to stop server: ' + error.message, 'error');
+            }
+        });
+
+        document.getElementById('restartServer').addEventListener('click', async () => {
+            try {
+                await mockTauri.invoke('restart_server');
+                setTimeout(updateServerStatus, 2000);
+            } catch (error) {
+                showMessage('Failed to restart server: ' + error.message, 'error');
+            }
+        });
+
+        document.getElementById('openWebUI').addEventListener('click', () => {
+            window.open('http://localhost:4021/', '_blank');
+        });
+
+        document.getElementById('openLogs').addEventListener('click', () => {
+            window.open('http://localhost:4021/logs', '_blank');
+        });
+
+        // Initialize
+        console.log('🚀 TunnelForge Desktop Test initialized');
+        updateServerStatus();
+
+        // Auto-refresh status every 5 seconds
+        setInterval(updateServerStatus, 5000);
+    </script>
+</body>
+</html>

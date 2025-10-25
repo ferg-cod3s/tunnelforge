@@ -1,0 +1,277 @@
+name: 'Tauri JavaScript Integration Test'
+
+on:
+  push:
+    branches: [main, development]
+    paths:
+      - 'desktop/src-tauri/src/**'
+      - 'desktop/dist/**'
+  pull_request:
+    branches: [main, development]
+    paths:
+      - 'desktop/src-tauri/src/**'
+      - 'desktop/dist/**'
+  workflow_dispatch:
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  # Focused JavaScript-Rust integration test
+  js-integration-test:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Setup Bun
+        uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: '1.1.42'
+
+      - name: Install Rust stable
+        uses: dtolnay/rust-toolchain@stable
+
+      - name: Install dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y libwebkit2gtk-4.1-dev \
+            build-essential curl wget libssl-dev libgtk-3-dev \
+            libayatana-appindicator3-dev librsvg2-dev \
+            xvfb
+
+      - name: Install frontend dependencies
+        run: |
+          cd web && bun install
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Install desktop dependencies
+        run: |
+          cd desktop && bun install
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Build Tauri App
+        working-directory: desktop
+        run: |
+          export PATH="$HOME/.bun/bin:$PATH"
+          bun install
+          bun tauri build
+
+      - name: Run with Xvfb and verify JavaScript execution
+        run: |
+          # Clean up any previous diagnostic files
+          rm -f /tmp/tauri-*.json || true
+          echo "🧹 Cleaned previous diagnostic files"
+          
+          # Start Xvfb for headless testing
+          export DISPLAY=:99
+          Xvfb :99 -screen 0 1024x768x24 > /tmp/xvfb.log 2>&1 &
+          XVFB_PID=$!
+          echo "🖥️ Started Xvfb with PID: $XVFB_PID"
+          
+          # Wait for X server to be ready
+          sleep 3
+          
+          # Verify X server is running
+          if ! xdpyinfo -display :99 > /dev/null 2>&1; then
+            echo "❌ Xvfb failed to start"
+            cat /tmp/xvfb.log
+            exit 1
+          fi
+          echo "✅ Xvfb display server ready"
+          
+          # Find and run the Tauri binary
+          cd desktop/src-tauri/target/release
+          
+          if [ ! -f "tunnelforge" ]; then
+            echo "❌ Tunnelforge binary not found"
+            echo "📁 Available files:"
+            find . -name "*tunnelforge*" -o -name "*.exe" 2>/dev/null || echo "No binaries found"
+            exit 1
+          fi
+          
+          echo "🚀 Starting Tunnelforge..."
+          
+          # Run the app with timeout and capture output
+          timeout 15s ./tunnelforge > /tmp/app-output.log 2>&1 &
+          APP_PID=$!
+          echo "📱 App started with PID: $APP_PID"
+          
+          # Wait for diagnostic files to be created
+          echo "⏳ Waiting for diagnostic files..."
+          for i in {1..15}; do
+            sleep 1
+            if [ -f "/tmp/tauri-rust-init.json" ]; then
+              echo "✅ Rust initialization detected after ${i}s"
+              break
+            fi
+            if [ $i -eq 15 ]; then
+              echo "⚠️ Timeout waiting for initialization"
+            fi
+          done
+          
+          # Additional wait for JavaScript execution
+          sleep 5
+          
+          # Terminate the app gracefully
+          if kill -0 $APP_PID 2>/dev/null; then
+            echo "🛑 Terminating app..."
+            kill -TERM $APP_PID
+            sleep 2
+            kill -KILL $APP_PID 2>/dev/null || true
+          fi
+          
+          # Kill Xvfb
+          kill -TERM $XVFB_PID 2>/dev/null || true
+
+      - name: Check diagnostic files
+        run: |
+          echo "🔍 Checking for diagnostic files..."
+          ls -lh /tmp/tauri-*.json || echo "No diagnostic files found"
+          
+          # Expected files for complete JavaScript integration
+          EXPECTED_FILES=(
+            "/tmp/tauri-rust-init.json"
+            "/tmp/tauri-rust-injected.json"  
+            "/tmp/tauri-post-load.json"
+            "/tmp/tauri-immediate-test.json"
+          )
+          
+          FOUND_COUNT=0
+          TOTAL_COUNT=${#EXPECTED_FILES[@]}
+          
+          for file in "${EXPECTED_FILES[@]}"; do
+            if [ -f "$file" ]; then
+              echo "✅ Found: $(basename $file)"
+              FOUND_COUNT=$((FOUND_COUNT + 1))
+              
+              # Validate and display content
+              echo "📄 Content of $(basename $file):"
+              if python3 -m json.tool "$file" > /dev/null 2>&1; then
+                python3 -m json.tool "$file"
+              else
+                cat "$file"
+              fi
+              echo ""
+            else
+              echo "❌ Missing: $(basename $file)"
+            fi
+          done
+          
+          echo "📊 Summary: $FOUND_COUNT/$TOTAL_COUNT diagnostic files found"
+          
+          # Save counts for next step
+          echo "FOUND_COUNT=$FOUND_COUNT" >> $GITHUB_ENV
+          echo "TOTAL_COUNT=$TOTAL_COUNT" >> $GITHUB_ENV
+
+      - name: Validate JavaScript execution
+        run: |
+          echo "🧪 Validating JavaScript execution..."
+          
+          if [ -f "/tmp/tauri-immediate-test.json" ]; then
+            echo "✅ JavaScript test file found!"
+            
+            # Check for success indicators
+            if grep -q "success" /tmp/tauri-immediate-test.json; then
+              echo "🎉 JavaScript execution verified successfully!"
+              echo "✅ Tauri v2 JavaScript-Rust integration is working"
+              
+              # Display final test results
+              echo "📋 Final test results:"
+              cat /tmp/tauri-immediate-test.json | python3 -m json.tool || cat /tmp/tauri-immediate-test.json
+              
+              exit 0
+            else
+              echo "⚠️ JavaScript test file found but no success indicator"
+              echo "📄 Content:"
+              cat /tmp/tauri-immediate-test.json
+              exit 1
+            fi
+          else
+            echo "❌ JavaScript test file not created"
+            echo "🔍 Checking available diagnostic files..."
+            
+            # Show what files were created for debugging
+            for file in /tmp/tauri-*.json; do
+              if [ -f "$file" ]; then
+                echo "📄 $(basename $file):"
+                cat "$file"
+                echo ""
+              fi
+            done
+            
+            echo "❌ JavaScript execution could not be verified"
+            exit 1
+          fi
+
+      - name: Upload diagnostic artifacts
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: js-integration-diagnostics-${{ github.run_number }}
+          path: |
+            /tmp/tauri-*.json
+            /tmp/app-output.log
+            /tmp/xvfb.log
+          retention-days: 7
+
+      - name: Cleanup
+        if: always()
+        run: |
+          rm -f /tmp/tauri-*.json /tmp/app-output.log /tmp/xvfb.log || true
+          echo "🧹 Cleanup completed"
+
+  # Quick validation job for rapid feedback
+  quick-validation:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Setup Rust
+        uses: dtolnay/rust-toolchain@stable
+
+      - name: Run Rust tests only
+        run: |
+          cd desktop/src-tauri
+          cargo test --lib --quiet
+          echo "✅ Rust backend tests passed"
+
+      - name: Verify diagnostic HTML exists
+        run: |
+          if [ -f "desktop/dist/immediate-test.html" ]; then
+            echo "✅ JavaScript test HTML file exists"
+            echo "📄 File size: $(wc -c < desktop/dist/immediate-test.html) bytes"
+          else
+            echo "❌ JavaScript test HTML file missing"
+            exit 1
+          fi
+
+      - name: Check Tauri configuration
+        run: |
+          cd desktop/src-tauri
+          
+          # Verify main.rs has the JavaScript injection code
+          if grep -q "write_diagnostics" src/main.rs; then
+            echo "✅ JavaScript injection code found in main.rs"
+          else
+            echo "❌ JavaScript injection code missing from main.rs"
+            exit 1
+          fi
+          
+          # Verify main_window.rs loads the test HTML
+          if grep -q "immediate-test.html" src/ui/main_window.rs; then
+            echo "✅ Test HTML loading configuration found"
+          else
+            echo "❌ Test HTML loading configuration missing"
+            exit 1
+          fi
+          
+          echo "✅ Tauri configuration validated"

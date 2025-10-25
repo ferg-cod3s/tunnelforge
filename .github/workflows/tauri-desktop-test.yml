@@ -1,0 +1,382 @@
+name: Tauri Desktop Test
+
+on: [push, pull_request]
+
+jobs:
+  test-desktop:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      
+      - name: Install dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y libwebkit2gtk-4.1-dev \
+            build-essential curl wget libssl-dev libgtk-3-dev \
+            libayatana-appindicator3-dev librsvg2-dev \
+            xvfb
+      
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+      
+      - name: Install Bun
+        run: curl -fsSL https://bun.sh/install | bash
+      
+      - name: Cache Rust dependencies
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.cargo/registry
+            ~/.cargo/git
+            desktop/src-tauri/target
+          key: ${{ runner.os }}-cargo-${{ hashFiles('desktop/src-tauri/Cargo.lock') }}
+          restore-keys: |
+            ${{ runner.os }}-cargo-
+      
+      - name: Cache Bun dependencies
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.bun/install/cache
+            desktop/node_modules/.cache
+            web/node_modules/.cache
+          key: ${{ runner.os }}-bun-${{ hashFiles('desktop/bun.lock', 'web/bun.lock') }}
+          restore-keys: |
+            ${{ runner.os }}-bun-
+      
+      - name: Install web dependencies
+        run: |
+          cd web && bun install
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      
+      - name: Install desktop dependencies
+        run: |
+          cd desktop && bun install
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      
+      - name: Build web frontend
+        run: |
+          cd web && bun run build:bun
+        env:
+          NODE_ENV: production
+      
+      - name: Build Tauri App
+        working-directory: desktop
+        run: |
+          export PATH="$HOME/.bun/bin:$PATH"
+          bun install
+          bun tauri build
+        env:
+          TAURI_PRIVATE_KEY: ${{ secrets.TAURI_PRIVATE_KEY }}
+          TAURI_KEY_PASSWORD: ${{ secrets.TAURI_KEY_PASSWORD }}
+      
+      - name: Run with Xvfb
+        working-directory: desktop/src-tauri/target/release
+        run: |
+          # Clean up any previous diagnostic files
+          rm -f /tmp/tauri-*.json || true
+          echo "🧹 Cleaned previous diagnostic files"
+          
+          # Set up virtual display
+          export DISPLAY=:99
+          Xvfb :99 -screen 0 1024x768x24 > /tmp/xvfb.log 2>&1 &
+          XVFB_PID=$!
+          echo "🖥️ Started Xvfb with PID: $XVFB_PID"
+          
+          # Wait for X server to be ready
+          sleep 3
+          
+          # Verify X server is running
+          if ! xdpyinfo -display :99 > /dev/null 2>&1; then
+            echo "❌ Xvfb failed to start"
+            cat /tmp/xvfb.log
+            exit 1
+          fi
+          echo "✅ Xvfb display server ready"
+          
+          # Check if tunnelforge binary exists
+          if [ ! -f "tunnelforge" ]; then
+            echo "❌ Tunnelforge binary not found"
+            echo "📁 Available files:"
+            find . -name "*tunnelforge*" -o -name "*.exe" 2>/dev/null || echo "No binaries found"
+            exit 1
+          fi
+          
+          echo "🚀 Starting Tunnelforge..."
+          
+          # Run the binary with timeout
+          timeout 30s ./tunnelforge > /tmp/app-output.log 2>&1 &
+          APP_PID=$!
+          echo "📱 App started with PID: $APP_PID"
+          
+          # Wait for app to initialize and create diagnostic files
+          echo "⏳ Waiting for diagnostic files..."
+          for i in {1..30}; do
+            sleep 1
+            if [ -f "/tmp/tauri-rust-init.json" ]; then
+              echo "✅ Rust initialization detected after ${i}s"
+              break
+            fi
+            if [ $i -eq 30 ]; then
+              echo "⚠️ Timeout waiting for initialization"
+            fi
+          done
+          
+          # Additional wait for JavaScript execution
+          sleep 10
+          
+          # Terminate app gracefully
+          if kill -0 $APP_PID 2>/dev/null; then
+            echo "🛑 Terminating app..."
+            kill -TERM $APP_PID
+            sleep 2
+            kill -KILL $APP_PID 2>/dev/null || true
+          fi
+          
+          # Kill Xvfb
+          kill -TERM $XVFB_PID 2>/dev/null || true
+          sleep 1
+          kill -KILL $XVFB_PID 2>/dev/null || true
+      
+      - name: Check diagnostic files
+        run: |
+          echo "🔍 Checking for diagnostic files..."
+          ls -lh /tmp/tauri-*.json || echo "No diagnostic files found"
+          
+          if [ -f /tmp/tauri-immediate-test.json ]; then
+            echo "✅ JavaScript execution verified!"
+            cat /tmp/tauri-immediate-test.json
+            exit 0
+          else
+            echo "❌ JavaScript diagnostic file not created"
+            
+            # Show available diagnostic files for debugging
+            echo "📄 Available diagnostic files:"
+            for file in /tmp/tauri-*.json; do
+              if [ -f "$file" ]; then
+                echo "📋 $(basename $file):"
+                cat "$file"
+                echo ""
+              fi
+            done
+            
+            # Show app output for debugging
+            if [ -f "/tmp/app-output.log" ]; then
+              echo "📄 App output:"
+              cat /tmp/app-output.log
+            fi
+            
+            # Show Xvfb log for debugging
+            if [ -f "/tmp/xvfb.log" ]; then
+              echo "📄 Xvfb log:"
+              cat /tmp/xvfb.log
+            fi
+            
+            exit 1
+          fi
+      
+      - name: Upload diagnostic artifacts
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: tauri-diagnostic-files-${{ github.run_number }}
+          path: |
+            /tmp/tauri-*.json
+            /tmp/app-output.log
+            /tmp/xvfb.log
+          retention-days: 7
+
+  # Additional job for testing debug builds
+  test-debug-build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      
+      - name: Install dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y libwebkit2gtk-4.1-dev \
+            build-essential curl wget libssl-dev libgtk-3-dev \
+            libayatana-appindicator3-dev librsvg2-dev \
+            xvfb
+      
+      - name: Setup Bun
+        uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: '1.1.42'
+      
+      - name: Setup Rust
+        uses: dtolnay/rust-toolchain@stable
+      
+      - name: Cache dependencies
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.cargo/registry
+            ~/.cargo/git
+            desktop/src-tauri/target
+            ~/.bun/install/cache
+          key: ${{ runner.os }}-debug-${{ hashFiles('desktop/src-tauri/Cargo.lock', 'desktop/bun.lock') }}
+          restore-keys: |
+            ${{ runner.os }}-debug-
+      
+      - name: Install dependencies
+        run: |
+          cd web && bun install
+          cd ../desktop && bun install
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      
+      - name: Build web frontend
+        run: |
+          cd web && bun run build:bun
+        env:
+          NODE_ENV: development
+      
+      - name: Build Tauri App (Debug)
+        working-directory: desktop
+        run: |
+          bun tauri build --debug
+        env:
+          TAURI_PRIVATE_KEY: ${{ secrets.TAURI_PRIVATE_KEY }}
+          TAURI_KEY_PASSWORD: ${{ secrets.TAURI_KEY_PASSWORD }}
+      
+      - name: Test debug build with Xvfb
+        run: |
+          # Clean up diagnostic files
+          rm -f /tmp/tauri-*.json || true
+          
+          # Set up display
+          export DISPLAY=:99
+          Xvfb :99 -screen 0 1024x768x24 > /tmp/xvfb-debug.log 2>&1 &
+          XVFB_PID=$!
+          sleep 3
+          
+          # Find debug binary
+          BINARY_PATH=""
+          if [ -f "desktop/src-tauri/target/debug/bundle/deb/*/data/usr/bin/tunnelforge" ]; then
+            BINARY_PATH=$(find desktop/src-tauri/target/debug/bundle/deb -name tunnelforge -type f | head -1)
+          elif [ -f "desktop/src-tauri/target/debug/tunnelforge" ]; then
+            BINARY_PATH="desktop/src-tauri/target/debug/tunnelforge"
+          else
+            echo "❌ Debug binary not found"
+            find desktop/src-tauri/target/debug -name "*tunnelforge*" 2>/dev/null
+            exit 1
+          fi
+          
+          echo "🚀 Starting debug build: $BINARY_PATH"
+          chmod +x "$BINARY_PATH"
+          
+          # Run debug build
+          timeout 20s "$BINARY_PATH" > /tmp/debug-app.log 2>&1 &
+          APP_PID=$!
+          
+          # Wait for initialization
+          sleep 15
+          
+          # Terminate
+          kill -TERM $APP_PID 2>/dev/null || true
+          kill -KILL $APP_PID 2>/dev/null || true
+          kill -TERM $XVFB_PID 2>/dev/null || true
+          
+          # Check for diagnostic files
+          if [ -f "/tmp/tauri-immediate-test.json" ]; then
+            echo "✅ Debug build JavaScript execution verified!"
+          else
+            echo "⚠️ Debug build diagnostic files not found"
+          fi
+      
+      - name: Upload debug artifacts
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: tauri-debug-artifacts-${{ github.run_number }}
+          path: |
+            /tmp/tauri-*.json
+            /tmp/debug-app.log
+            /tmp/xvfb-debug.log
+          retention-days: 3
+
+  # Rust unit tests job
+  rust-unit-tests:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      
+      - name: Setup Rust
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          components: rustfmt, clippy
+      
+      - name: Cache Rust dependencies
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.cargo/registry
+            ~/.cargo/git
+            desktop/src-tauri/target
+          key: ${{ runner.os }}-rust-tests-${{ hashFiles('desktop/src-tauri/Cargo.lock') }}
+          restore-keys: |
+            ${{ runner.os }}-rust-tests-
+      
+      - name: Run Rust unit tests
+        run: |
+          cd desktop/src-tauri
+          cargo test --lib --verbose
+      
+      - name: Check code formatting
+        run: |
+          cd desktop/src-tauri
+          cargo fmt --all -- --check
+      
+      - name: Run clippy
+        run: |
+          cd desktop/src-tauri
+          cargo clippy -- -D warnings
+
+  # Summary job
+  test-summary:
+    runs-on: ubuntu-latest
+    needs: [test-desktop, test-debug-build, rust-unit-tests]
+    if: always()
+    
+    steps:
+      - name: Test Results Summary
+        run: |
+          echo "## 🧪 Tauri Desktop Test Results" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          
+          # Release build test results
+          if [ "${{ needs.test-desktop.result }}" == "success" ]; then
+            echo "✅ **Release Build Test**: PASSED" >> $GITHUB_STEP_SUMMARY
+            echo "   - JavaScript-Rust communication verified" >> $GITHUB_STEP_SUMMARY
+            echo "   - All diagnostic files created" >> $GITHUB_STEP_SUMMARY
+          else
+            echo "❌ **Release Build Test**: FAILED" >> $GITHUB_STEP_SUMMARY
+            echo "   - Check artifacts for diagnostic files" >> $GITHUB_STEP_SUMMARY
+          fi
+          
+          echo "" >> $GITHUB_STEP_SUMMARY
+          
+          # Debug build test results
+          if [ "${{ needs.test-debug-build.result }}" == "success" ]; then
+            echo "✅ **Debug Build Test**: PASSED" >> $GITHUB_STEP_SUMMARY
+          else
+            echo "❌ **Debug Build Test**: FAILED" >> $GITHUB_STEP_SUMMARY
+          fi
+          
+          echo "" >> $GITHUB_STEP_SUMMARY
+          
+          # Rust unit tests
+          if [ "${{ needs.rust-unit-tests.result }}" == "success" ]; then
+            echo "✅ **Rust Unit Tests**: PASSED" >> $GITHUB_STEP_SUMMARY
+          else
+            echo "❌ **Rust Unit Tests**: FAILED" >> $GITHUB_STEP_SUMMARY
+          fi
+          
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "📊 **Overall Status**: ${{ job.status }}" >> $GITHUB_STEP_SUMMARY

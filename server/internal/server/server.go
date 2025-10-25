@@ -422,6 +422,11 @@ func (s *Server) setupRoutes() {
 	// Start with the base router
 	var handler http.Handler = r
 
+	// Apply enhanced logging for debugging connection issues
+	handler = middleware.DetailedLoggingMiddleware(handler)
+	handler = middleware.ConnectionLoggingMiddleware(handler)
+	handler = middleware.ErrorLoggingMiddleware(handler)
+
 	// Apply compression and security headers, but skip for WebSocket and SSE routes
 	baseHandler := handler // Capture the base handler before wrapping
 	handler = http.HandlerFunc(func(w http.ResponseWriter, req *http.Request) {
