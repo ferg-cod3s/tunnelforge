@@ -12,7 +12,7 @@ use std::time::Duration;
 
 use tauri::{AppHandle, Emitter, Manager, RunEvent, State};
 use serde::{Deserialize, Serialize};
-use log::{error, info};
+use log::{error, info, debug, warn};
 
 mod settings;
 mod services;
@@ -32,42 +32,89 @@ struct ServerStatus {
 }
 
 #[derive(Debug, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
 struct AppSettings {
     auto_start: bool,
-    minimize_to_tray: bool,
+    show_in_dock: bool,
     server_port: u16,
-    enable_logging: bool,
+    access_mode: String,
+    notifications_enabled: bool,
+    notification_sound: bool,
+    session_start_notification: bool,
+    session_end_notification: bool,
+    error_notification: bool,
+    prevent_sleep: bool,
+    power_monitoring: bool,
+    tailscale_enabled: bool,
+    cloudflare_enabled: bool,
+    ngrok_enabled: bool,
+    ngrok_auth_token: String,
 }
 
 impl Default for AppSettings {
     fn default() -> Self {
         Self {
             auto_start: false,
-            minimize_to_tray: true,
+            show_in_dock: true,
             server_port: 4021,
-            enable_logging: false,
+            access_mode: "local".to_string(),
+            notifications_enabled: true,
+            notification_sound: true,
+            session_start_notification: true,
+            session_end_notification: true,
+            error_notification: true,
+            prevent_sleep: false,
+            power_monitoring: false,
+            tailscale_enabled: false,
+            cloudflare_enabled: false,
+            ngrok_enabled: false,
+            ngrok_auth_token: String::new(),
         }
+    }
+}
+
+// Helper function to check if server is already running on port
+fn is_server_running(port: u16) -> bool {
+    use std::net::{TcpStream, SocketAddr};
+    use std::time::Duration;
+
+    let addr = format!("127.0.0.1:{}", port);
+    if let Ok(socket_addr) = addr.parse::<SocketAddr>() {
+        TcpStream::connect_timeout(&socket_addr, Duration::from_millis(1000)).is_ok()
+    } else {
+        false
     }
 }
 
 // Tauri commands
 #[tauri::command]
 async fn get_server_status(state: State<'_, AppState>) -> Result<ServerStatus, String> {
+    debug!("Getting server status...");
     let server_process = state.server_process.lock().unwrap();
-    
+    let port_running = is_server_running(state.server_port);
+
     match &*server_process {
         Some(child) => {
-            Ok(ServerStatus {
-                running: true,
+            // Check if our managed process is still running AND the port is accessible
+            // Note: We can't call try_wait() on a &Child, so we just check if port is accessible
+            let status = ServerStatus {
+                running: port_running,
                 port: state.server_port,
                 pid: Some(child.id()),
-            })
+            };
+            info!("Server status: {:?}", status);
+            Ok(status)
         }
-        None => Ok(ServerStatus {
-            running: false,
-            port: state.server_port,
-            pid: None,
-        }),
+        None => {
+            // No managed process, but check if server is running on port anyway
+            let status = ServerStatus {
+                running: port_running,
+                port: state.server_port,
+                pid: None, // We don't know the PID if we didn't start it
+            };
+            info!("Server status: {:?}", status);
+            Ok(status)
+        },
     }
 }
 
@@ -106,11 +153,16 @@ async fn create_new_session(app: AppHandle) -> Result<(), String> {
     
     // Show main window and focus it
     if let Some(window) = app.get_webview_window("main") {
+        debug!("Found main window, showing and focusing...");
         window.show().map_err(|e| e.to_string())?;
         window.set_focus().map_err(|e| e.to_string())?;
         
         // Emit event to web interface to create new session
+        debug!("Emitting create-session event to web interface...");
         window.emit("create-session", {}).map_err(|e| e.to_string())?;
+    } else {
+        warn!("Main window not found!");
+        return Err("Main window not found".to_string());
     }
     
     Ok(())
@@ -119,18 +171,26 @@ async fn create_new_session(app: AppHandle) -> Result<(), String> {
 #[tauri::command]
 async fn copy_server_url(state: State<'_, AppState>) -> Result<String, String> {
     let url = format!("http://localhost:{}", state.server_port);
+    info!("Generated server URL: {}", url);
     
     // Copy to clipboard via tauri's clipboard API would be here
-    // For now, just return the URL for the frontend to handle
+    // For now, just return URL for frontend to handle
     Ok(url)
 }
 
 // Internal server management
 fn start_server_internal(state: &State<AppState>, app: &AppHandle) -> Result<(), String> {
     let mut server_process = state.server_process.lock().unwrap();
-    
+
     if server_process.is_some() {
-        return Err("Server is already running".to_string());
+        info!("Server process already exists in state");
+        return Ok(());
+    }
+
+    // Check if server is already running on the port
+    if is_server_running(state.server_port) {
+        info!("Server is already running on port {}, not starting a new one", state.server_port);
+        return Ok(());
     }
     
     // Get the path to the bundled Go server
@@ -227,30 +287,26 @@ fn setup_app(app: &mut tauri::App) -> Result<(), Box<dyn std::error::Error>> {
     info!("Setting up TunnelForge application...");
     
     // Initialize app state
+    let server_port = 4021;
     let state = AppState {
-        server_process: Arc::new(Mutex::new(None)),
-        server_port: 4021,
+        server_process: Arc::new(Mutex::new(None)), // Don't start server - connect to existing one
+        server_port,
         is_quitting: Arc::new(Mutex::new(false)),
     };
     
-    app.manage(state);
+    info!("Connecting to existing Go server at port {}", server_port);
     
-    // Start the Go server
-    let app_handle = app.handle();
+app.manage(state);
     
-    // Clone the app handle for use in the async closure
-    let app_handle_clone = app_handle.clone();
+    info!("Connecting to existing Go server at port {}", server_port);
     
+    // Show window immediately since we're not starting a server
+    let app_handle = app.handle().clone();
     tauri::async_runtime::spawn(async move {
-        let app_state = app_handle_clone.state::<AppState>();
-        if let Err(e) = start_server_internal(&app_state, &app_handle_clone) {
-            error!("Failed to start server during setup: {}", e);
-        }
+        // Wait a moment for frontend to load, then show window
+        tokio::time::sleep(Duration::from_millis(1000)).await;
         
-        // Wait a moment for server to start, then show window
-        tokio::time::sleep(Duration::from_millis(2000)).await;
-        
-        if let Some(window) = app_handle_clone.get_webview_window("main") {
+        if let Some(window) = app_handle.get_webview_window("main") {
             if let Err(e) = window.show() {
                 error!("Failed to show main window: {}", e);
             }
@@ -283,6 +339,8 @@ fn main() {
         .init();
     
     info!("Starting TunnelForge Linux v{}", env!("CARGO_PKG_VERSION"));
+    info!("System: {} {}", std::env::consts::OS, std::env::consts::ARCH);
+    info!("Debug assertions: {}", cfg!(debug_assertions));
     
     tauri::Builder::default()
         .setup(setup_app)

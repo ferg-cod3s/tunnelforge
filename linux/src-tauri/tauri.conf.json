@@ -4,7 +4,8 @@
   "identifier": "dev.tunnelforge.linux",
   "build": {
     "beforeDevCommand": "",
-    "beforeBuildCommand": ""
+    "beforeBuildCommand": "echo 'Using pre-built desktop frontend'",
+    "frontendDist": "../../desktop/dist-desktop"
   },
   "bundle": {
     "active": true,
@@ -37,6 +38,7 @@
     }
   },
   "app": {
+    "withGlobalTauri": true,
     "windows": [
       {
         "fullscreen": false,

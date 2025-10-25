@@ -11,8 +11,8 @@
     "directory": "linux"
   },
   "scripts": {
-    "dev": "tauri dev",
-    "build": "tauri build",
+    "dev": "bun run tauri dev",
+    "build": "cd ../desktop && bun run build:web && cd ../linux && bun run tauri build",
     "build:debug": "tauri build --debug",
     "build:appimage": "tauri build --target AppImage",
     "build:deb": "tauri build --target deb",
