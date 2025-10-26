@@ -29,6 +29,8 @@ This index provides a comprehensive overview of all documentation in the TunnelF
 - [**push-notification.md**](push-notification.md) - Push notification implementation
 - [**security.md**](security.md) - Security configuration and best practices
 - [**keyboard-shortcuts.md**](keyboard-shortcuts.md) - Keyboard shortcut reference
+- [**cloudflare-custom-domains.md**](cloudflare-custom-domains.md) - Cloudflare custom domain setup guide
+- [**session-persistence.md**](session-persistence.md) - Session persistence and restoration guide
 
 ### Testing
 - [**testing.md**](testing.md) - Testing strategy and test suite documentation

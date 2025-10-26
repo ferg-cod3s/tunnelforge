@@ -5,6 +5,7 @@
   import SettingInput from './SettingInput.svelte';
   import SettingSelect from './SettingSelect.svelte';
   import NetworkAccessSettings from './NetworkAccessSettings.svelte';
+  import CloudflareTunnelSettings from './CloudflareTunnelSettings.svelte';
   import SettingsSection from './SettingsSection.svelte';
   import {
     type AppPreferences,
@@ -590,96 +591,7 @@
         {:else if activeTab === 'domains'}
           <div class="placeholder">Domain setup coming soon...</div>
         {:else if activeTab === 'tunnels'}
-          <SettingsSection title="Cloudflare Quick Tunnels" description={tunnelStatus.running ? '● Running' : '● Stopped'}>
-            {#if !tunnelInstalled}
-              <div class="p-4 bg-status-warning/10 border border-status-warning rounded-lg">
-                <p class="text-sm text-status-warning mb-2">
-                  ⚠️ cloudflared is not installed
-                </p>
-                <p class="text-xs text-status-warning opacity-80">
-                  Please install cloudflared to use tunnel features. Visit
-                  <a
-                    href="https://developers.cloudflare.com/cloudflare-one/connections/connect-apps/install-and-setup/installation/"
-                    target="_blank"
-                    class="underline"
-                  >
-                    Cloudflare documentation
-                  </a>
-                  for installation instructions.
-                </p>
-              </div>
-            {:else}
-              <div class="p-4 bg-bg-tertiary rounded-lg border border-border/50">
-                <p class="text-xs text-muted mb-3">
-                  Start a temporary Cloudflare tunnel to expose your local development server. The tunnel creates a public URL that you can share for testing.
-                </p>
-
-                 <div class="space-y-3">
-                  <SettingInput
-                    label="Local Port"
-                    type="number"
-                    value={quickTunnelPort.toString()}
-                    onchange={(value) => quickTunnelPort = Number.parseInt(value, 10) || 3000}
-                    disabled={tunnelStatus.running}
-                  />
-
-                  {#if tunnelStatus.running}
-                    <div class="p-3 bg-bg rounded-lg">
-                      <div class="text-xs text-muted mb-1">Public URL</div>
-                      <div class="flex items-center space-x-2">
-                        <code class="text-xs text-primary flex-1 truncate break-all"
-                          >{tunnelStatus.url || 'Starting tunnel...'}</code
-                        >
-                        {#if tunnelStatus.url}
-                          <button
-                            class="text-primary hover:text-primary-hover text-xs transition-colors flex-shrink-0"
-                            onclick={() => {
-                              navigator.clipboard.writeText(tunnelStatus.url!);
-                              onsuccess?.({ detail: 'URL copied to clipboard' });
-                            }}
-                            title="Copy URL"
-                          >
-                            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                              <path
-                                stroke-linecap="round"
-                                stroke-linejoin="round"
-                                stroke-width="2"
-                                d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z"
-                              />
-                            </svg>
-                          </button>
-                        {/if}
-                      </div>
-                    </div>
-
-                    <button
-                      class="btn-secondary w-full text-sm py-2"
-                      onclick={handleStopTunnel}
-                      disabled={isTunnelLoading}
-                    >
-                      {isTunnelLoading ? 'Stopping...' : 'Stop Tunnel'}
-                    </button>
-                  {:else}
-                    <button
-                      class="btn-primary w-full text-sm py-2"
-                      onclick={handleStartQuickTunnel}
-                      disabled={isTunnelLoading}
-                    >
-                      {isTunnelLoading ? 'Starting...' : 'Start Tunnel'}
-                    </button>
-                  {/if}
-                </div>
-              </div>
-
-              <div class="p-3 bg-bg-tertiary rounded-lg border border-border/50 text-xs text-muted">
-                <p class="font-medium text-primary mb-1">Note:</p>
-                <p>
-                  Quick tunnels are temporary and will stop when the server restarts. For production use cases with custom domains,
-                  configure an authenticated Cloudflare tunnel using the Cloudflare dashboard.
-                </p>
-              </div>
-            {/if}
-          </SettingsSection>
+          <CloudflareTunnelSettings />
         {/if}
       </div>
 
