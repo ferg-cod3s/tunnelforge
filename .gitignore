@@ -233,6 +233,8 @@ web-astro/build/
 *.ico
 *.icns
 *.png
+*.psd
 **/icons/
 **/images/
 **/assets/
+**/bundle/
