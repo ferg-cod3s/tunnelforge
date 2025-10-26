@@ -87,12 +87,15 @@ web/build/
 web/.bun/
 desktop/src-tauri/target/
 desktop/src-tauri/dist/
+desktop/dist-desktop/
 windows/src-tauri/target/
 windows/src-tauri/dist/
 linux/src-tauri/target/
 linux/src-tauri/dist/
 server/tunnelforge*
 server/bin/
+squashfs-root/
+test-deb/
 **/target/
 **/build/
 **/dist/
@@ -101,6 +104,7 @@ server/bin/
 package-lock.json
 yarn.lock
 pnpm-lock.yaml
+bun.lock
 Cargo.lock
 
 # Environment files

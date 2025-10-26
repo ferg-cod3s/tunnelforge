@@ -1,9 +1,0 @@
-[Desktop Entry]
-Categories=Development;
-Comment=Terminal sharing made simple
-Exec=tunnelforge
-StartupWMClass=tunnelforge
-Icon=tunnelforge
-Name=TunnelForge
-Terminal=false
-Type=Application
