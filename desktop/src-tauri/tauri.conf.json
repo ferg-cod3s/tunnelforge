@@ -1,8 +1,8 @@
 {
   "$schema": "../gen/schemas/desktop-schema.json",
   "build": {
-    "beforeBuildCommand": "echo 'Building TunnelForge Native Desktop App'",
-    "frontendDist": "../dist-desktop"
+    "beforeBuildCommand": "cd ../settings-ui && bun install && bun run build",
+    "frontendDist": "../dist-settings"
   },
   "productName": "TunnelForge",
   "version": "1.0.0",

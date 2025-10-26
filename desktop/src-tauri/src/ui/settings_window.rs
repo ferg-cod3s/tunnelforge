@@ -145,17 +145,17 @@ impl SettingsWindow {
         if self.window.is_some() {
             return Ok(());
         }
-        
+
+        // Load from local bundled settings HTML (built from settings-ui/)
         let window = WebviewWindowBuilder::new(
             app_handle,
             "settings",
-            WebviewUrl::External("http://localhost:4021/settings".parse().unwrap())
+            WebviewUrl::App("settings/index.html".parse().unwrap())
         )
         .title("TunnelForge Settings")
-        .inner_size(600.0, 700.0)
-        .min_inner_size(500.0, 600.0)
+        .inner_size(700.0, 800.0)
+        .min_inner_size(600.0, 700.0)
         .resizable(true)
-        .user_agent("TunnelForge-Desktop/1.0 (Tauri)")
         .center()
         .build()
         .map_err(|e| format!("Failed to create settings window: {}", e))?;
