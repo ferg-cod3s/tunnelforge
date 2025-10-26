@@ -3,19 +3,28 @@
  * Session Detail Page
  *
  * Dynamic Astro page for viewing individual terminal sessions.
- * The Terminal component is hydrated as a Svelte island with client:load.
+ * The Terminal component is hydrated as a Svelte island with client:only.
+ *
+ * Note: This uses getStaticPaths to generate a fallback page.
+ * The actual session ID is read client-side from the URL.
  */
 import Layout from '../../layouts/Layout.astro';
 import Terminal from '../../components/Terminal.svelte';
 
-// Get session ID from URL params
-const { id } = Astro.params;
-
-if (!id) {
-  return Astro.redirect('/');
+// Provide getStaticPaths - generates pages for common patterns
+// Actual session ID is always read client-side from window.location
+export async function getStaticPaths() {
+  // Generate a fallback that handles any session ID client-side
+  // This is a workaround for static generation with dynamic routes
+  return [
+    { params: { id: 'fallback' } }  // Fallback page - ID read client-side
+  ];
 }
 
-const pageTitle = `Session ${id} - TunnelForge`;
+// Get the ID param (only used during build, actual ID is read client-side)
+const { id } = Astro.params;
+
+const pageTitle = `Terminal Session - TunnelForge`;
 ---
 
 <Layout title={pageTitle}>
@@ -63,10 +72,10 @@ const pageTitle = `Session ${id} - TunnelForge`;
       </div>
     </header>
 
-    <!-- Terminal (Svelte Island - Hydrated on Load) -->
+    <!-- Terminal (Svelte Island - Client Only, No SSR) -->
     <main class="session-main">
       <Terminal
-        client:load
+        client:only="svelte"
         sessionId={id}
         readonly={false}
       />

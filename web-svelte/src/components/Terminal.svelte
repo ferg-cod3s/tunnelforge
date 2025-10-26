@@ -12,10 +12,10 @@
    */
 
   import { onMount, onDestroy } from 'svelte';
-  import { Terminal as XTerm } from '@xterm/xterm';
-  import { FitAddon } from '@xterm/addon-fit';
-  import { CanvasAddon } from '@xterm/addon-canvas';
-  import '@xterm/xterm/css/xterm.css';
+  // Dynamic imports to avoid SSR issues
+  let XTerm: any;
+  let FitAddon: any;
+  let CanvasAddon: any;
 
   // Props
   interface Props {
@@ -37,7 +37,17 @@
   const status = $derived(connected ? 'connected' : 'connecting');
 
   // Terminal initialization
-  onMount(() => {
+  onMount(async () => {
+    // Dynamic imports to avoid SSR issues with xterm
+    const xtermModule = await import('@xterm/xterm');
+    const fitModule = await import('@xterm/addon-fit');
+    const canvasModule = await import('@xterm/addon-canvas');
+    await import('@xterm/xterm/css/xterm.css');
+
+    XTerm = xtermModule.Terminal;
+    FitAddon = fitModule.FitAddon;
+    CanvasAddon = canvasModule.CanvasAddon;
+
     initializeTerminal();
     connectWebSocket();
 

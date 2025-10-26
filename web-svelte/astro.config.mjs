@@ -22,15 +22,25 @@ export default defineConfig({
   build: {
     // Enable client-side JavaScript
     inlineStylesheets: 'auto',
+    // Generate 404 page for client-side routing
+    format: 'directory',
   },
 
-  // Output to static files
+  // Output: static files - web UI is a SPA connecting to Go server
   output: 'static',
+
+  // Trailing slash for cleaner URLs
+  trailingSlash: 'always',
 
   vite: {
     // Optimize dependencies
     optimizeDeps: {
       include: ['@xterm/xterm', '@xterm/addon-fit', '@xterm/addon-canvas'],
+    },
+    // Exclude xterm from SSR
+    ssr: {
+      noExternal: [],
+      external: ['@xterm/xterm', '@xterm/addon-fit', '@xterm/addon-canvas', '@xterm/addon-webgl'],
     },
   },
 });
