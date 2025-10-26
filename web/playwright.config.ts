@@ -45,7 +45,7 @@ export default defineConfig({
   /* Shared settings for all the projects below. */
   use: {
     /* Base URL to use in actions like `await page.goto('/')`. */
-    baseURL: 'http://localhost:3000',
+    baseURL: 'http://localhost:4021',
 
     /* Collect trace when retrying the failed test. */
     trace: 'on-first-retry',
@@ -133,12 +133,12 @@ export default defineConfig({
 
   /* Run your local dev server before starting the tests */
   webServer: {
-    command: 'bun run dev --port 3000',
-    port: 3000,
+    command: 'cd ../server && go run cmd/server/main.go',
+    port: 4021,
     reuseExistingServer: !process.env.CI,
     stdout: process.env.CI ? 'pipe' : 'ignore',
     stderr: process.env.CI ? 'pipe' : 'pipe',
-    timeout: 20 * 1000,
+    timeout: 30 * 1000,
     cwd: process.cwd(),
   },
 });
