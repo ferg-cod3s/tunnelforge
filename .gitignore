@@ -156,6 +156,9 @@ tmp/
 server/go/pkg/mod/cache/download/
 server/go*.tar.gz
 server/go*.zip
+server/go/pkg/mod/
+**/go*.tar.gz
+**/go*.zip
 
 # Tauri
 .tauri/
@@ -223,6 +226,10 @@ server/server
 server/server-binary
 server/tunnelforge*
 development/go-server/tunnelforge*
+**/vibetunnel
+**/tunnelforge
+**/tunnelforge-server
+**/BunPrebuilts/**
 
 # Web Astro build artifacts
 web-astro/public/monaco-editor/
