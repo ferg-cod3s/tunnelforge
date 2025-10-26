@@ -1,201 +1,239 @@
-# Cloudflare Custom Domains
+# Cloudflare Custom Domains for TunnelForge
+
+**Guide**: Setting up custom domains for your TunnelForge instance using Cloudflare Tunnel
 
 ## Overview
 
-TunnelForge supports custom domains for Cloudflare tunnels, allowing you to use your own domain names instead of randomly generated Cloudflare URLs. This feature provides more professional and branded tunnel URLs.
+TunnelForge supports two types of Cloudflare tunnels:
+1. **Quick Tunnel** - Temporary, random subdomain (e.g., `abc-123.trycloudflare.com`)
+2. **Custom Domain** - Your own domain (e.g., `tunnelforge.yourdomain.com`)
+
+This guide covers setting up custom domains for a professional, permanent URL.
 
 ## Prerequisites
 
-1. **Cloudflare Account**: You need a Cloudflare account with a registered domain
-2. **cloudflared CLI**: Install cloudflared on your system
-3. **Domain Setup**: Your domain must be configured in Cloudflare's DNS
+- Cloudflare account (free tier works)
+- Domain registered with Cloudflare (or DNS managed by Cloudflare)
+- `cloudflared` CLI installed
+- TunnelForge server running
 
-## Configuration
-
-### Environment Variables
-
-Set the following environment variables for custom domain support:
+## Quick Setup (5 Minutes)
 
 ```bash
-# Cloudflare API credentials (required for custom domains)
-export CLOUDFLARE_API_TOKEN="your-cloudflare-api-token"
-export CLOUDFLARE_ACCOUNT_ID="your-cloudflare-account-id"
+# 1. Install cloudflared
+curl -L https://github.com/cloudflare/cloudflared/releases/latest/download/cloudflared-linux-amd64 -o cloudflared
+sudo mv cloudflared /usr/local/bin/
+sudo chmod +x /usr/local/bin/cloudflared
 
-# Optional: Custom domain configuration
-export CLOUDFLARE_CUSTOM_DOMAIN="tunnel.example.com"
+# 2. Login to Cloudflare
+cloudflared tunnel login
+
+# 3. Create tunnel
+cloudflared tunnel create tunnelforge
+
+# 4. Configure DNS (replace with your domain)
+cloudflared tunnel route dns tunnelforge tunnelforge.yourdomain.com
+
+# 5. Start via TunnelForge (see API section below)
 ```
 
-### macOS App Configuration
+## Detailed Setup
 
-In the TunnelForge macOS app:
+### Step 1: Install Cloudflared
 
-1. Go to Settings → Remote Access → Cloudflare
-2. Enable "Custom Domain Configuration"
-3. Enter your custom domain (e.g., `tunnel.example.com`)
-4. Start the tunnel
+**Linux (Debian/Ubuntu)**:
+```bash
+wget https://github.com/cloudflare/cloudflared/releases/latest/download/cloudflared-linux-amd64.deb
+sudo dpkg -i cloudflared-linux-amd64.deb
+```
 
-The app will automatically:
-- Create a named tunnel with your custom domain
-- Configure DNS records in Cloudflare
-- Set up the tunnel to use your domain
+**macOS**:
+```bash
+brew install cloudflare/cloudflare/cloudflared
+```
 
-### Web Interface Configuration
+**Windows**:
+Download from: https://github.com/cloudflare/cloudflared/releases/latest
 
-In the TunnelForge web interface:
+**Verify**:
+```bash
+cloudflared --version
+```
 
-1. Navigate to Settings → Integrations → Cloudflare
-2. Enter your custom domain in the "Custom Domain" field
-3. Click "Start Tunnel"
+### Step 2: Authenticate with Cloudflare
 
-## How It Works
+```bash
+cloudflared tunnel login
+```
 
-### Named Tunnels vs Quick Tunnels
+This opens your browser. Select the domain you want to use.
 
-- **Quick Tunnels**: Generate random URLs like `https://random-words.trycloudflare.com`
-- **Named Tunnels**: Use your custom domain like `https://tunnel.example.com`
+### Step 3: Create Named Tunnel
 
-### DNS Configuration
+```bash
+cloudflared tunnel create tunnelforge
+```
 
-When you use a custom domain, TunnelForge automatically:
+**Output**:
+```
+Tunnel credentials written to /home/user/.cloudflared/<TUNNEL-ID>.json
+Created tunnel tunnelforge with id <TUNNEL-ID>
+```
 
-1. Creates a CNAME record pointing to your tunnel
-2. Configures Cloudflare to route traffic through the tunnel
-3. Handles SSL/TLS certificates automatically
+**⚠️ Important**: Save the tunnel ID and credentials path!
 
-### Tunnel Management
+### Step 4: Configure DNS
 
-Named tunnels are persistent and can be managed through:
+**Via CLI** (recommended):
+```bash
+cloudflared tunnel route dns tunnelforge tunnelforge.yourdomain.com
+```
 
-- Cloudflare Dashboard
-- `cloudflared` CLI commands
-- TunnelForge interface
+**Via Cloudflare Dashboard**:
+1. Go to DNS → Records → Add record
+2. Type: `CNAME`
+3. Name: `tunnelforge`
+4. Target: `<TUNNEL-ID>.cfargotunnel.com`
+5. Proxy: Enabled (orange cloud)
+
+### Step 5: Start Tunnel via TunnelForge
+
+**Option A: Web UI** (Coming Soon)
+1. Settings → Network Access
+2. Enable "Cloudflare Tunnel"
+3. Select "Custom Domain"
+4. Enter tunnel details
+5. Click "Start"
+
+**Option B: API**:
+```bash
+curl -X POST http://localhost:4021/api/tunnels/cloudflare/start \
+  -H "Content-Type: application/json" \
+  -d '{
+    "tunnelId": "<TUNNEL-ID>",
+    "hostname": "tunnelforge.yourdomain.com",
+    "credPath": "/home/user/.cloudflared/<TUNNEL-ID>.json"
+  }'
+```
+
+### Step 6: Verify
+
+```bash
+# Check tunnel status
+curl http://localhost:4021/api/tunnels/status
+
+# Test your domain
+curl https://tunnelforge.yourdomain.com/health
+```
+
+Expected response: `{"status":"ok"}`
+
+## Configuration Details
+
+TunnelForge automatically creates:
+```yaml
+# /tmp/cloudflared-<TUNNEL-ID>.yml
+tunnel: <TUNNEL-ID>
+credentials-file: /home/user/.cloudflared/<TUNNEL-ID>.json
+
+ingress:
+  - hostname: tunnelforge.yourdomain.com
+    service: http://localhost:4021
+  - service: http_status:404
+```
+
+## Auto-Start (Optional)
+
+### Linux Systemd Service
+
+Create `/etc/systemd/system/cloudflared-tunnelforge.service`:
+```ini
+[Unit]
+Description=Cloudflare Tunnel for TunnelForge
+After=network.target
+
+[Service]
+Type=simple
+User=tunnelforge
+ExecStart=/usr/local/bin/cloudflared tunnel --config /etc/cloudflared/config.yml run tunnelforge
+Restart=on-failure
+RestartSec=5s
+
+[Install]
+WantedBy=multi-user.target
+```
+
+Enable:
+```bash
+sudo systemctl enable cloudflared-tunnelforge
+sudo systemctl start cloudflared-tunnelforge
+```
 
 ## Troubleshooting
 
-### Common Issues
-
-#### Domain Not Resolving
-- Ensure your domain is properly configured in Cloudflare DNS
-- Check that the CNAME record points to the correct tunnel
-- Wait for DNS propagation (can take up to 24 hours)
-
-#### SSL Certificate Issues
-- Cloudflare handles SSL certificates automatically
-- Ensure your domain uses Cloudflare's nameservers
-- Check the Cloudflare dashboard for certificate status
-
-#### Tunnel Connection Issues
-- Verify that the tunnel is running (`cloudflared tunnel list`)
-- Check firewall settings
-- Ensure the local server is accessible on the specified port
-
-### Debugging
-
-#### Check Tunnel Status
+### Tunnel Not Starting
 ```bash
+# Verify cloudflared installed
+cloudflared --version
+
+# List tunnels
 cloudflared tunnel list
-cloudflared tunnel info <tunnel-name>
+
+# Check credentials
+ls -la ~/.cloudflared/<TUNNEL-ID>.json
 ```
 
-#### View Tunnel Logs
+### DNS Not Resolving
 ```bash
-cloudflared tunnel logs <tunnel-name>
+# Check DNS
+dig tunnelforge.yourdomain.com
+
+# Should show CNAME to *.cfargotunnel.com
 ```
 
-#### Test DNS Resolution
-```bash
-nslookup tunnel.example.com
+### Wrong Public URL
+1. Stop tunnel
+2. Clear cache: `rm /tmp/cloudflared-*.yml`
+3. Restart with correct hostname
+
+## Security Best Practices
+
+1. **Protect credentials**:
+   ```bash
+   chmod 600 ~/.cloudflared/<TUNNEL-ID>.json
+   ```
+
+2. **Enable Cloudflare Access** for authentication
+
+3. **Use firewall rules** to restrict access
+
+4. **Monitor tunnel** status and uptime
+
+## Advanced: Multiple Domains
+
+```yaml
+tunnel: <TUNNEL-ID>
+credentials-file: ~/.cloudflared/<TUNNEL-ID>.json
+
+ingress:
+  - hostname: tunnelforge.yourdomain.com
+    service: http://localhost:4021
+  - hostname: api.yourdomain.com
+    service: http://localhost:8080
+  - service: http_status:404
 ```
 
-## Security Considerations
+## Cost
 
-### API Token Permissions
-
-Your Cloudflare API token should have minimal permissions:
-
-- **Zone**: Read, Edit (for DNS management)
-- **Account**: Read (for tunnel management)
-
-### Domain Security
-
-- Use HTTPS for all custom domain tunnels
-- Configure appropriate firewall rules
-- Monitor tunnel access logs in Cloudflare
-
-## Advanced Configuration
-
-### Multiple Domains
-
-You can configure multiple domains for a single tunnel:
-
-```bash
-# In the app interface, add multiple domains
-tunnel.example.com
-api.example.com
-```
-
-### Subdomain Routing
-
-Configure different subdomains to route to different local services:
-
-- `api.example.com` → `localhost:3000`
-- `app.example.com` → `localhost:8080`
-
-### Load Balancing
-
-For high availability, configure multiple tunnels:
-
-```bash
-# Create multiple tunnels for the same domain
-cloudflared tunnel create tunnel-1
-cloudflared tunnel create tunnel-2
-```
-
-## Migration from Quick Tunnels
-
-To migrate from quick tunnels to custom domains:
-
-1. Stop any running quick tunnels
-2. Configure your custom domain in TunnelForge
-3. Start the named tunnel
-4. Update your applications to use the new domain
-5. Remove old quick tunnel configurations
-
-## Best Practices
-
-1. **Use Descriptive Names**: Name your tunnels clearly (e.g., `production-tunnel`, `staging-tunnel`)
-2. **Monitor Usage**: Set up Cloudflare analytics to monitor tunnel usage
-3. **Regular Updates**: Keep cloudflared updated for security patches
-4. **Backup Configuration**: Save tunnel configurations for disaster recovery
-5. **Test Failover**: Test tunnel failover scenarios
+- Quick Tunnel: **Free** (temporary)
+- Named Tunnel: **Free** (unlimited traffic)
+- Cloudflare Access: **Free** (up to 50 users)
 
 ## Support
 
-For issues with custom domains:
+- [Cloudflare Tunnel Docs](https://developers.cloudflare.com/cloudflare-one/connections/connect-apps/)
+- [TunnelForge Issues](https://github.com/ferg-cod3s/tunnelforge/issues)
 
-1. Check the TunnelForge logs for error messages
-2. Verify Cloudflare dashboard for DNS and tunnel status
-3. Test DNS resolution and connectivity
-4. Review cloudflared logs for detailed error information
+---
 
-## API Reference
-
-### Backend Commands
-
-- `create_named_cloudflare_tunnel`: Create a named tunnel with custom domain
-- `setup_custom_domain`: Configure DNS for custom domain
-- `list_cloudflare_tunnels`: List available tunnels
-- `delete_cloudflare_tunnel`: Delete a named tunnel
-
-### Configuration Options
-
-```typescript
-interface CustomDomainConfig {
-  domain: string;
-  tunnelName: string;
-  accountId: string;
-  apiToken: string;
-}
-```
-
-This feature enhances TunnelForge's tunneling capabilities by providing professional, branded URLs for your applications.
+**Next**: [Session Persistence Guide](./session-persistence.md) | [User Guide](./USER_GUIDE.md)
