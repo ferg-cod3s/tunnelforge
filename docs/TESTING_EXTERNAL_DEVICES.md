@@ -14,11 +14,11 @@ This is the recommended approach for rapid iteration during development.
 
 ```bash
 cd web
-bun run dev --port 4021 --bind 0.0.0.0
+bun run dev --port 4022 --bind 0.0.0.0
 ```
 
 **Key parameters:**
-- `--port 4021`: Use a different port than the production server (4020)
+- `--port 4022`: Use a different port than the production server (4021)
 - `--bind 0.0.0.0`: Bind to all network interfaces (not just localhost)
 
 ### 2. Find Your Mac's IP Address
@@ -41,10 +41,10 @@ ipconfig getifaddr en1
 
 Open a browser on your external device and navigate to:
 ```
-http://[your-mac-ip]:4021
+http://[your-mac-ip]:4022
 ```
 
-Example: `http://192.168.1.42:4021`
+Example: `http://192.168.1.42:4022`
 
 ## Production Build Method
 
@@ -67,7 +67,7 @@ bun run build
 ### 3. Access from External Device
 
 ```
-http://[your-mac-ip]:4020
+http://[your-mac-ip]:4021
 ```
 
 ## Common Issues and Solutions

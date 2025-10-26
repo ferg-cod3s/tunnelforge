@@ -6,7 +6,7 @@
    * Manages server configuration, power settings, integrations, and notifications.
    *
    * This is NOT the web terminal UI - this is just for app configuration.
-   * The web terminal is accessed via browser at http://localhost:4020
+   * The web terminal is accessed via browser at http://localhost:4021
    */
 
   import { invoke } from '@tauri-apps/api/core';
@@ -36,7 +36,7 @@
     autostart: false,
     show_in_dock: true,
     prevent_sleep: true,
-    server_port: '4020',
+    server_port: '4021',
     access_mode: 'localhost',
     notifications_enabled: true,
     notification_sound: true,

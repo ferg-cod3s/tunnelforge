@@ -58,16 +58,16 @@ cd web
 bun run dev  # Keep this running in a separate terminal
 ```
 
-**Custom Port Configuration** (if port 4020 is already in use):
+**Custom Port Configuration** (if port 4021 is already in use):
 ```bash
 # Option 1: Run server directly with custom port (cleanest approach)
-bun run dev:server --port 4021
+bun run dev:server --port 4022
 
 # Option 2: Using environment variable
-PORT=4021 bun run dev
+PORT=4022 bun run dev
 
 # Option 3: Using the full dev command with arguments (requires --)
-bun run dev -- --port 4021
+bun run dev -- --port 4022
 ```
 
 **Development Commands**:
@@ -83,7 +83,7 @@ bun run dev -- --port 4021
 2. Select the TunnelForge scheme
 3. Build and run (⌘R)
 
-The app will automatically use the development server running on `http://localhost:4020`.
+The app will automatically use the development server running on `http://localhost:4021`.
 
 ### Working with the iOS App
 

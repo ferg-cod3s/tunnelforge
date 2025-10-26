@@ -106,7 +106,7 @@ impl Default for SettingsConfig {
             autostart: false,
             show_in_dock: true,
             prevent_sleep: true,
-            server_port: "4020".to_string(),
+            server_port: "4021".to_string(),
             access_mode: "localhost".to_string(),
             notifications_enabled: true,
             notification_sound: true,

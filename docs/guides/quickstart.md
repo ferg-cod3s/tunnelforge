@@ -21,7 +21,7 @@ tf --name "Project Build"
 tf --command "htop"
 ```
 
-The browser opens automatically at `http://localhost:4020`
+The browser opens automatically at `http://localhost:4021`
 
 ## Essential Commands
 
@@ -44,7 +44,7 @@ The browser opens automatically at `http://localhost:4020`
 
 | Setting | Default | Options |
 |---------|---------|---------|
-| Port | 4020 | Any available port |
+| Port | 4021 | Any available port |
 | Authentication | None | Password, Token |
 | Network | Localhost | LAN, Tailscale |
 | Auto-start | Disabled | Enable at login |
@@ -82,7 +82,7 @@ tf --name "Claude Code"
 claude
 
 # Access from another device
-http://your-mac-ip:4020
+http://your-mac-ip:4021
 ```
 
 ### Remote Development
@@ -128,7 +128,7 @@ tf --name "Database" --command "docker-compose up"
 ### Server Won't Start
 ```bash
 # Check if port is in use
-lsof -i :4020
+lsof -i :4021
 
 # Kill existing process
 killall node
@@ -141,7 +141,7 @@ open -a VibeTunnel
 ### Can't Connect
 ```bash
 # Check server status
-curl http://localhost:4020/api/health
+curl http://localhost:4021/api/health
 
 # View logs
 ./scripts/tflog.sh -e

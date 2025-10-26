@@ -122,7 +122,7 @@ export async function validateToken(req: Request): Promise<boolean> {
 // server/server.ts
 const server = Bun.serve({
   hostname: '127.0.0.1',  // Localhost only
-  port: 4020,
+  port: 4021,
 });
 ```
 
@@ -132,7 +132,7 @@ const server = Bun.serve({
 // Enable LAN with authentication required
 const server = Bun.serve({
   hostname: '0.0.0.0',  // All interfaces
-  port: 4020,
+  port: 4021,
 });
 
 // Require auth for non-localhost
@@ -166,14 +166,14 @@ const server = Bun.serve({
 tailscale up
 
 # Access via Tailscale network
-http://your-machine.tailnet:4020
+http://your-machine.tailnet:4021
 ```
 
 ### ngrok Tunnel
 
 ```bash
 # Start ngrok tunnel
-ngrok http 4020
+ngrok http 4021
 
 # Access via public URL
 https://abc123.ngrok.io

@@ -1,7 +1,7 @@
 # API Reference
 
 ## Base URL
-- Development: `http://localhost:4020`
+- Development: `http://localhost:4021`
 - Production: Configurable via settings
 
 ## Authentication
@@ -101,7 +101,7 @@ Content-Type: application/json
 
 ### Connect to Session
 ```javascript
-const ws = new WebSocket('ws://localhost:4020/api/sessions/:id/ws');
+const ws = new WebSocket('ws://localhost:4021/api/sessions/:id/ws');
 ws.binaryType = 'arraybuffer';
 ```
 
