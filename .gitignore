@@ -194,6 +194,45 @@ web/playwright-videos/
 *.zip
 *.tar.gz
 *.tar.xz
+*.AppImage
+*.appimage
+
+# AppImage build directories
+AppDir/
+squashfs-root/
+appimagetool-*.AppImage
+
+# DEB package directories
+*-package/
+deb-package/
+test-deb/
 
 # Release files
 appcast*.xml
+
+# Monaco Editor (large JS library)
+**/monaco-editor/
+**/public/monaco-editor/
+
+# Font files
+**/assets/fonts/
+**/public/assets/fonts/
+
+# Server binaries and build artifacts
+server/server
+server/server-binary
+server/tunnelforge*
+development/go-server/tunnelforge*
+
+# Web Astro build artifacts
+web-astro/public/monaco-editor/
+web-astro/dist/
+web-astro/build/
+
+# Additional build artifacts
+*.ico
+*.icns
+*.png
+**/icons/
+**/images/
+**/assets/
