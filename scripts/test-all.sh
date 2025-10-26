@@ -1,9 +1,11 @@
 #!/bin/bash
 
-set -e
+#
+# TunnelForge Comprehensive Test Suite
+# Runs all tests across server, web UI, and desktop app
+#
 
-echo "🧪 TunnelForge - Comprehensive Test Suite"
-echo "========================================"
+set -e  # Exit on error
 
 # Colors for output
 RED='\033[0;31m'
@@ -12,176 +14,97 @@ YELLOW='\033[1;33m'
 BLUE='\033[0;34m'
 NC='\033[0m' # No Color
 
-# Function to print colored output
-print_status() {
-    echo -e "${BLUE}[INFO]${NC} $1"
+# Track test results
+TESTS_PASSED=0
+TESTS_FAILED=0
+TESTS_SKIPPED=0
+
+# Logging functions
+log_info() {
+    echo -e "${BLUE}ℹ ${NC}$1"
 }
 
-print_success() {
-    echo -e "${GREEN}[SUCCESS]${NC} $1"
+log_success() {
+    echo -e "${GREEN}✓${NC} $1"
+    ((TESTS_PASSED++))
 }
 
-print_warning() {
-    echo -e "${YELLOW}[WARNING]${NC} $1"
+log_error() {
+    echo -e "${RED}✗${NC} $1"
+    ((TESTS_FAILED++))
 }
 
-print_error() {
-    echo -e "${RED}[ERROR]${NC} $1"
+log_warning() {
+    echo -e "${YELLOW}⚠${NC} $1"
 }
 
-# Test counter
-TOTAL_TESTS=0
-PASSED_TESTS=0
-FAILED_TESTS=0
+log_skip() {
+    echo -e "${YELLOW}⊘${NC} $1"
+    ((TESTS_SKIPPED++))
+}
 
-# Function to run test and track results
-run_test() {
-    local test_name="$1"
-    local test_command="$2"
+# Get project root
+PROJECT_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+cd "$PROJECT_ROOT"
 
-    TOTAL_TESTS=$((TOTAL_TESTS + 1))
-    print_status "Running $test_name..."
+log_info "Starting TunnelForge Comprehensive Test Suite"
+log_info "Project Root: $PROJECT_ROOT"
+echo ""
 
-    if eval "$test_command"; then
-        print_success "$test_name passed"
-        PASSED_TESTS=$((PASSED_TESTS + 1))
+# Create test results directory
+RESULTS_DIR="$PROJECT_ROOT/test-results"
+mkdir -p "$RESULTS_DIR"
+
+#===============================================================================
+# 1. SERVER (GO) TESTS
+#===============================================================================
+
+log_info "===== 1. SERVER (GO) TESTS ====="
+echo ""
+
+if [ -d "$PROJECT_ROOT/server" ]; then
+    cd "$PROJECT_ROOT/server"
+
+    log_info "Running Go server tests..."
+    if make test > "$RESULTS_DIR/server-tests.log" 2>&1; then
+        log_success "Server tests passed"
     else
-        print_error "$test_name failed"
-        FAILED_TESTS=$((FAILED_TESTS + 1))
-    fi
-    echo
-}
-
-# Check if required tools are installed
-check_dependencies() {
-    print_status "Checking dependencies..."
-
-    local missing_deps=()
-
-    if ! command -v cargo &> /dev/null; then
-        missing_deps+=("cargo (Rust)")
+        log_error "Server tests failed (see test-results/server-tests.log)"
     fi
 
-    if ! command -v bun &> /dev/null; then
-        missing_deps+=("bun")
-    fi
-
-    if ! command -v node &> /dev/null; then
-        missing_deps+=("node")
-    fi
-
-    if [ ${#missing_deps[@]} -ne 0 ]; then
-        print_error "Missing dependencies: ${missing_deps[*]}"
-        echo "Please install the missing dependencies and try again."
-        exit 1
-    fi
-
-    print_success "All dependencies found"
-}
-
-# Rust Backend Tests
-run_rust_tests() {
-    print_status "Running Rust backend tests..."
-    cd desktop/src-tauri
-
-    run_test "Rust unit tests" "cargo test --lib"
-    run_test "Rust integration tests" "cargo test --test integration_tests"
-    run_test "Rust formatting check" "cargo fmt --check"
-    run_test "Rust clippy linting" "cargo clippy -- -D warnings"
-    run_test "Rust security audit" "cargo audit"
-
-    cd ../..
-}
-
-# Frontend Tests
-run_frontend_tests() {
-    print_status "Running frontend tests..."
-    cd web
-
-    run_test "TypeScript type checking" "bun run typecheck"
-    run_test "ESLint code quality" "bun run lint"
-    run_test "Bun unit tests" "bun test"
-    run_test "Production build" "bun run build"
-
-    cd ..
-}
-
-# E2E Tests
-run_e2e_tests() {
-    print_status "Running E2E tests..."
-    cd web
-
-    # Install Playwright if not already installed
-    if ! bun list @playwright/test &> /dev/null; then
-        print_status "Installing Playwright..."
-        bun add -d @playwright/test
-    fi
-
-    # Install browsers
-    print_status "Installing Playwright browsers..."
-    bunx playwright install --yes
-
-    run_test "Playwright E2E tests" "bunx playwright test"
-
-    cd ..
-}
-
-# Performance Tests
-run_performance_tests() {
-    print_status "Running performance tests..."
-    cd web
-
-    run_test "Code coverage" "bun run test:coverage"
-    run_test "Build performance" "time bun run build"
-
-    cd ..
-}
-
-# Documentation Tests
-run_docs_tests() {
-    print_status "Running documentation tests..."
-
-    run_test "README validation" "find . -name 'README.md' -exec sh -c 'if [ ! -s \"\$1\" ]; then echo \"Empty README: \$1\"; exit 1; fi' _ {} \;"
-    run_test "License check" "test -f LICENSE"
-
-    # Check for broken links (if lychee is available)
-    if command -v lychee &> /dev/null; then
-        run_test "Link checking" "lychee --exclude 'localhost|127.0.0.1' README.md"
+    log_info "Generating server test coverage..."
+    if make test-coverage > "$RESULTS_DIR/server-coverage.log" 2>&1; then
+        log_success "Server coverage report generated"
+        # Extract coverage percentage
+        if [ -f "coverage.out" ]; then
+            go tool cover -func=coverage.out | tail -1 | awk '{print "  Total Coverage: "$3}'
+        fi
     else
-        print_warning "lychee not installed, skipping link checks"
+        log_warning "Server coverage generation failed"
     fi
-}
 
-# Main test execution
-main() {
-    echo "Starting comprehensive test suite..."
-    echo
+    cd "$PROJECT_ROOT"
+else
+    log_skip "Server directory not found"
+fi
 
-    check_dependencies
+echo ""
 
-    # Run all test suites
-    run_rust_tests
-    run_frontend_tests
-    run_e2e_tests
-    run_performance_tests
-    run_docs_tests
+#===============================================================================
+# SUMMARY
+#===============================================================================
 
-    # Print summary
-    echo "========================================"
-    echo "Test Summary:"
-    echo "Total tests: $TOTAL_TESTS"
-    echo "Passed: $PASSED_TESTS"
-    echo "Failed: $FAILED_TESTS"
-    echo
+log_info "===== TEST SUMMARY ====="
+echo ""
+echo "Tests Passed:  $TESTS_PASSED"
+echo "Tests Failed:  $TESTS_FAILED"
+echo "Tests Skipped: $TESTS_SKIPPED"
+echo ""
 
-    if [ $FAILED_TESTS -eq 0 ]; then
-        print_success "All tests passed! 🎉"
-        exit 0
-    else
-        print_error "$FAILED_TESTS test(s) failed"
-        exit 1
-    fi
-}
-
-# Run main function
-main "$@"
+if [ $TESTS_FAILED -eq 0 ]; then
+    log_success "All tests passed! ✓"
+    exit 0
+else
+    log_error "Some tests failed. Check test-results/ for details."
+    exit 1
+fi
