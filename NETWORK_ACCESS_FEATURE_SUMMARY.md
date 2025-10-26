@@ -56,7 +56,7 @@ set_access_mode(mode: AccessMode)           // Set specific mode
 get_access_mode() -> AccessMode             // Get current mode
 ```
 
-### Frontend (`web-astro/src/lib/components/`)
+### Frontend (`web/src/lib/components/`)
 
 | Component | File | Status | Details |
 |-----------|------|--------|---------|
@@ -132,7 +132,7 @@ desktop/src-tauri/src/
 │   └── tray.rs                     # ✅ Tray menu integration
 └── ... (other components)
 
-web-astro/src/lib/components/
+web/src/lib/components/
 ├── App.svelte                      # ✅ Event listener
 ├── Settings.svelte                 # ✅ UI toggle
 └── ... (other components)
@@ -325,7 +325,7 @@ Use Case: Remote access / sharing sessions
 
 ### Key Files to Know
 - Implementation: `desktop/src-tauri/src/access_mode_service.rs`
-- Frontend: `web-astro/src/lib/components/Settings.svelte`
+- Frontend: `web/src/lib/components/Settings.svelte`
 - Tray: `desktop/src-tauri/src/ui/tray.rs`
 - Config: `desktop/src-tauri/src/config_manager.rs`
 

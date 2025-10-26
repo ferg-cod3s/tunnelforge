@@ -291,7 +291,7 @@ window.addEventListener('toggle-network-access', (e) => {
 
 **Implementation**:
 - `desktop/src-tauri/src/access_mode_service.rs` - Backend logic
-- `web-astro/src/lib/components/NetworkAccessSettings.svelte` - UI
+- `web/src/lib/components/NetworkAccessSettings.svelte` - UI
 - `desktop/src-tauri/src/ui/tray.rs` - Tray integration
 
 ---

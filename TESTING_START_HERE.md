@@ -160,7 +160,7 @@ desktop/src-tauri/src/
 ├─ ui/tray.rs                           (Tray menu)
 └─ access_mode_service.rs               (Core logic)
 
-web-astro/src/lib/components/
+web/src/lib/components/
 ├─ App.svelte                           (Event listener)
 └─ Settings.svelte                      (Settings UI)
 ```

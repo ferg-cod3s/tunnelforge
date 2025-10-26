@@ -1,71 +1,66 @@
 import { defineConfig, devices } from '@playwright/test';
-import { testConfig } from './src/test/playwright/test-config';
 
 /**
- * Playwright Test Configuration
- * Read environment variables from file.
- * https://github.com/motdotla/dotenv
- */
-// import dotenv from 'dotenv';
-// import path from 'path';
-// dotenv.config({ path: path.resolve(__dirname, '.env') });
-
-/**
- * See https://playwright.dev/docs/test-configuration.
+ * Playwright Test Configuration for web-astro
  */
 export default defineConfig({
-  testDir: './src/test/playwright',
-  
+  testDir: './e2e',
+
   /* Global setup */
-  globalSetup: require.resolve('./src/test/playwright/global-setup.ts'),
-  globalTeardown: require.resolve('./src/test/playwright/global-teardown.ts'),
+  globalSetup: './e2e/global-setup.ts',
+  globalTeardown: './e2e/global-teardown.ts',
+
   /* Run tests in files in parallel */
-  fullyParallel: true, // Enable parallel execution for better performance
+  fullyParallel: true,
+
   /* Fail the build on CI if you accidentally left test.only in the source code. */
   forbidOnly: !!process.env.CI,
+
   /* Retry on CI only */
   retries: process.env.CI ? 2 : 0,
+
   /* Parallel workers configuration */
   workers: (() => {
     if (process.env.PLAYWRIGHT_WORKERS) {
       const parsed = parseInt(process.env.PLAYWRIGHT_WORKERS, 10);
-      // Validate the parsed value
       if (!isNaN(parsed) && parsed > 0) {
         return parsed;
       }
       console.warn(`Invalid PLAYWRIGHT_WORKERS value: "${process.env.PLAYWRIGHT_WORKERS}". Using default.`);
     }
-    // ALWAYS use 1 worker to prevent resource exhaustion and session conflicts
-    // Multiple workers create too many concurrent sessions leading to EAGAIN errors
+    // Use 1 worker to prevent resource conflicts
     return 1;
   })(),
-  /* Test timeout - reduced for faster failure detection */
-  timeout: process.env.CI ? 20 * 1000 : 10 * 1000, // 20s on CI, 10s locally
-   /* Reporter to use. See https://playwright.dev/docs/test-reporters */
-    reporter: [
-      ['html', { open: 'never' }],
-      ...(process.env.CI ? [['github'] as const] : [['list'] as const]),
-      ...(process.env.CI ? [['junit', { outputFile: 'test-results/junit.xml' }] as const] : []),
-    ],
-  /* Shared settings for all the projects below. See https://playwright.dev/docs/api/class-testoptions. */
+
+  /* Test timeout */
+  timeout: process.env.CI ? 20 * 1000 : 10 * 1000,
+
+  /* Reporter to use */
+  reporter: [
+    ['html', { open: 'never' }],
+    ...(process.env.CI ? [['github'] as const] : [['list'] as const]),
+    ...(process.env.CI ? [['junit', { outputFile: 'test-results/junit.xml' }] as const] : []),
+  ],
+
+  /* Shared settings for all the projects below. */
   use: {
     /* Base URL to use in actions like `await page.goto('/')`. */
-    baseURL: testConfig.baseURL,
+    baseURL: 'http://localhost:3000',
 
-    /* Collect trace when retrying the failed test. See https://playwright.dev/docs/trace-viewer */
+    /* Collect trace when retrying the failed test. */
     trace: 'on-first-retry',
 
     /* Take screenshot on failure */
     screenshot: 'only-on-failure',
 
-    /* Capture video on failure */
-    video: process.env.CI ? 'retain-on-failure' : 'off',
+    /* Capture video on first retry */
+    video: 'on-first-retry',
 
-    /* Maximum time each action can take - reduced for faster feedback */
-    actionTimeout: process.env.CI ? 5000 : 3000, // 5s on CI, 3s locally
+    /* Maximum time each action can take */
+    actionTimeout: process.env.CI ? 5000 : 3000,
 
-    /* Navigation timeout - reduced for faster page load detection */
-    navigationTimeout: process.env.CI ? 10000 : 5000, // 10s on CI, 5s locally
+    /* Navigation timeout */
+    navigationTimeout: process.env.CI ? 10000 : 5000,
 
     /* Run in headless mode for better performance */
     headless: true,
@@ -75,59 +70,75 @@ export default defineConfig({
 
     /* Ignore HTTPS errors */
     ignoreHTTPSErrors: true,
-
-    /* Browser launch options for better performance */
-    launchOptions: {
-      args: [
-        '--disable-web-security',
-        '--disable-features=IsolateOrigins,site-per-process',
-        '--disable-dev-shm-usage',
-        '--no-sandbox',
-        '--disable-blink-features=AutomationControlled',
-        '--disable-extensions',
-        '--disable-plugins',
-        '--disable-images', // Don't load images for faster tests
-        '--disable-javascript-harmony-shipping',
-        '--disable-background-timer-throttling',
-        '--disable-renderer-backgrounding',
-        '--disable-features=TranslateUI',
-        '--disable-ipc-flooding-protection',
-      ],
-    },
   },
 
-  /* Configure single browser project */
-  projects: [
+  /* Configure browser projects */
+  projects: process.env.CROSS_BROWSER ? [
     {
       name: 'chromium',
-      use: { ...devices['Desktop Chrome'] },
-      testIgnore: [
-        '**/git-status-badge-debug.spec.ts', // Skip debug-only tests
-      ],
+      use: { 
+        ...devices['Desktop Chrome'],
+        launchOptions: {
+          args: [
+            '--disable-web-security',
+            '--disable-features=IsolateOrigins,site-per-process',
+            '--disable-dev-shm-usage',
+            '--no-sandbox',
+            '--disable-blink-features=AutomationControlled',
+            '--disable-extensions',
+            '--disable-plugins',
+            '--disable-images',
+          ],
+        },
+      },
+    },
+    {
+      name: 'firefox',
+      use: { 
+        ...devices['Desktop Firefox'],
+        launchOptions: {
+          firefoxUserPrefs: {
+            'media.navigator.streams.fake': true,
+            'media.navigator.permission.disabled': true,
+          },
+        },
+      },
+    },
+    {
+      name: 'webkit',
+      use: { 
+        ...devices['Desktop Safari'],
+      },
+    },
+  ] : [
+    {
+      name: 'chromium',
+      use: { 
+        ...devices['Desktop Chrome'],
+        launchOptions: {
+          args: [
+            '--disable-web-security',
+            '--disable-features=IsolateOrigins,site-per-process',
+            '--disable-dev-shm-usage',
+            '--no-sandbox',
+            '--disable-blink-features=AutomationControlled',
+            '--disable-extensions',
+            '--disable-plugins',
+            '--disable-images',
+          ],
+        },
+      },
     },
   ],
 
   /* Run your local dev server before starting the tests */
   webServer: {
-    command: `node ../scripts/test-server.js --no-auth --port ${testConfig.port}`, // Use test server script
-    port: testConfig.port,
-    reuseExistingServer: !process.env.CI, // Reuse server locally for faster test runs
-    stdout: process.env.CI ? 'inherit' : 'ignore', // Reduce noise locally
-    stderr: process.env.CI ? 'inherit' : 'pipe', // Show errors in CI for debugging
-    timeout: 20 * 1000, // 20 seconds for server startup - reduced for faster feedback
-    cwd: process.cwd(), // Ensure we're in the right directory
-    env: (() => {
-      const env = { ...process.env };
-      // Keep TUNNELFORGE_SEA if it's set in CI, as we now use the native executable for tests
-      // In local development, it will be undefined and tests will use TypeScript compilation
-      return {
-        ...env,
-        NODE_ENV: 'test',
-        TUNNELFORGE_DISABLE_PUSH_NOTIFICATIONS: 'true',
-        SUPPRESS_CLIENT_ERRORS: 'true',
-        SHELL: '/bin/bash',
-        TERM: 'xterm',
-      };
-    })(),
+    command: 'bun run dev --port 3000',
+    port: 3000,
+    reuseExistingServer: !process.env.CI,
+    stdout: process.env.CI ? 'pipe' : 'ignore',
+    stderr: process.env.CI ? 'pipe' : 'pipe',
+    timeout: 20 * 1000,
+    cwd: process.cwd(),
   },
 });

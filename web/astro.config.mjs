@@ -1,21 +1,14 @@
+// @ts-check
 import { defineConfig } from 'astro/config';
 import svelte from '@astrojs/svelte';
-import tailwind from '@astrojs/tailwind';
 
+// https://astro.build/config
 export default defineConfig({
-  integrations: [
-    svelte(),
-    tailwind({
-      applyBaseStyles: false,
-    })
-  ],
+  integrations: [svelte()],
   output: 'static',
-  build: {
-    outDir: './dist/client'
-  },
   server: {
     host: '127.0.0.1',
-    port: 4321
+    port: 3000
   },
   vite: {
     define: {
@@ -24,7 +17,20 @@ export default defineConfig({
     resolve: {
       alias: {
         '@': '/src',
-        '~': '/src'
+        '~': '/src',
+        '$lib': '/src/lib'
+      }
+    },
+    build: {
+      outDir: './dist/client'
+    },
+    server: {
+      proxy: {
+        '/api': 'http://localhost:4021',
+        '/ws': {
+          target: 'ws://localhost:4021',
+          ws: true
+        }
       }
     }
   }

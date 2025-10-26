@@ -3,11 +3,9 @@
   "compilerOptions": {
     "baseUrl": ".",
     "paths": {
-      "$lib/*": ["src/lib/*"],
       "@/*": ["src/*"],
       "~/*": ["src/*"]
-    }
-  },
-  "include": [".astro/types.d.ts", "**/*"],
-  "exclude": ["dist"]
+    },
+    "types": ["@astrojs/svelte/client"]
+  }
 }

@@ -1,8 +1,18 @@
 ---
 import BaseLayout from '../layouts/BaseLayout.astro';
-import SettingsWindow from '../components/SettingsWindow.svelte';
+import AuthLogin from '../lib/components/AuthLogin.svelte';
 ---
 
-<BaseLayout title="TunnelForge Settings" description="Configure TunnelForge desktop application settings and service integrations">
-  <SettingsWindow client:load />
+<BaseLayout title="TunnelForge - Login">
+  <AuthLogin
+    client:only="svelte"
+  />
 </BaseLayout>
+
+<style is:global>
+  body {
+    margin: 0;
+    padding: 0;
+    overflow: hidden;
+  }
+</style>

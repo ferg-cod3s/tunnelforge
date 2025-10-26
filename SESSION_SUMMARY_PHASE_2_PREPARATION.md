@@ -280,7 +280,7 @@ cargo tauri dev
 ### If Settings UI Not Visible
 ```bash
 # Check browser console (F12) for errors
-# Verify component imported: grep NetworkAccessSettings web-astro/src/lib/components/Settings.svelte
+# Verify component imported: grep NetworkAccessSettings web/src/lib/components/Settings.svelte
 ```
 
 ### If Toggle Not Working
@@ -363,7 +363,7 @@ cat ~/.config/tunnelforge/config.json | jq .
 
 ### Implementation Details
 - Backend: `desktop/src-tauri/src/access_mode_service.rs`
-- Frontend: `web-astro/src/lib/components/NetworkAccessSettings.svelte`
+- Frontend: `web/src/lib/components/NetworkAccessSettings.svelte`
 - Tray: `desktop/src-tauri/src/ui/tray.rs`
 - Config: `desktop/src-tauri/src/config_manager.rs`
 
