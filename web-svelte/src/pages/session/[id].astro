@@ -1,0 +1,219 @@
+---
+/**
+ * Session Detail Page
+ *
+ * Dynamic Astro page for viewing individual terminal sessions.
+ * The Terminal component is hydrated as a Svelte island with client:load.
+ */
+import Layout from '../../layouts/Layout.astro';
+import Terminal from '../../components/Terminal.svelte';
+
+// Get session ID from URL params
+const { id } = Astro.params;
+
+if (!id) {
+  return Astro.redirect('/');
+}
+
+const pageTitle = `Session ${id} - TunnelForge`;
+---
+
+<Layout title={pageTitle}>
+  <div class="session-container">
+    <!-- Session Header (Static Astro) -->
+    <header class="session-header">
+      <div class="container">
+        <button
+          id="back-btn"
+          class="btn btn-ghost"
+          aria-label="Back to sessions"
+        >
+          <svg
+            width="20"
+            height="20"
+            fill="none"
+            stroke="currentColor"
+            viewBox="0 0 24 24"
+          >
+            <path
+              stroke-linecap="round"
+              stroke-linejoin="round"
+              stroke-width="2"
+              d="M10 19l-7-7m0 0l7-7m-7 7h18"
+            ></path>
+          </svg>
+          <span>Sessions</span>
+        </button>
+
+        <div class="session-info">
+          <h1 class="session-title" id="session-title">
+            Loading session...
+          </h1>
+          <div class="session-meta" id="session-meta"></div>
+        </div>
+
+        <div class="session-actions">
+          <button id="restart-btn" class="btn btn-secondary">
+            Restart
+          </button>
+          <button id="kill-btn" class="btn btn-danger">
+            Kill
+          </button>
+        </div>
+      </div>
+    </header>
+
+    <!-- Terminal (Svelte Island - Hydrated on Load) -->
+    <main class="session-main">
+      <Terminal
+        client:load
+        sessionId={id}
+        readonly={false}
+      />
+    </main>
+  </div>
+</Layout>
+
+<style>
+  .session-container {
+    display: flex;
+    flex-direction: column;
+    height: 100vh;
+    width: 100%;
+  }
+
+  .session-header {
+    background: var(--bg-secondary);
+    border-bottom: 1px solid var(--border);
+    padding: 0.75rem 0;
+  }
+
+  .container {
+    max-width: 1400px;
+    margin: 0 auto;
+    padding: 0 1rem;
+    display: flex;
+    align-items: center;
+    gap: 1rem;
+  }
+
+  .btn {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.5rem;
+    padding: 0.5rem 1rem;
+    border-radius: 0.375rem;
+    font-weight: 500;
+    cursor: pointer;
+    transition: all 0.2s;
+    border: none;
+    font-size: 0.875rem;
+  }
+
+  .btn-ghost {
+    background: transparent;
+    color: var(--text-muted);
+  }
+
+  .btn-ghost:hover {
+    background: var(--bg-elevated);
+    color: var(--text);
+  }
+
+  .btn-secondary {
+    background: transparent;
+    color: var(--text);
+    border: 1px solid var(--border);
+  }
+
+  .btn-secondary:hover {
+    background: var(--bg-elevated);
+  }
+
+  .btn-danger {
+    background: var(--status-error);
+    color: white;
+  }
+
+  .btn-danger:hover {
+    background: #dc2626;
+  }
+
+  .session-info {
+    flex: 1;
+    min-width: 0;
+  }
+
+  .session-title {
+    font-size: 1.125rem;
+    font-weight: 600;
+    color: var(--text);
+    margin: 0;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+
+  .session-meta {
+    font-size: 0.75rem;
+    color: var(--text-muted);
+    font-family: 'JetBrains Mono', monospace;
+  }
+
+  .session-actions {
+    display: flex;
+    gap: 0.5rem;
+  }
+
+  .session-main {
+    flex: 1;
+    overflow: hidden;
+    background: var(--bg-primary);
+  }
+</style>
+
+<script>
+  // Navigate back to sessions list
+  document.getElementById('back-btn')?.addEventListener('click', () => {
+    window.location.href = '/';
+  });
+
+  // Session control actions
+  document.getElementById('restart-btn')?.addEventListener('click', () => {
+    const sessionId = window.location.pathname.split('/').pop();
+    fetch(`/api/sessions/${sessionId}/restart`, { method: 'POST' })
+      .then(() => window.location.reload())
+      .catch(err => console.error('Failed to restart session:', err));
+  });
+
+  document.getElementById('kill-btn')?.addEventListener('click', () => {
+    const sessionId = window.location.pathname.split('/').pop();
+    if (confirm('Are you sure you want to kill this session?')) {
+      fetch(`/api/sessions/${sessionId}`, { method: 'DELETE' })
+        .then(() => window.location.href = '/')
+        .catch(err => console.error('Failed to kill session:', err));
+    }
+  });
+
+  // Update session info from API
+  async function updateSessionInfo() {
+    const sessionId = window.location.pathname.split('/').pop();
+    try {
+      const response = await fetch(`/api/sessions/${sessionId}`);
+      const session = await response.json();
+
+      const titleEl = document.getElementById('session-title');
+      const metaEl = document.getElementById('session-meta');
+
+      if (titleEl) titleEl.textContent = session.name || session.id;
+      if (metaEl) {
+        metaEl.textContent = `${session.workingDir} • ${session.command.join(' ')}`;
+      }
+    } catch (err) {
+      console.error('Failed to load session info:', err);
+    }
+  }
+
+  // Update on page load
+  updateSessionInfo();
+</script>
