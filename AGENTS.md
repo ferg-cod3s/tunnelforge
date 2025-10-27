@@ -6,6 +6,16 @@
 
 This document tracks all updates, changes, and progress made during the cross-platform development of TunnelForge. It serves as a comprehensive log of work completed and decisions made.
 
+## Related Documentation
+
+- See @CLAUDE.md for AI assistant instructions and cardinal rules
+- See @README.md for project overview and installation
+- See @docs/ARCHITECTURE.md for system architecture and design
+- See @docs/BUN_USAGE.md for comprehensive Bun usage guide
+- See @docs/RELEASE.md for release procedures
+- See @docs/testing.md for testing strategy
+- See @docs/development.md for development setup
+
 ## Development Standards & Guidelines
 
 ### Package Manager & Runtime Standards
