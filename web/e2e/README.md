@@ -58,7 +58,10 @@ bun install
 # OR with npm (fallback)
 npm install
 
-# Install Playwright browsers
+# Install Playwright browsers (use bunx - recommended)
+bunx playwright install chromium
+
+# OR with npx (fallback)
 npx playwright install chromium
 \`\`\`
 
@@ -73,14 +76,17 @@ npm run test:e2e
 
 ### Run Comprehensive User Flow Test
 \`\`\`bash
-# Playwright is package-manager agnostic
-npx playwright test complete-user-flow.spec.ts
+# With bunx (recommended)
+bunx playwright test complete-user-flow.spec.ts
 
 # With debugging
-npx playwright test complete-user-flow.spec.ts --debug
+bunx playwright test complete-user-flow.spec.ts --debug
 
 # With UI mode (interactive)
-npx playwright test complete-user-flow.spec.ts --ui
+bunx playwright test complete-user-flow.spec.ts --ui
+
+# OR with npx (fallback)
+npx playwright test complete-user-flow.spec.ts
 \`\`\`
 
 ## API Endpoints Tested

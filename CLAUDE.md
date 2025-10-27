@@ -100,10 +100,14 @@ When the user says "release" or asks to create a release, ALWAYS read and follow
      - `bun run <script>` (NOT `npm run <script>`)
      - `bun add <package>` (NOT `npm install <package>`)
      - `bun remove <package>` (NOT `npm uninstall <package>`)
-   - Only use `npm` when:
-     - Running Playwright (`npx playwright`) - Playwright is package-manager agnostic
+     - `bunx <command>` (NOT `npx <command>`)
+   - Examples:
+     - `bunx playwright test` (NOT `npx playwright test`)
+     - `bunx playwright install` (NOT `npx playwright install`)
+     - `bunx tsc --noEmit` (NOT `npx tsc --noEmit`)
+   - Only use `npm`/`npx` when:
      - Explicitly requested by user
-     - No Bun equivalent exists
+     - No Bun equivalent exists (very rare)
    - **In documentation and examples**: ALWAYS show Bun commands first, npm as fallback
    - **In CI/CD**: Configure to use Bun when possible
    - **Rationale**: Bun is faster, more efficient, and the project standard
