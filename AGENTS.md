@@ -1,10 +1,71 @@
 # TunnelForge Cross-Platform Development - Agent Updates
 
-*Last Updated: 2025-01-27*
+*Last Updated: 2025-10-27*
 
 ## Overview
 
 This document tracks all updates, changes, and progress made during the cross-platform development of TunnelForge. It serves as a comprehensive log of work completed and decisions made.
+
+## Development Standards & Guidelines
+
+### Package Manager & Runtime Standards
+
+**CRITICAL**: TunnelForge uses **Bun** as the mandatory package manager and runtime for all frontend/web operations.
+
+#### Bun Usage Requirements
+
+Use `bun` instead of `npm` or `yarn` for ALL frontend operations:
+
+```bash
+# Package Management
+bun install              # NOT npm install
+bun add <package>        # NOT npm install <package>
+bun remove <package>     # NOT npm uninstall <package>
+
+# Running Scripts
+bun run <script>         # NOT npm run <script>
+
+# Package Execution
+bunx <command>           # NOT npx <command>
+```
+
+#### Specific Examples
+
+```bash
+# Playwright Testing
+bunx playwright test                    # NOT npx playwright test
+bunx playwright install chromium        # NOT npx playwright install chromium
+
+# TypeScript
+bunx tsc --noEmit                       # NOT npx tsc --noEmit
+
+# Other Tools
+bunx prettier --write .                 # NOT npx prettier --write .
+```
+
+#### Exceptions
+
+Only use `npm`/`npx` when:
+- Explicitly requested by user
+- No Bun equivalent exists (very rare)
+
+#### Documentation Standards
+
+- **ALWAYS show Bun commands first** in documentation and examples
+- Include npm as fallback option when helpful
+- Mark Bun commands as "recommended"
+- Mark npm commands as "fallback"
+
+#### Rationale
+
+- **Performance**: Bun is 4x faster than npm for package installation
+- **Efficiency**: Native TypeScript support, built-in bundler
+- **Consistency**: Project-wide standard for all frontend operations
+- **Modern**: Bun is designed for modern JavaScript development workflows
+
+**See also**:
+- @docs/BUN_USAGE.md for comprehensive Bun usage guide
+- @CLAUDE.md Rule #9 for AI assistant enforcement
 
 ## Major Updates Made
 

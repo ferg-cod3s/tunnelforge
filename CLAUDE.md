@@ -5,8 +5,10 @@ This CLAUDE.md file provides project-specific instructions for Claude Code when 
 ## Imported Files
 - See @README.md for project overview and installation
 - See @package.json for available npm scripts and dependencies
+- See @AGENTS.md for development standards and cross-platform updates
 - See @docs/ARCHITECTURE.md for system design details
 - See @docs/RELEASE.md for release procedures
+- See @docs/BUN_USAGE.md for comprehensive Bun usage guide
 
 ## User-Specific Instructions
 - @~/.claude/tunnelforge-preferences.md (if exists)
