@@ -37,7 +37,7 @@
 
 ## 🚀 Status: Production Ready
 
-**Latest Update (2025-09-27)**: Cross-platform implementation complete! TunnelForge now supports Windows, Linux, and macOS with native Tauri desktop applications and comprehensive web interface.
+**Latest Update (2025-01-27)**: Cross-platform implementation complete! TunnelForge now supports Windows, Linux, and macOS with native Tauri desktop applications and comprehensive web interface.
 
 - ✅ **Go Server Backend** - Production-ready with WebSocket terminals
 - ✅ **Tauri Desktop Apps** - Native cross-platform applications (replaces native macOS app)
@@ -54,12 +54,11 @@
 Ever wanted to check on your AI agents while you're away? Need to monitor that long-running build from your phone? Want to share a terminal session with a colleague without complex SSH setups? TunnelForge makes it happen with zero friction.
 
 ## Quick Start
-
 ### Installation
 
 **macOS**: Download from [GitHub Releases](https://github.com/ferg-cod3s/tunnelforge/releases/latest)
 
-**Linux**: 
+**Linux**:
 ```bash
 # Ubuntu/Debian
 sudo dpkg -i tunnelforge-server_1.0.0_amd64.deb
@@ -71,7 +70,7 @@ chmod +x tunnelforge-server.AppImage
 
 **Windows**: Download MSI installer from [GitHub Releases](https://github.com/ferg-cod3s/tunnelforge/releases/latest)
 
-**Server/Headless**: 
+**Server/Headless**:
 ```bash
 npm install -g tunnelforge
 ```

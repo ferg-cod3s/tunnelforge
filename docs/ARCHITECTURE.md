@@ -78,6 +78,7 @@
 ### **2. SwiftUI macOS App** ✅ PRODUCTION READY
 **Location**: `mac/TunnelForge/` directory
 **Status**: Feature-complete native macOS application
+>>>>>>> copilot/fix-93daae31-5e70-4ee4-a5a4-e19c75c29431
 
 **Implemented Services (41 total)**:
 - **Core Services**: ServerManager, SessionService, TerminalManager, NotificationService, ConfigManager
@@ -96,6 +97,7 @@
 - ✅ **Server Management**: Direct integration with Go server process
 
 ## Implementation Status
+>>>>>>> copilot/fix-93daae31-5e70-4ee4-a5a4-e19c75c29431
 
 ### **✅ IMPLEMENTATION COMPLETE**
 
