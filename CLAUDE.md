@@ -93,6 +93,21 @@ When the user says "release" or asks to create a release, ALWAYS read and follow
    - Only clean up sessions that match test naming patterns (start with "test-")
    - Killing all sessions would terminate your own Claude Code process
 
+9. **ALWAYS USE BUN FOR FRONTEND/WEB OPERATIONS**
+   - **CRITICAL**: Bun is the standard package manager and runtime for all web/frontend code
+   - Use `bun` instead of `npm` or `yarn` for ALL frontend operations:
+     - `bun install` (NOT `npm install`)
+     - `bun run <script>` (NOT `npm run <script>`)
+     - `bun add <package>` (NOT `npm install <package>`)
+     - `bun remove <package>` (NOT `npm uninstall <package>`)
+   - Only use `npm` when:
+     - Running Playwright (`npx playwright`) - Playwright is package-manager agnostic
+     - Explicitly requested by user
+     - No Bun equivalent exists
+   - **In documentation and examples**: ALWAYS show Bun commands first, npm as fallback
+   - **In CI/CD**: Configure to use Bun when possible
+   - **Rationale**: Bun is faster, more efficient, and the project standard
+
 ### Git Workflow Reminders
 - Our workflow: start from main → create branch → make PR → merge → return to main
 - PRs sometimes contain multiple different features and that's okay

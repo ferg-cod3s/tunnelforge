@@ -1,15 +1,17 @@
 # Bun Usage Guidelines for TunnelForge
 
-> **🔄 Refactoring in Progress**: Bun usage is planned for the target Go + Bun + Tauri architecture. The current implementation uses Node.js + npm/pnpm. This document describes how Bun will be used in the refactored version.
+> **✅ CURRENT STANDARD**: Bun is the official package manager and runtime for all frontend/web operations in TunnelForge. This is a mandatory requirement, not optional.
 
 ## Overview
 
-TunnelForge will use **Bun** as its primary JavaScript runtime and package manager in the refactored architecture. Bun provides significant performance improvements over Node.js and npm, with faster startup times, built-in TypeScript support, and native bundling capabilities.
+TunnelForge uses **Bun** as its primary JavaScript runtime and package manager. Bun provides significant performance improvements over Node.js and npm, with faster startup times, built-in TypeScript support, and native bundling capabilities.
 
-## ⚠️ IMPORTANT: Bun is Planned for Future
+## ⚠️ CRITICAL: Bun is REQUIRED for Frontend
 
-**Current Implementation**: Uses Node.js + npm/pnpm  
-**Target Implementation**: Will use Bun for web interface and TypeScript execution
+**Current Implementation**: Uses Bun for all web/frontend operations
+**Fallback to npm**: Only when Bun equivalent doesn't exist or explicitly requested
+
+**This is enforced in CLAUDE.md as Rule #9**: Always use Bun for frontend operations
 
 ## Installation
 

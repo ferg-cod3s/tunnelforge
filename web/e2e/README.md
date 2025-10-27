@@ -52,7 +52,10 @@ The most important test file that validates the entire user journey:
 
 ### Prerequisites
 \`\`\`bash
-# Install dependencies
+# Install dependencies (use Bun - recommended)
+bun install
+
+# OR with npm (fallback)
 npm install
 
 # Install Playwright browsers
@@ -61,12 +64,23 @@ npx playwright install chromium
 
 ### Run All E2E Tests
 \`\`\`bash
+# With Bun (recommended)
+bun run test:e2e
+
+# OR with npm
 npm run test:e2e
 \`\`\`
 
 ### Run Comprehensive User Flow Test
 \`\`\`bash
+# Playwright is package-manager agnostic
 npx playwright test complete-user-flow.spec.ts
+
+# With debugging
+npx playwright test complete-user-flow.spec.ts --debug
+
+# With UI mode (interactive)
+npx playwright test complete-user-flow.spec.ts --ui
 \`\`\`
 
 ## API Endpoints Tested
